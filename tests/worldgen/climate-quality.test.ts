@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { generateHeightmap } from '../../src/worldgen/heightmap.js';
-import { generateClimateMap } from '../../src/worldgen/climate.js';
+import { generateHeightmap } from '../../src/worldgen/heightmap';
+import { generateClimateMap, ClimateMap } from '../../src/worldgen/climate';
 
 /**
  * Climate Quality Gates
@@ -12,19 +12,15 @@ import { generateClimateMap } from '../../src/worldgen/climate.js';
  * Moisture: Ocean proximity + precipitation patterns
  */
 
-interface ClimateMap {
-  width: number;
-  height: number;
-  temperature: number[][]; // Celsius (-20 to 40°C)
-  moisture: number[][]; // Percentage (0-100%)
-  elevation: number[][]; // For elevation-adjusted temperature
-}
 
 describe('Climate Quality Gates', () => {
   describe('Temperature Gradient by Latitude', () => {
+
     it('should have warmer temperatures at equator (middle)', () => {
       const seed = 'temp-latitude-001';
-      const climateMap = generateTestClimateMap(seed, 40, 60);
+      const width = 40;
+      const height = 60;
+      const climateMap = generateTestClimateMap(seed, width, height);
 
       // Sample temperatures at different latitudes
       const topRow: number[] = [];
@@ -32,9 +28,9 @@ describe('Climate Quality Gates', () => {
       const bottomRow: number[] = [];
 
       for (let x = 0; x < 40; x++) {
-        topRow.push(climateMap.temperature[5][x]); // Near north pole
-        middleRow.push(climateMap.temperature[30][x]); // Equator
-        bottomRow.push(climateMap.temperature[55][x]); // Near south pole
+        topRow.push(climateMap.temperature[5 * width + x]); // Near north pole
+        middleRow.push(climateMap.temperature[30 * width + x]); // Equator
+        bottomRow.push(climateMap.temperature[55 * width + x]); // Near south pole
       }
 
       const avgTop = topRow.reduce((sum, t) => sum + t, 0) / topRow.length;
@@ -55,14 +51,16 @@ describe('Climate Quality Gates', () => {
 
     it('should have smooth temperature gradient from equator to poles', () => {
       const seed = 'temp-gradient-smooth-001';
-      const climateMap = generateTestClimateMap(seed, 30, 60);
+      const width = 30;
+      const height = 60;
+      const climateMap = generateTestClimateMap(seed, width, height);
 
       // Sample center column (avoid edge effects)
       const centerX = 15;
       const temperatures: number[] = [];
 
       for (let y = 0; y < 60; y++) {
-        temperatures.push(climateMap.temperature[y][centerX]);
+        temperatures.push(climateMap.temperature[y * width + centerX]);
       }
 
       // Check that temperature changes gradually (no huge jumps)
@@ -74,7 +72,9 @@ describe('Climate Quality Gates', () => {
 
     it('should have symmetric temperature distribution (north/south)', () => {
       const seed = 'temp-symmetry-001';
-      const climateMap = generateTestClimateMap(seed, 40, 60);
+      const width = 40;
+      const height = 60;
+      const climateMap = generateTestClimateMap(seed, width, height);
 
       // Compare north and south hemispheres
       const northTemps: number[] = [];
@@ -82,8 +82,8 @@ describe('Climate Quality Gates', () => {
 
       for (let y = 0; y < 30; y++) {
         for (let x = 0; x < 40; x++) {
-          northTemps.push(climateMap.temperature[y][x]);
-          southTemps.push(climateMap.temperature[59 - y][x]);
+          northTemps.push(climateMap.temperature[y * width + x]);
+          southTemps.push(climateMap.temperature[(59 - y) * width + x]);
         }
       }
 
@@ -96,7 +96,9 @@ describe('Climate Quality Gates', () => {
 
     it('should decrease temperature with elevation', () => {
       const seed = 'temp-elevation-001';
-      const climateMap = generateTestClimateMap(seed, 40, 40);
+      const width = 40;
+      const height = 40;
+      const climateMap = generateTestClimateMap(seed, width, height);
 
       // Group cells by elevation
       const lowlandTemps: number[] = [];
@@ -104,8 +106,9 @@ describe('Climate Quality Gates', () => {
 
       for (let y = 0; y < 40; y++) {
         for (let x = 0; x < 40; x++) {
-          const elevation = climateMap.elevation[y][x];
-          const temp = climateMap.temperature[y][x];
+          const idx = y * width + x;
+          const elevation = climateMap.elevation[idx];
+          const temp = climateMap.temperature[idx];
 
           if (elevation >= 20 && elevation < 40) {
             lowlandTemps.push(temp);
@@ -126,15 +129,14 @@ describe('Climate Quality Gates', () => {
 
     it('should have valid temperature range (-20 to 40°C)', () => {
       const seed = 'temp-range-001';
-      const climateMap = generateTestClimateMap(seed, 50, 50);
+      const width = 50;
+      const height = 50;
+      const climateMap = generateTestClimateMap(seed, width, height);
 
-      for (let y = 0; y < 50; y++) {
-        for (let x = 0; x < 50; x++) {
-          const temp = climateMap.temperature[y][x];
-
-          expect(temp).toBeGreaterThanOrEqual(-20);
-          expect(temp).toBeLessThanOrEqual(40);
-        }
+      for (let i = 0; i < width * height; i++) {
+        const temp = climateMap.temperature[i];
+        expect(temp).toBeGreaterThanOrEqual(-20);
+        expect(temp).toBeLessThanOrEqual(40);
       }
     });
   });
@@ -142,7 +144,9 @@ describe('Climate Quality Gates', () => {
   describe('Moisture Distribution Consistency', () => {
     it('should have higher moisture near oceans', () => {
       const seed = 'moisture-ocean-001';
-      const climateMap = generateTestClimateMap(seed, 40, 40);
+      const width = 40;
+      const height = 40;
+      const climateMap = generateTestClimateMap(seed, width, height);
 
       const SEA_LEVEL = 20;
       const coastalMoisture: number[] = [];
@@ -150,8 +154,9 @@ describe('Climate Quality Gates', () => {
 
       for (let y = 0; y < 40; y++) {
         for (let x = 0; x < 40; x++) {
-          const elevation = climateMap.elevation[y][x];
-          const moisture = climateMap.moisture[y][x];
+          const idx = y * width + x;
+          const elevation = climateMap.elevation[idx];
+          const moisture = climateMap.moisture[idx];
 
           // Check if adjacent to ocean
           let isCoastal = false;
@@ -166,7 +171,7 @@ describe('Climate Quality Gates', () => {
 
             for (const n of neighbors) {
               if (n.x >= 0 && n.x < 40 && n.y >= 0 && n.y < 40) {
-                if (climateMap.elevation[n.y][n.x] < SEA_LEVEL) {
+                if (climateMap.elevation[n.y * width + n.x] < SEA_LEVEL) {
                   isCoastal = true;
                   break;
                 }
@@ -185,7 +190,7 @@ describe('Climate Quality Gates', () => {
                     const nx = x + dx;
                     const ny = y + dy;
                     if (nx >= 0 && nx < 40 && ny >= 0 && ny < 40) {
-                      if (climateMap.elevation[ny][nx] < SEA_LEVEL) {
+                      if (climateMap.elevation[ny * width + nx] < SEA_LEVEL) {
                         hasOcean = true;
                         break;
                       }
@@ -217,37 +222,38 @@ describe('Climate Quality Gates', () => {
 
     it('should have valid moisture range (0-100%)', () => {
       const seed = 'moisture-range-001';
-      const climateMap = generateTestClimateMap(seed, 40, 40);
+      const width = 40;
+      const height = 40;
+      const climateMap = generateTestClimateMap(seed, width, height);
 
-      for (let y = 0; y < 40; y++) {
-        for (let x = 0; x < 40; x++) {
-          const moisture = climateMap.moisture[y][x];
-
-          expect(moisture).toBeGreaterThanOrEqual(0);
-          expect(moisture).toBeLessThanOrEqual(100);
-        }
+      for (let i = 0; i < width * height; i++) {
+        const moisture = climateMap.moisture[i];
+        expect(moisture).toBeGreaterThanOrEqual(0);
+        expect(moisture).toBeLessThanOrEqual(100);
       }
     });
 
     it('should have smooth moisture transitions', () => {
       const seed = 'moisture-smooth-001';
-      const climateMap = generateTestClimateMap(seed, 30, 30);
+      const width = 30;
+      const height = 30;
+      const climateMap = generateTestClimateMap(seed, width, height);
 
       // Check for abrupt moisture changes
       for (let y = 0; y < 30; y++) {
         for (let x = 0; x < 30; x++) {
-          const current = climateMap.moisture[y][x];
+          const current = climateMap.moisture[y * width + x];
 
           // Check right neighbor
           if (x < 29) {
-            const neighbor = climateMap.moisture[y][x + 1];
+            const neighbor = climateMap.moisture[y * width + x + 1];
             const delta = Math.abs(current - neighbor);
             expect(delta).toBeLessThan(30); // Max 30% change between neighbors
           }
 
           // Check bottom neighbor
           if (y < 29) {
-            const neighbor = climateMap.moisture[y + 1][x];
+            const neighbor = climateMap.moisture[(y + 1) * width + x];
             const delta = Math.abs(current - neighbor);
             expect(delta).toBeLessThan(30);
           }
@@ -257,7 +263,9 @@ describe('Climate Quality Gates', () => {
 
     it('should have diverse moisture levels', () => {
       const seed = 'moisture-diversity-001';
-      const climateMap = generateTestClimateMap(seed, 50, 50);
+      const width = 50;
+      const height = 50;
+      const climateMap = generateTestClimateMap(seed, width, height);
 
       // Count cells in moisture bands
       const bands = {
@@ -268,16 +276,14 @@ describe('Climate Quality Gates', () => {
         wet: 0, // 80-100%
       };
 
-      for (let y = 0; y < 50; y++) {
-        for (let x = 0; x < 50; x++) {
-          const moisture = climateMap.moisture[y][x];
+      for (let i = 0; i < width * height; i++) {
+        const moisture = climateMap.moisture[i];
 
-          if (moisture < 20) bands.arid++;
-          else if (moisture < 40) bands.dry++;
-          else if (moisture < 60) bands.moderate++;
-          else if (moisture < 80) bands.moist++;
-          else bands.wet++;
-        }
+        if (moisture < 20) bands.arid++;
+        else if (moisture < 40) bands.dry++;
+        else if (moisture < 60) bands.moderate++;
+        else if (moisture < 80) bands.moist++;
+        else bands.wet++;
       }
 
       // Should have variety (at least 3 different moisture bands)
@@ -289,38 +295,38 @@ describe('Climate Quality Gates', () => {
   describe('Determinism', () => {
     it('should produce identical climate for the same seed', () => {
       const seed = 'climate-determinism-001';
+      const width = 20;
+      const height = 20;
 
-      const climate1 = generateTestClimateMap(seed, 20, 20);
-      const climate2 = generateTestClimateMap(seed, 20, 20);
+      const climate1 = generateTestClimateMap(seed, width, height);
+      const climate2 = generateTestClimateMap(seed, width, height);
 
       // Compare temperature
-      for (let y = 0; y < 20; y++) {
-        for (let x = 0; x < 20; x++) {
-          expect(climate1.temperature[y][x]).toBe(climate2.temperature[y][x]);
-          expect(climate1.moisture[y][x]).toBe(climate2.moisture[y][x]);
-        }
+      for (let i = 0; i < width * height; i++) {
+        expect(climate1.temperature[i]).toBe(climate2.temperature[i]);
+        expect(climate1.moisture[i]).toBe(climate2.moisture[i]);
       }
     });
 
     it('should produce different climate for different seeds', () => {
       const seed1 = 'climate-alpha';
       const seed2 = 'climate-beta';
+      const width = 20;
+      const height = 20;
 
-      const climate1 = generateTestClimateMap(seed1, 20, 20);
-      const climate2 = generateTestClimateMap(seed2, 20, 20);
+      const climate1 = generateTestClimateMap(seed1, width, height);
+      const climate2 = generateTestClimateMap(seed2, width, height);
 
       // Count differences
       let tempDifferences = 0;
       let moistureDifferences = 0;
 
-      for (let y = 0; y < 20; y++) {
-        for (let x = 0; x < 20; x++) {
-          if (climate1.temperature[y][x] !== climate2.temperature[y][x]) {
-            tempDifferences++;
-          }
-          if (climate1.moisture[y][x] !== climate2.moisture[y][x]) {
-            moistureDifferences++;
-          }
+      for (let i = 0; i < width * height; i++) {
+        if (climate1.temperature[i] !== climate2.temperature[i]) {
+          tempDifferences++;
+        }
+        if (climate1.moisture[i] !== climate2.moisture[i]) {
+          moistureDifferences++;
         }
       }
 
@@ -329,6 +335,7 @@ describe('Climate Quality Gates', () => {
       expect(moistureDifferences).toBeGreaterThan((20 * 20) / 2);
     });
   });
+
 });
 
 /**

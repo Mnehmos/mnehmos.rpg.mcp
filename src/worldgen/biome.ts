@@ -15,17 +15,17 @@ import { BiomeType } from '../schema/biome';
 export interface BiomeMapOptions {
   width: number;
   height: number;
-  temperature: number[][]; // Celsius
-  moisture: number[][]; // Percentage (0-100)
-  elevation: number[][]; // For ocean detection
+  temperature: Int8Array; // Celsius
+  moisture: Uint8Array; // Percentage (0-100)
+  elevation: Uint8Array; // For ocean detection
 }
 
 export interface BiomeMap {
   width: number;
   height: number;
   biomes: BiomeType[][];
-  temperature: number[][];
-  moisture: number[][];
+  temperature: Int8Array;
+  moisture: Uint8Array;
 }
 
 /**
@@ -87,15 +87,13 @@ const BIOME_MATRIX: BiomeType[][] = [
     BiomeType.SAVANNA, // 0-2%
     BiomeType.SAVANNA,
     BiomeType.SAVANNA,
-    BiomeType.GRASSLAND, // 3-10%
+    BiomeType.GRASSLAND, // 3-8%
     BiomeType.GRASSLAND,
     BiomeType.GRASSLAND,
     BiomeType.GRASSLAND,
     BiomeType.GRASSLAND,
     BiomeType.GRASSLAND,
-    BiomeType.GRASSLAND,
-    BiomeType.GRASSLAND,
-    BiomeType.FOREST, // 11-20%
+    BiomeType.FOREST, // 9-17%
     BiomeType.FOREST,
     BiomeType.FOREST,
     BiomeType.FOREST,
@@ -104,7 +102,9 @@ const BIOME_MATRIX: BiomeType[][] = [
     BiomeType.FOREST,
     BiomeType.FOREST,
     BiomeType.FOREST,
-    BiomeType.FOREST,
+    BiomeType.RAINFOREST, // 18-20%
+    BiomeType.RAINFOREST,
+    BiomeType.RAINFOREST,
     BiomeType.SWAMP, // 21-25%
     BiomeType.SWAMP,
     BiomeType.SWAMP,
@@ -114,13 +114,15 @@ const BIOME_MATRIX: BiomeType[][] = [
 
   // Band 2: Temperate (0-10°C)
   [
-    BiomeType.GRASSLAND, // 0%
-    BiomeType.GRASSLAND, // 1-5%
+    BiomeType.DESERT, // 0-2% (cold desert)
+    BiomeType.DESERT,
+    BiomeType.DESERT,
+    BiomeType.GRASSLAND, // 3-7%
     BiomeType.GRASSLAND,
     BiomeType.GRASSLAND,
     BiomeType.GRASSLAND,
     BiomeType.GRASSLAND,
-    BiomeType.FOREST, // 6-18%
+    BiomeType.FOREST, // 8-15%
     BiomeType.FOREST,
     BiomeType.FOREST,
     BiomeType.FOREST,
@@ -128,12 +130,10 @@ const BIOME_MATRIX: BiomeType[][] = [
     BiomeType.FOREST,
     BiomeType.FOREST,
     BiomeType.FOREST,
-    BiomeType.FOREST,
-    BiomeType.FOREST,
-    BiomeType.FOREST,
-    BiomeType.FOREST,
-    BiomeType.FOREST,
-    BiomeType.TAIGA, // 19-22%
+    BiomeType.TAIGA, // 16-22%
+    BiomeType.TAIGA,
+    BiomeType.TAIGA,
+    BiomeType.TAIGA,
     BiomeType.TAIGA,
     BiomeType.TAIGA,
     BiomeType.TAIGA,
@@ -144,20 +144,19 @@ const BIOME_MATRIX: BiomeType[][] = [
 
   // Band 3: Cool (-10 to 0°C)
   [
-    BiomeType.GRASSLAND, // 0-5%
+    BiomeType.TUNDRA, // 0-3% (cold dry)
+    BiomeType.TUNDRA,
+    BiomeType.TUNDRA,
+    BiomeType.TUNDRA,
+    BiomeType.GRASSLAND, // 4-7%
     BiomeType.GRASSLAND,
     BiomeType.GRASSLAND,
     BiomeType.GRASSLAND,
-    BiomeType.GRASSLAND,
-    BiomeType.GRASSLAND,
-    BiomeType.FOREST, // 6-10%
+    BiomeType.FOREST, // 8-11%
     BiomeType.FOREST,
     BiomeType.FOREST,
     BiomeType.FOREST,
-    BiomeType.FOREST,
-    BiomeType.TAIGA, // 11-22%
-    BiomeType.TAIGA,
-    BiomeType.TAIGA,
+    BiomeType.TAIGA, // 12-22%
     BiomeType.TAIGA,
     BiomeType.TAIGA,
     BiomeType.TAIGA,
@@ -174,7 +173,10 @@ const BIOME_MATRIX: BiomeType[][] = [
 
   // Band 4: Cold (<-10°C)
   [
-    BiomeType.TUNDRA, // 0-17%
+    BiomeType.DESERT, // 0-2% (polar desert)
+    BiomeType.DESERT,
+    BiomeType.DESERT,
+    BiomeType.TUNDRA, // 3-14%
     BiomeType.TUNDRA,
     BiomeType.TUNDRA,
     BiomeType.TUNDRA,
@@ -186,12 +188,9 @@ const BIOME_MATRIX: BiomeType[][] = [
     BiomeType.TUNDRA,
     BiomeType.TUNDRA,
     BiomeType.TUNDRA,
-    BiomeType.TUNDRA,
-    BiomeType.TUNDRA,
-    BiomeType.TUNDRA,
-    BiomeType.TUNDRA,
-    BiomeType.TUNDRA,
-    BiomeType.TUNDRA,
+    BiomeType.TAIGA, // 15-17% (cold taiga)
+    BiomeType.TAIGA,
+    BiomeType.TAIGA,
     BiomeType.GLACIER, // 18-25%
     BiomeType.GLACIER,
     BiomeType.GLACIER,
@@ -202,6 +201,9 @@ const BIOME_MATRIX: BiomeType[][] = [
     BiomeType.GLACIER,
   ],
 ];
+
+// Helper to convert 2D coords to 1D index
+const toIndex = (x: number, y: number, width: number) => y * width + x;
 
 /**
  * Generate biome map from climate data
@@ -217,15 +219,17 @@ export function generateBiomeMap(options: BiomeMapOptions): BiomeMap {
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
+      const idx = toIndex(x, y, width);
+
       // Ocean biome for water cells
-      if (elevation[y][x] < SEA_LEVEL) {
+      if (elevation[idx] < SEA_LEVEL) {
         biomes[y][x] = BiomeType.OCEAN;
         continue;
       }
 
       // Land biome based on temperature and moisture
-      const temp = temperature[y][x];
-      const moist = moisture[y][x];
+      const temp = temperature[idx];
+      const moist = moisture[idx];
 
       const tempBand = getTempBand(temp);
       const moistureLevel = getMoistureLevel(moist);

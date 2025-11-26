@@ -22,11 +22,11 @@ export interface GeneratedWorld {
   width: number;
   height: number;
   /** Elevation map (0-100, sea level at 20) */
-  elevation: number[][];
+  elevation: Uint8Array;
   /** Temperature map (Celsius, -20 to 40) */
-  temperature: number[][];
+  temperature: Int8Array;
   /** Moisture map (percentage, 0-100) */
-  moisture: number[][];
+  moisture: Uint8Array;
   /** Biome assignment */
   biomes: BiomeType[][];
 }
@@ -69,7 +69,7 @@ export interface WorldGenOptions {
  * ```
  */
 export function generateWorld(options: WorldGenOptions): GeneratedWorld {
-  const { seed, width, height, landRatio, octaves, equatorTemp, poleTemp } = options;
+  const { seed, width, height, landRatio, octaves } = options;
 
   // Step 1: Generate heightmap
   const elevation = generateHeightmap(seed, width, height, {

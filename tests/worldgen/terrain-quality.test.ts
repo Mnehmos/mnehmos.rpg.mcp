@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { generateHeightmap } from '../../src/worldgen/heightmap.js';
+import { generateHeightmap } from '../../src/worldgen/heightmap';
 
 /**
  * Terrain Quality Gates
@@ -22,27 +22,31 @@ describe('Terrain Quality Gates', () => {
       // Check all adjacent cells for maximum elevation delta
       const MAX_ELEVATION_DELTA = 30; // Allow up to 30 units difference (0-100 scale)
 
+
+      // Helper to access 1D array as 2D
+      const get = (y: number, x: number) => heightmap[y * 10 + x];
+
       for (let y = 0; y < 10; y++) {
         for (let x = 0; x < 10; x++) {
-          const current = heightmap[y][x];
+          const current = get(y, x);
 
           // Check right neighbor
           if (x < 9) {
-            const right = heightmap[y][x + 1];
+            const right = get(y, x + 1);
             const delta = Math.abs(current - right);
             expect(delta).toBeLessThanOrEqual(MAX_ELEVATION_DELTA);
           }
 
           // Check bottom neighbor
           if (y < 9) {
-            const bottom = heightmap[y + 1][x];
+            const bottom = get(y + 1, x);
             const delta = Math.abs(current - bottom);
             expect(delta).toBeLessThanOrEqual(MAX_ELEVATION_DELTA);
           }
 
           // Check diagonal neighbors (for smoothness)
           if (x < 9 && y < 9) {
-            const diagonal = heightmap[y + 1][x + 1];
+            const diagonal = get(y + 1, x + 1);
             const delta = Math.abs(current - diagonal);
             expect(delta).toBeLessThanOrEqual(MAX_ELEVATION_DELTA * 1.4); // Allow slightly more for diagonals
           }
@@ -52,26 +56,29 @@ describe('Terrain Quality Gates', () => {
 
     it('should produce smooth gradients in non-mountainous regions', () => {
       const seed = 'smooth-terrain-001';
-      const heightmap = generateHeightmap(seed, 20, 20);
+      const width = 20;
+      const height = 20;
+      const heightmap = generateHeightmap(seed, width, height);
+      const get = (y: number, x: number) => heightmap[y * width + x];
 
       // Sample a central region (avoiding edges and extremes)
       for (let y = 5; y < 15; y++) {
         for (let x = 5; x < 15; x++) {
-          const elevation = heightmap[y][x];
+          const elevation = get(y, x);
 
           // Only test relatively flat areas (20-60 elevation)
           if (elevation >= 20 && elevation <= 60) {
             // Get 3x3 neighborhood
             const neighborhood = [
-              heightmap[y - 1][x - 1],
-              heightmap[y - 1][x],
-              heightmap[y - 1][x + 1],
-              heightmap[y][x - 1],
-              heightmap[y][x],
-              heightmap[y][x + 1],
-              heightmap[y + 1][x - 1],
-              heightmap[y + 1][x],
-              heightmap[y + 1][x + 1],
+              get(y - 1, x - 1),
+              get(y - 1, x),
+              get(y - 1, x + 1),
+              get(y, x - 1),
+              get(y, x),
+              get(y, x + 1),
+              get(y + 1, x - 1),
+              get(y + 1, x),
+              get(y + 1, x + 1),
             ];
 
             // Calculate standard deviation
@@ -90,7 +97,10 @@ describe('Terrain Quality Gates', () => {
 
     it('should maintain consistent land-to-sea ratio', () => {
       const seed = 'land-ratio-001';
-      const heightmap = generateHeightmap(seed, 50, 50);
+      const width = 50;
+      const height = 50;
+      const heightmap = generateHeightmap(seed, width, height);
+      const get = (y: number, x: number) => heightmap[y * width + x];
 
       const SEA_LEVEL = 20; // From Azgaar's MIN_LAND_HEIGHT constant
       let landCount = 0;
@@ -99,7 +109,7 @@ describe('Terrain Quality Gates', () => {
       for (let y = 0; y < 50; y++) {
         for (let x = 0; x < 50; x++) {
           totalCount++;
-          if (heightmap[y][x] >= SEA_LEVEL) {
+          if (get(y, x) >= SEA_LEVEL) {
             landCount++;
           }
         }
@@ -116,7 +126,10 @@ describe('Terrain Quality Gates', () => {
   describe('Elevation Distribution', () => {
     it('should have realistic elevation distribution', () => {
       const seed = 'elevation-dist-001';
-      const heightmap = generateHeightmap(seed, 40, 40);
+      const width = 40;
+      const height = 40;
+      const heightmap = generateHeightmap(seed, width, height);
+      const get = (y: number, x: number) => heightmap[y * width + x];
 
       // Count cells in elevation bands
       const bands = {
@@ -130,7 +143,7 @@ describe('Terrain Quality Gates', () => {
 
       for (let y = 0; y < 40; y++) {
         for (let x = 0; x < 40; x++) {
-          const elevation = heightmap[y][x];
+          const elevation = get(y, x);
 
           if (elevation < 10) bands.deepOcean++;
           else if (elevation < 20) bands.shallowOcean++;
@@ -155,11 +168,14 @@ describe('Terrain Quality Gates', () => {
 
     it('should have valid elevation range (0-100)', () => {
       const seed = 'elevation-range-001';
-      const heightmap = generateHeightmap(seed, 30, 30);
+      const width = 30;
+      const height = 30;
+      const heightmap = generateHeightmap(seed, width, height);
+      const get = (y: number, x: number) => heightmap[y * width + x];
 
       for (let y = 0; y < 30; y++) {
         for (let x = 0; x < 30; x++) {
-          const elevation = heightmap[y][x];
+          const elevation = get(y, x);
 
           expect(elevation).toBeGreaterThanOrEqual(0);
           expect(elevation).toBeLessThanOrEqual(100);
@@ -172,32 +188,32 @@ describe('Terrain Quality Gates', () => {
   describe('Determinism', () => {
     it('should produce identical heightmaps for the same seed', () => {
       const seed = 'determinism-001';
+      const width = 15;
+      const height = 15;
 
-      const heightmap1 = generateHeightmap(seed, 15, 15);
-      const heightmap2 = generateHeightmap(seed, 15, 15);
+      const heightmap1 = generateHeightmap(seed, width, height);
+      const heightmap2 = generateHeightmap(seed, width, height);
 
       // Compare every cell
-      for (let y = 0; y < 15; y++) {
-        for (let x = 0; x < 15; x++) {
-          expect(heightmap1[y][x]).toBe(heightmap2[y][x]);
-        }
+      for (let i = 0; i < width * height; i++) {
+        expect(heightmap1[i]).toBe(heightmap2[i]);
       }
     });
 
     it('should produce different heightmaps for different seeds', () => {
       const seed1 = 'seed-alpha';
       const seed2 = 'seed-beta';
+      const width = 15;
+      const height = 15;
 
-      const heightmap1 = generateHeightmap(seed1, 15, 15);
-      const heightmap2 = generateHeightmap(seed2, 15, 15);
+      const heightmap1 = generateHeightmap(seed1, width, height);
+      const heightmap2 = generateHeightmap(seed2, width, height);
 
       // Count differences
       let differences = 0;
-      for (let y = 0; y < 15; y++) {
-        for (let x = 0; x < 15; x++) {
-          if (heightmap1[y][x] !== heightmap2[y][x]) {
-            differences++;
-          }
+      for (let i = 0; i < width * height; i++) {
+        if (heightmap1[i] !== heightmap2[i]) {
+          differences++;
         }
       }
 

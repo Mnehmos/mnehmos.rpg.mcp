@@ -1,12 +1,22 @@
 {
   "permissions": {
     "allow": [
+      "Bash(mkdir:*)",
+      "Bash(git clone:*)",
+      "Bash(rm:*)",
+      "Bash(npm install:*)",
       "Bash(npm test:*)",
-      "Bash(for file in region.repo.test.ts tile.repo.test.ts structure.repo.test.ts river.repo.test.ts)",
-      "Bash(do sed -i \"6 a import { FIXED_TIMESTAMP } from ''../fixtures'';\" \"$file\")",
+      "Bash(npm run build:*)",
+      "Bash(find:*)",
+      "Bash(for:*)",
+      "Bash(do sed -i \"s|from ''../../src/schema/\\([^'']*\\)'';|from ''../../src/schema/\\1.js'';|g\" \"$f\")",
       "Bash(done)",
-      "Bash(for file in region.repo.test.ts tile.repo.test.ts structure.repo.test.ts river.repo.test.ts character.repo.test.ts encounter.repo.test.ts patch.repo.test.ts)",
-      "Bash(do sed -i \"s/new Date()\\.toISOString()/FIXED_TIMESTAMP/g\" \"$file\")"
+      "Bash(do sed -i \"s|from ''../../src/storage/\\([^'']*\\)'';|from ''../../src/storage/\\1.js'';|g\" \"$f\")",
+      "Bash(git checkout:*)",
+      "Bash(git stash:*)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(npx tsc:*)"
     ],
     "deny": [],
     "ask": []

@@ -164,32 +164,32 @@ Use Code Review Safety Checklist (§0.1) to validate:
 ## 4. WORLD GENERATION (TDD + INSPIRED BY AZGAAR)
 
 ### 4.1 Algorithm Research Tests
-- [ ] Snapshot Azgaar output for a seed
-- [ ] Write tests describing expected:
-  - [ ] Terrain continuity
-  - [ ] Biome plausibility
-  - [ ] River validity
-- [ ] These tests serve as *quality gates*
+- [x] Snapshot Azgaar output for a seed
+- [x] Write tests describing expected:
+  - [x] Terrain continuity
+  - [x] Biome plausibility
+  - [x] River validity (placeholders for Section 4.5)
+- [x] These tests serve as *quality gates*
 
 ### 4.2 Heightmap Generator
-- [ ] Write tests for seed → heightmap determinism
-- [ ] Implement layered noise heightmap
-- [ ] Add ridges/tectonic hints (inspired by Azgaar)
-- [ ] Normalize and validate elevation ranges
+- [x] Write tests for seed → heightmap determinism
+- [x] Implement layered noise heightmap
+- [x] Add ridges/tectonic hints (inspired by Azgaar)
+- [x] Normalize and validate elevation ranges
 
 ### 4.3 Climate Layer
-- [ ] Tests for temperature gradient by latitude
-- [ ] Tests for moisture distribution consistency
-- [ ] Implement climate model
+- [x] Tests for temperature gradient by latitude
+- [x] Tests for moisture distribution consistency
+- [x] Implement climate model
 
 ### 4.4 Biome Assignment
-- [ ] Tests for biome correctness based on (temp, moisture)
-- [ ] Implement lookup-table biome mapper
+- [x] Tests for biome correctness based on (temp, moisture)
+- [x] Implement lookup-table biome mapper
 
 ### 4.5 Rivers
-- [ ] Tests: rivers must flow downhill
-- [ ] Tests: branch correctness & no loops
-- [ ] Implement drainage + flow accumulation
+- [x] Tests: rivers must flow downhill
+- [x] Tests: branch correctness & no loops
+- [x] Implement drainage + flow accumulation
 
 ### 4.6 Structures & Regions
 - [ ] Tests defining correct region segmentation

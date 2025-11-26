@@ -30,11 +30,14 @@ export interface HeightmapOptions {
 export interface Heightmap {
   width: number;
   height: number;
-  /** 2D array of elevation values (0-100) */
-  data: number[][];
+  /** Flat array of elevation values (0-100) */
+  data: Uint8Array;
   /** Sea level threshold (typically 20) */
   seaLevel: number;
 }
+
+// Helper to convert 2D coords to 1D index
+const toIndex = (x: number, y: number, width: number) => y * width + x;
 
 /**
  * Generate a heightmap from a seed
@@ -44,7 +47,7 @@ export function generateHeightmap(
   width: number,
   height: number,
   options?: Partial<HeightmapOptions>
-): number[][] {
+): Uint8Array {
   const opts: HeightmapOptions = {
     seed,
     width,
@@ -61,13 +64,17 @@ export function generateHeightmap(
   // Create noise function with seeded RNG
   const noise2D = createNoise2D(rng);
 
-  // Generate base heightmap
-  const heightmap = generateLayeredNoise(noise2D, opts);
+  // Generate base heightmap (Float32Array for precision during generation)
+  const rawHeightmap = generateLayeredNoise(noise2D, opts);
 
-  // Normalize to target land ratio
-  const normalized = normalizeHeightmap(heightmap, opts.landRatio!);
+  // Normalize to target land ratio and convert to Uint8Array (0-100)
+  const normalized = normalizeHeightmap(rawHeightmap, opts.width, opts.height, opts.landRatio!);
 
-  return normalized;
+  // Smooth to reduce abrupt jumps (2 iterations)
+  // Mutates normalized array in place or returns new one
+  const smoothed = smoothHeightmap(normalized, opts.width, opts.height, 2);
+
+  return smoothed;
 }
 
 /**
@@ -76,12 +83,10 @@ export function generateHeightmap(
 function generateLayeredNoise(
   noise2D: (x: number, y: number) => number,
   options: HeightmapOptions
-): number[][] {
+): Float32Array {
   const { width, height, octaves, persistence, lacunarity } = options;
-
-  const heightmap: number[][] = Array.from({ length: height }, () =>
-    Array.from({ length: width }, () => 0)
-  );
+  const size = width * height;
+  const heightmap = new Float32Array(size);
 
   let maxAmplitude = 0;
 
@@ -101,18 +106,16 @@ function generateLayeredNoise(
         const sample = noise2D(nx, ny);
 
         // Accumulate with amplitude
-        heightmap[y][x] += sample * amplitude;
+        heightmap[toIndex(x, y, width)] += sample * amplitude;
       }
     }
   }
 
   // Normalize to 0-1 range
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      // Noise is in range [-maxAmplitude, maxAmplitude]
-      // Normalize to [0, 1]
-      heightmap[y][x] = (heightmap[y][x] + maxAmplitude) / (2 * maxAmplitude);
-    }
+  for (let i = 0; i < size; i++) {
+    // Noise is in range [-maxAmplitude, maxAmplitude]
+    // Normalize to [0, 1]
+    heightmap[i] = (heightmap[i] + maxAmplitude) / (2 * maxAmplitude);
   }
 
   return heightmap;
@@ -124,52 +127,46 @@ function generateLayeredNoise(
  * Adjusts elevation distribution so that approximately `landRatio` of cells
  * are above sea level (20).
  */
-function normalizeHeightmap(heightmap: number[][], targetLandRatio: number): number[][] {
-  const height = heightmap.length;
-  const width = heightmap[0].length;
+function normalizeHeightmap(
+  rawHeightmap: Float32Array,
+  width: number,
+  height: number,
+  targetLandRatio: number
+): Uint8Array {
+  const size = width * height;
   const SEA_LEVEL = 20;
 
-  // Collect all elevations
-  const elevations: number[] = [];
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      elevations.push(heightmap[y][x]);
-    }
-  }
-
-  // Sort to find percentile
-  elevations.sort((a, b) => a - b);
+  // Collect all elevations for sorting
+  // We can use a copy of the raw array
+  const elevations = new Float32Array(rawHeightmap);
+  elevations.sort();
 
   // Find elevation that represents sea level (1 - landRatio percentile)
-  const seaLevelIndex = Math.floor((1 - targetLandRatio) * elevations.length);
+  const seaLevelIndex = Math.floor((1 - targetLandRatio) * (size - 1));
   const seaLevelValue = elevations[seaLevelIndex];
 
   // Create normalized map
-  const normalized: number[][] = Array.from({ length: height }, () =>
-    Array.from({ length: width }, () => 0)
-  );
+  const normalized = new Uint8Array(size);
 
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const rawValue = heightmap[y][x];
+  for (let i = 0; i < size; i++) {
+    const rawValue = rawHeightmap[i];
+    let normalizedValue;
 
+    if (rawValue <= seaLevelValue) {
+      // Below sea level
       // Map [0, seaLevelValue] → [0, SEA_LEVEL]
+      // Avoid division by zero
+      normalizedValue = seaLevelValue > 0 ? (rawValue / seaLevelValue) * SEA_LEVEL : 0;
+    } else {
+      // Above sea level
       // Map [seaLevelValue, 1] → [SEA_LEVEL, 100]
-      let normalizedValue;
-
-      if (rawValue <= seaLevelValue) {
-        // Below sea level
-        normalizedValue = (rawValue / seaLevelValue) * SEA_LEVEL;
-      } else {
-        // Above sea level
-        const landRange = 100 - SEA_LEVEL;
-        const rawLandRange = 1 - seaLevelValue;
-        normalizedValue = SEA_LEVEL + ((rawValue - seaLevelValue) / rawLandRange) * landRange;
-      }
-
-      // Clamp and round to integer
-      normalized[y][x] = Math.round(Math.max(0, Math.min(100, normalizedValue)));
+      const landRange = 100 - SEA_LEVEL;
+      const rawLandRange = 1 - seaLevelValue;
+      normalizedValue = SEA_LEVEL + ((rawValue - seaLevelValue) / rawLandRange) * landRange;
     }
+
+    // Clamp and round to integer
+    normalized[i] = Math.round(Math.max(0, Math.min(100, normalizedValue)));
   }
 
   return normalized;
@@ -181,15 +178,14 @@ function normalizeHeightmap(heightmap: number[][], targetLandRatio: number): num
  * Inspired by Azgaar's "Range" primitive for mountain ranges.
  */
 export function addRidges(
-  heightmap: number[][],
+  heightmap: Uint8Array,
+  width: number,
+  height: number,
   rng: seedrandom.PRNG,
   count: number = 3
-): number[][] {
-  const height = heightmap.length;
-  const width = heightmap[0].length;
-
+): Uint8Array {
   // Create copy
-  const result = heightmap.map((row) => [...row]);
+  const result = new Uint8Array(heightmap);
 
   for (let i = 0; i < count; i++) {
     // Random ridge line
@@ -220,7 +216,9 @@ export function addRidges(
           const falloff = Math.max(0, 1 - distance / ridgeWidth);
           const elevation = ridgeHeight * falloff;
 
-          result[ny][nx] = Math.min(100, result[ny][nx] + elevation);
+          const idx = toIndex(nx, ny, width);
+          const newElev = result[idx] + elevation;
+          result[idx] = Math.min(100, newElev);
         }
       }
     }
@@ -234,27 +232,37 @@ export function addRidges(
  *
  * Applies a simple averaging filter.
  */
-export function smoothHeightmap(heightmap: number[][], iterations: number = 1): number[][] {
-  let result = heightmap.map((row) => [...row]);
+export function smoothHeightmap(
+  heightmap: Uint8Array,
+  width: number,
+  height: number,
+  iterations: number = 1
+): Uint8Array {
+  let result = new Uint8Array(heightmap);
+  // const size = width * height;
 
   for (let iter = 0; iter < iterations; iter++) {
-    const temp = result.map((row) => [...row]);
+    const temp = new Uint8Array(result);
 
-    for (let y = 1; y < result.length - 1; y++) {
-      for (let x = 1; x < result[0].length - 1; x++) {
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
         // Average with 8 neighbors
-        const sum =
-          result[y - 1][x - 1] +
-          result[y - 1][x] +
-          result[y - 1][x + 1] +
-          result[y][x - 1] +
-          result[y][x] +
-          result[y][x + 1] +
-          result[y + 1][x - 1] +
-          result[y + 1][x] +
-          result[y + 1][x + 1];
+        // We can optimize this by pre-calculating offsets, but 2D loop is clear enough
+        let sum = 0;
 
-        temp[y][x] = Math.round(sum / 9);
+        sum += result[toIndex(x - 1, y - 1, width)];
+        sum += result[toIndex(x, y - 1, width)];
+        sum += result[toIndex(x + 1, y - 1, width)];
+
+        sum += result[toIndex(x - 1, y, width)];
+        sum += result[toIndex(x, y, width)];
+        sum += result[toIndex(x + 1, y, width)];
+
+        sum += result[toIndex(x - 1, y + 1, width)];
+        sum += result[toIndex(x, y + 1, width)];
+        sum += result[toIndex(x + 1, y + 1, width)];
+
+        temp[toIndex(x, y, width)] = Math.round(sum / 9);
       }
     }
 
