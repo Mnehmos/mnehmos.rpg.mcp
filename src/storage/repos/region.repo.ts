@@ -7,8 +7,14 @@ export class RegionRepository {
     create(region: Region): void {
         const validRegion = RegionSchema.parse(region);
         const stmt = this.db.prepare(`
-      INSERT INTO regions (id, world_id, name, type, center_x, center_y, color, created_at, updated_at)
-      VALUES (@id, @worldId, @name, @type, @centerX, @centerY, @color, @createdAt, @updatedAt)
+      INSERT INTO regions (
+        id, world_id, name, type, center_x, center_y, color, 
+        owner_nation_id, control_level, created_at, updated_at
+      )
+      VALUES (
+        @id, @worldId, @name, @type, @centerX, @centerY, @color,
+        @ownerNationId, @controlLevel, @createdAt, @updatedAt
+      )
     `);
         stmt.run({
             id: validRegion.id,
@@ -18,6 +24,8 @@ export class RegionRepository {
             centerX: validRegion.centerX,
             centerY: validRegion.centerY,
             color: validRegion.color,
+            ownerNationId: validRegion.ownerNationId || null,
+            controlLevel: validRegion.controlLevel || 0,
             createdAt: validRegion.createdAt,
             updatedAt: validRegion.updatedAt,
         });
@@ -29,6 +37,32 @@ export class RegionRepository {
 
         if (!row) return null;
 
+        return this.mapRowToRegion(row);
+    }
+
+    findByWorldId(worldId: string): Region[] {
+        const stmt = this.db.prepare('SELECT * FROM regions WHERE world_id = ?');
+        const rows = stmt.all(worldId) as RegionRow[];
+
+        return rows.map((row) => this.mapRowToRegion(row));
+    }
+
+    updateOwnership(regionId: string, ownerNationId: string | null, controlLevel: number): void {
+        const stmt = this.db.prepare(`
+            UPDATE regions 
+            SET owner_nation_id = ?, control_level = ?, updated_at = ?
+            WHERE id = ?
+        `);
+        stmt.run(ownerNationId, controlLevel, new Date().toISOString(), regionId);
+    }
+
+    findByOwner(ownerNationId: string): Region[] {
+        const stmt = this.db.prepare('SELECT * FROM regions WHERE owner_nation_id = ?');
+        const rows = stmt.all(ownerNationId) as RegionRow[];
+        return rows.map((row) => this.mapRowToRegion(row));
+    }
+
+    private mapRowToRegion(row: RegionRow): Region {
         return RegionSchema.parse({
             id: row.id,
             worldId: row.world_id,
@@ -37,28 +71,11 @@ export class RegionRepository {
             centerX: row.center_x,
             centerY: row.center_y,
             color: row.color,
+            ownerNationId: row.owner_nation_id || undefined,
+            controlLevel: row.control_level || 0,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
         });
-    }
-
-    findByWorldId(worldId: string): Region[] {
-        const stmt = this.db.prepare('SELECT * FROM regions WHERE world_id = ?');
-        const rows = stmt.all(worldId) as RegionRow[];
-
-        return rows.map((row) =>
-            RegionSchema.parse({
-                id: row.id,
-                worldId: row.world_id,
-                name: row.name,
-                type: row.type,
-                centerX: row.center_x,
-                centerY: row.center_y,
-                color: row.color,
-                createdAt: row.created_at,
-                updatedAt: row.updated_at,
-            })
-        );
     }
 }
 
@@ -70,6 +87,8 @@ interface RegionRow {
     center_x: number;
     center_y: number;
     color: string;
+    owner_nation_id: string | null;
+    control_level: number;
     created_at: string;
     updated_at: string;
 }

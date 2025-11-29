@@ -180,5 +180,16 @@ export function migrate(db: Database.Database) {
     timestamp TEXT NOT NULL,
     metadata TEXT-- JSON
   );
+
+  CREATE TABLE IF NOT EXISTS turn_state(
+    world_id TEXT PRIMARY KEY,
+    current_turn INTEGER NOT NULL DEFAULT 1,
+    turn_phase TEXT NOT NULL DEFAULT 'planning',
+    phase_started_at TEXT NOT NULL,
+    nations_ready TEXT NOT NULL DEFAULT '[]',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(world_id) REFERENCES worlds(id) ON DELETE CASCADE
+  );
   `);
 }

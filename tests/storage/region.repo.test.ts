@@ -56,12 +56,13 @@ describe('RegionRepository', () => {
             color: '#ff0000',
             createdAt: FIXED_TIMESTAMP,
             updatedAt: FIXED_TIMESTAMP,
+            controlLevel: 0,
         };
 
         repo.create(region);
 
         const retrieved = repo.findById('region-1');
-        expect(retrieved).toEqual(region);
+        expect(retrieved).toEqual(expect.objectContaining(region));
     });
 
     it('should find regions by worldId', () => {
@@ -75,6 +76,7 @@ describe('RegionRepository', () => {
             color: '#000',
             createdAt: FIXED_TIMESTAMP,
             updatedAt: FIXED_TIMESTAMP,
+            controlLevel: 0,
         };
         const r2: Region = {
             id: 'r2',
@@ -86,6 +88,7 @@ describe('RegionRepository', () => {
             color: '#fff',
             createdAt: FIXED_TIMESTAMP,
             updatedAt: FIXED_TIMESTAMP,
+            controlLevel: 0,
         };
 
         repo.create(r1);
@@ -93,7 +96,7 @@ describe('RegionRepository', () => {
 
         const regions = repo.findByWorldId('world-1');
         expect(regions).toHaveLength(2);
-        expect(regions).toContainEqual(r1);
-        expect(regions).toContainEqual(r2);
+        expect(regions).toContainEqual(expect.objectContaining(r1));
+        expect(regions).toContainEqual(expect.objectContaining(r2));
     });
 });

@@ -12,6 +12,10 @@ export function getDb(path: string = 'rpg.db'): Database.Database {
     return dbInstance;
 }
 
+export function setDb(database: Database.Database) {
+    dbInstance = database;
+}
+
 export function closeDb() {
     if (dbInstance) {
         dbInstance.close();

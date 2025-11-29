@@ -9,6 +9,7 @@
     "test:coverage": "vitest run --coverage",
     "test:ui": "vitest --ui",
     "build": "tsc",
+    "start": "node dist/server/index.js",
     "build:binaries": "npm run build && pkg dist/server/index.js --targets node20-win-x64,node20-macos-x64,node20-linux-x64 --output bin/rpg-mcp",
     "dev": "ts-node src/index.ts"
   },
@@ -36,11 +37,13 @@
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.23.0",
+    "@types/uuid": "^10.0.0",
     "better-sqlite3": "^12.4.6",
     "mathjs": "^15.1.0",
     "nerdamer": "^1.1.13",
     "seedrandom": "^3.0.5",
     "simplex-noise": "^4.0.3",
+    "uuid": "^13.0.0",
     "ws": "^8.16.0",
     "zod": "^3.25.76"
   }

@@ -7,6 +7,8 @@ import { CRUDTools, handleCreateWorld, handleGetWorld, handleListWorlds, handleD
 import { InventoryTools, handleCreateItemTemplate, handleGiveItem, handleRemoveItem, handleEquipItem, handleUnequipItem, handleGetInventory } from './inventory-tools.js';
 import { QuestTools, handleCreateQuest, handleAssignQuest, handleUpdateObjective, handleCompleteQuest, handleGetQuestLog } from './quest-tools.js';
 import { MathTools, handleDiceRoll, handleProbabilityCalculate, handleAlgebraSolve, handleAlgebraSimplify, handlePhysicsProjectile } from './math-tools.js';
+import { StrategyTools, handleStrategyTool } from './strategy-tools.js'; // Added import for StrategyTools
+import { TurnManagementTools, handleTurnManagementTool } from './turn-management-tools.js';
 import { PubSub } from '../engine/pubsub.js';
 import { registerEventTools } from './events.js';
 import { AuditLogger } from './audit.js';
@@ -293,6 +295,85 @@ async function main() {
         MathTools.PHYSICS_PROJECTILE.description,
         MathTools.PHYSICS_PROJECTILE.inputSchema.extend({ sessionId: z.string().optional() }).shape,
         auditLogger.wrapHandler(MathTools.PHYSICS_PROJECTILE.name, withSession(MathTools.PHYSICS_PROJECTILE.inputSchema, handlePhysicsProjectile))
+    );
+
+    // Register Strategy Tools
+    server.tool(
+        StrategyTools.CREATE_NATION.name,
+        StrategyTools.CREATE_NATION.description,
+        StrategyTools.CREATE_NATION.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(StrategyTools.CREATE_NATION.name, withSession(StrategyTools.CREATE_NATION.inputSchema, handleStrategyTool.bind(null, StrategyTools.CREATE_NATION.name)))
+    );
+
+    server.tool(
+        StrategyTools.GET_STRATEGY_STATE.name,
+        StrategyTools.GET_STRATEGY_STATE.description,
+        StrategyTools.GET_STRATEGY_STATE.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(StrategyTools.GET_STRATEGY_STATE.name, withSession(StrategyTools.GET_STRATEGY_STATE.inputSchema, handleStrategyTool.bind(null, StrategyTools.GET_STRATEGY_STATE.name)))
+    );
+
+    server.tool(
+        StrategyTools.GET_NATION_STATE.name,
+        StrategyTools.GET_NATION_STATE.description,
+        StrategyTools.GET_NATION_STATE.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(StrategyTools.GET_NATION_STATE.name, withSession(StrategyTools.GET_NATION_STATE.inputSchema, handleStrategyTool.bind(null, StrategyTools.GET_NATION_STATE.name)))
+    );
+
+    server.tool(
+        StrategyTools.PROPOSE_ALLIANCE.name,
+        StrategyTools.PROPOSE_ALLIANCE.description,
+        StrategyTools.PROPOSE_ALLIANCE.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(StrategyTools.PROPOSE_ALLIANCE.name, withSession(StrategyTools.PROPOSE_ALLIANCE.inputSchema, handleStrategyTool.bind(null, StrategyTools.PROPOSE_ALLIANCE.name)))
+    );
+
+    server.tool(
+        StrategyTools.CLAIM_REGION.name,
+        StrategyTools.CLAIM_REGION.description,
+        StrategyTools.CLAIM_REGION.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(StrategyTools.CLAIM_REGION.name, withSession(StrategyTools.CLAIM_REGION.inputSchema, handleStrategyTool.bind(null, StrategyTools.CLAIM_REGION.name)))
+    );
+
+    server.tool(
+        StrategyTools.RESOLVE_TURN.name,
+        StrategyTools.RESOLVE_TURN.description,
+        StrategyTools.RESOLVE_TURN.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(StrategyTools.RESOLVE_TURN.name, withSession(StrategyTools.RESOLVE_TURN.inputSchema, handleStrategyTool.bind(null, StrategyTools.RESOLVE_TURN.name)))
+    );
+
+    // Turn Management Tools
+    server.tool(
+        TurnManagementTools.INIT_TURN_STATE.name,
+        TurnManagementTools.INIT_TURN_STATE.description,
+        TurnManagementTools.INIT_TURN_STATE.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(TurnManagementTools.INIT_TURN_STATE.name, withSession(TurnManagementTools.INIT_TURN_STATE.inputSchema, handleTurnManagementTool.bind(null, TurnManagementTools.INIT_TURN_STATE.name)))
+    );
+
+    server.tool(
+        TurnManagementTools.GET_TURN_STATUS.name,
+        TurnManagementTools.GET_TURN_STATUS.description,
+        TurnManagementTools.GET_TURN_STATUS.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(TurnManagementTools.GET_TURN_STATUS.name, withSession(TurnManagementTools.GET_TURN_STATUS.inputSchema, handleTurnManagementTool.bind(null, TurnManagementTools.GET_TURN_STATUS.name)))
+    );
+
+    server.tool(
+        TurnManagementTools.SUBMIT_TURN_ACTIONS.name,
+        TurnManagementTools.SUBMIT_TURN_ACTIONS.description,
+        TurnManagementTools.SUBMIT_TURN_ACTIONS.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(TurnManagementTools.SUBMIT_TURN_ACTIONS.name, withSession(TurnManagementTools.SUBMIT_TURN_ACTIONS.inputSchema, handleTurnManagementTool.bind(null, TurnManagementTools.SUBMIT_TURN_ACTIONS.name)))
+    );
+
+    server.tool(
+        TurnManagementTools.MARK_READY.name,
+        TurnManagementTools.MARK_READY.description,
+        TurnManagementTools.MARK_READY.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(TurnManagementTools.MARK_READY.name, withSession(TurnManagementTools.MARK_READY.inputSchema, handleTurnManagementTool.bind(null, TurnManagementTools.MARK_READY.name)))
+    );
+
+    server.tool(
+        TurnManagementTools.POLL_TURN_RESULTS.name,
+        TurnManagementTools.POLL_TURN_RESULTS.description,
+        TurnManagementTools.POLL_TURN_RESULTS.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(TurnManagementTools.POLL_TURN_RESULTS.name, withSession(TurnManagementTools.POLL_TURN_RESULTS.inputSchema, handleTurnManagementTool.bind(null, TurnManagementTools.POLL_TURN_RESULTS.name)))
     );
 
     // Connect transport
