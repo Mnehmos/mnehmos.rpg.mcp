@@ -108,7 +108,7 @@ Example:
 } as const;
 
 // World handlers
-export async function handleCreateWorld(args: unknown, ctx: SessionContext) {
+export async function handleCreateWorld(args: unknown, _ctx: SessionContext) {
     const { worldRepo } = ensureDb();
     const parsed = CRUDTools.CREATE_WORLD.inputSchema.parse(args);
 
@@ -130,7 +130,7 @@ export async function handleCreateWorld(args: unknown, ctx: SessionContext) {
     };
 }
 
-export async function handleGetWorld(args: unknown, ctx: SessionContext) {
+export async function handleGetWorld(args: unknown, _ctx: SessionContext) {
     const { worldRepo } = ensureDb();
     const parsed = CRUDTools.GET_WORLD.inputSchema.parse(args);
 
@@ -147,7 +147,7 @@ export async function handleGetWorld(args: unknown, ctx: SessionContext) {
     };
 }
 
-export async function handleListWorlds(args: unknown, ctx: SessionContext) {
+export async function handleListWorlds(args: unknown, _ctx: SessionContext) {
     const { worldRepo } = ensureDb();
     CRUDTools.LIST_WORLDS.inputSchema.parse(args);
 
@@ -164,7 +164,7 @@ export async function handleListWorlds(args: unknown, ctx: SessionContext) {
     };
 }
 
-export async function handleDeleteWorld(args: unknown, ctx: SessionContext) {
+export async function handleDeleteWorld(args: unknown, _ctx: SessionContext) {
     const { worldRepo } = ensureDb();
     const parsed = CRUDTools.DELETE_WORLD.inputSchema.parse(args);
 
@@ -182,7 +182,7 @@ export async function handleDeleteWorld(args: unknown, ctx: SessionContext) {
 }
 
 // Character handlers
-export async function handleCreateCharacter(args: unknown, ctx: SessionContext) {
+export async function handleCreateCharacter(args: unknown, _ctx: SessionContext) {
     const { charRepo } = ensureDb();
     const parsed = CRUDTools.CREATE_CHARACTER.inputSchema.parse(args);
 
@@ -204,7 +204,7 @@ export async function handleCreateCharacter(args: unknown, ctx: SessionContext) 
     };
 }
 
-export async function handleGetCharacter(args: unknown, ctx: SessionContext) {
+export async function handleGetCharacter(args: unknown, _ctx: SessionContext) {
     const { charRepo } = ensureDb();
     const parsed = CRUDTools.GET_CHARACTER.inputSchema.parse(args);
 
@@ -221,7 +221,7 @@ export async function handleGetCharacter(args: unknown, ctx: SessionContext) {
     };
 }
 
-export async function handleUpdateCharacter(args: unknown, ctx: SessionContext) {
+export async function handleUpdateCharacter(args: unknown, _ctx: SessionContext) {
     const { charRepo } = ensureDb();
     const parsed = CRUDTools.UPDATE_CHARACTER.inputSchema.parse(args);
 
@@ -243,7 +243,7 @@ export async function handleUpdateCharacter(args: unknown, ctx: SessionContext) 
     };
 }
 
-export async function handleListCharacters(args: unknown, ctx: SessionContext) {
+export async function handleListCharacters(args: unknown, _ctx: SessionContext) {
     const { charRepo } = ensureDb();
     CRUDTools.LIST_CHARACTERS.inputSchema.parse(args);
 
@@ -260,7 +260,7 @@ export async function handleListCharacters(args: unknown, ctx: SessionContext) {
     };
 }
 
-export async function handleDeleteCharacter(args: unknown, ctx: SessionContext) {
+export async function handleDeleteCharacter(args: unknown, _ctx: SessionContext) {
     const { db } = ensureDb();
     const parsed = CRUDTools.DELETE_CHARACTER.inputSchema.parse(args);
 

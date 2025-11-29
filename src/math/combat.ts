@@ -1,14 +1,11 @@
 import { DiceEngine } from './dice';
-import { ProbabilityEngine } from './probability';
 import { CalculationResult } from './schemas';
 
 export class CombatEngine {
     private diceEngine: DiceEngine;
-    private probEngine: ProbabilityEngine;
 
     constructor(seed?: string) {
         this.diceEngine = new DiceEngine(seed);
-        this.probEngine = new ProbabilityEngine();
     }
 
     attackRoll(attacker: { attackBonus: number, critRange?: number }, target: { ac: number }, advantage?: boolean, disadvantage?: boolean): CalculationResult {
