@@ -1,6 +1,21 @@
 import Database from 'better-sqlite3';
 import { Quest, QuestSchema, QuestLog, QuestLogSchema } from '../../schema/quest.js';
 
+// Extended types for full quest log
+export interface QuestWithStatus extends Quest {
+    logStatus: 'active' | 'completed' | 'failed';
+}
+
+export interface FullQuestLog {
+    characterId: string;
+    quests: QuestWithStatus[];
+    summary: {
+        active: number;
+        completed: number;
+        failed: number;
+    };
+}
+
 export class QuestRepository {
     constructor(private db: Database.Database) { }
 
@@ -74,6 +89,130 @@ export class QuestRepository {
 
         if (!row) return null;
         return this.rowToQuestLog(row);
+    }
+
+    /**
+     * Get full quest log with complete quest objects (not just IDs)
+     * Returns quests organized by status with full details
+     */
+    getFullQuestLog(characterId: string): FullQuestLog {
+        const log = this.getLog(characterId);
+        
+        if (!log) {
+            return {
+                characterId,
+                quests: [],
+                summary: { active: 0, completed: 0, failed: 0 }
+            };
+        }
+
+        const quests: QuestWithStatus[] = [];
+
+        // Fetch active quests with full data
+        for (const questId of log.activeQuests) {
+            const quest = this.findById(questId);
+            if (quest) {
+                quests.push({
+                    ...quest,
+                    logStatus: 'active'
+                });
+            }
+        }
+
+        // Fetch completed quests with full data
+        for (const questId of log.completedQuests) {
+            const quest = this.findById(questId);
+            if (quest) {
+                quests.push({
+                    ...quest,
+                    logStatus: 'completed'
+                });
+            }
+        }
+
+        // Fetch failed quests with full data
+        for (const questId of log.failedQuests) {
+            const quest = this.findById(questId);
+            if (quest) {
+                quests.push({
+                    ...quest,
+                    logStatus: 'failed'
+                });
+            }
+        }
+
+        return {
+            characterId,
+            quests,
+            summary: {
+                active: log.activeQuests.length,
+                completed: log.completedQuests.length,
+                failed: log.failedQuests.length
+            }
+        };
+    }
+
+    /**
+     * Find all quests, optionally filtered by world
+     */
+    findAll(worldId?: string): Quest[] {
+        let stmt;
+        if (worldId) {
+            stmt = this.db.prepare('SELECT * FROM quests WHERE world_id = ?');
+            const rows = stmt.all(worldId) as QuestRow[];
+            return rows.map(row => this.rowToQuest(row));
+        } else {
+            stmt = this.db.prepare('SELECT * FROM quests');
+            const rows = stmt.all() as QuestRow[];
+            return rows.map(row => this.rowToQuest(row));
+        }
+    }
+
+    /**
+     * Update a specific objective's progress
+     */
+    updateObjectiveProgress(questId: string, objectiveId: string, progress: number): Quest | null {
+        const quest = this.findById(questId);
+        if (!quest) return null;
+
+        const objectiveIndex = quest.objectives.findIndex(o => o.id === objectiveId);
+        if (objectiveIndex === -1) return null;
+
+        const objective = quest.objectives[objectiveIndex];
+        objective.current = Math.min(objective.required, objective.current + progress);
+        if (objective.current >= objective.required) {
+            objective.completed = true;
+        }
+
+        quest.objectives[objectiveIndex] = objective;
+        return this.update(quest.id, { objectives: quest.objectives });
+    }
+
+    /**
+     * Check if all objectives for a quest are completed
+     */
+    areAllObjectivesComplete(questId: string): boolean {
+        const quest = this.findById(questId);
+        if (!quest) return false;
+        return quest.objectives.every(o => o.completed);
+    }
+
+    /**
+     * Complete a specific objective (set current = required)
+     */
+    completeObjective(questId: string, objectiveId: string): Quest | null {
+        const quest = this.findById(questId);
+        if (!quest) return null;
+
+        const objectiveIndex = quest.objectives.findIndex(o => o.id === objectiveId);
+        if (objectiveIndex === -1) return null;
+
+        const objective = quest.objectives[objectiveIndex];
+        objective.current = objective.required;
+        objective.completed = true;
+
+        quest.objectives[objectiveIndex] = objective;
+        return this.update(quest.id, { objectives: quest.objectives });
     }
 
     updateLog(log: QuestLog): void {

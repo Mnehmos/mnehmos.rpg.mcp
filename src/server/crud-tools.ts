@@ -1,15 +1,20 @@
-import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { WorldRepository } from '../storage/repos/world.repo.js';
 import { CharacterRepository } from '../storage/repos/character.repo.js';
 import { World, WorldSchema } from '../schema/world.js';
 import { Character, NPC, NPCSchema } from '../schema/character.js';
+import { z } from 'zod';
 
 import { getDb, closeDb } from '../storage/index.js';
 import { SessionContext } from './types.js';
 
 function ensureDb() {
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const dbPath = process.env.NODE_ENV === 'test' 
+        ? ':memory:' 
+        : process.env.RPG_DATA_DIR 
+            ? `${process.env.RPG_DATA_DIR}/rpg.db`
+            : 'rpg.db';
+    const db = getDb(dbPath);
     const worldRepo = new WorldRepository(db);
     const charRepo = new CharacterRepository(db);
     return { db, worldRepo, charRepo };
@@ -42,6 +47,22 @@ Example:
         name: 'list_worlds',
         description: 'List all worlds.',
         inputSchema: z.object({})
+    },
+    UPDATE_WORLD_ENVIRONMENT: {
+        name: 'update_world_environment',
+        description: 'Update environmental properties (time, weather, lighting, etc.) for a world.',
+        inputSchema: z.object({
+            id: z.string(),
+            environment: z.object({
+                date: z.string().optional(),
+                timeOfDay: z.string().optional(),
+                season: z.string().optional(),
+                moonPhase: z.string().optional(),
+                weatherConditions: z.string().optional(),
+                temperature: z.string().optional(),
+                lighting: z.string().optional(),
+            }).passthrough()
+        })
     },
     DELETE_WORLD: {
         name: 'delete_world',
@@ -142,6 +163,23 @@ export async function handleGetWorld(args: unknown, _ctx: SessionContext) {
         content: [{
             type: 'text' as const,
             text: JSON.stringify(world, null, 2)
+        }]
+    };
+}
+
+export async function handleUpdateWorldEnvironment(args: unknown, _ctx: SessionContext) {
+    const { worldRepo } = ensureDb();
+    const parsed = CRUDTools.UPDATE_WORLD_ENVIRONMENT.inputSchema.parse(args);
+
+    const updated = worldRepo.updateEnvironment(parsed.id, parsed.environment);
+    if (!updated) {
+        throw new Error(`World not found: ${parsed.id}`);
+    }
+
+    return {
+        content: [{
+            type: 'text' as const,
+            text: JSON.stringify(updated, null, 2)
         }]
     };
 }

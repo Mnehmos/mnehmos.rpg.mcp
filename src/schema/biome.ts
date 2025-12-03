@@ -7,6 +7,7 @@ export enum BiomeType {
   // Water biomes
   OCEAN = 'ocean',
   DEEP_OCEAN = 'deep_ocean',
+  LAKE = 'lake',
 
   // Hot biomes
   DESERT = 'hot_desert',

@@ -83,7 +83,7 @@ export function generateRivers(options: RiverGenerationOptions): RiverSystem {
     elevation,
     seaLevel = 20,
     precipitation,
-    minFlux = 30, // Renamed from minFluxThreshold
+    minFlux = 150, // Increased threshold for fewer, more defined rivers
   } = options;
 
   const size = width * height;

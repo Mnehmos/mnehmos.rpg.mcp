@@ -7,7 +7,12 @@ import { getDb } from '../storage/index.js';
 import { SessionContext } from './types.js';
 
 function ensureDb() {
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const dbPath = process.env.NODE_ENV === 'test' 
+        ? ':memory:' 
+        : process.env.RPG_DATA_DIR 
+            ? `${process.env.RPG_DATA_DIR}/rpg.db`
+            : 'rpg.db';
+    const db = getDb(dbPath);
     const itemRepo = new ItemRepository(db);
     const inventoryRepo = new InventoryRepository(db);
     return { itemRepo, inventoryRepo };
@@ -18,6 +23,50 @@ export const InventoryTools = {
         name: 'create_item_template',
         description: 'Define a new type of item (e.g., "Iron Sword").',
         inputSchema: ItemSchema.omit({ id: true, createdAt: true, updatedAt: true })
+    },
+    GET_ITEM: {
+        name: 'get_item',
+        description: 'Get details of a specific item by ID.',
+        inputSchema: z.object({
+            itemId: z.string().describe('The unique ID of the item to retrieve')
+        })
+    },
+    LIST_ITEMS: {
+        name: 'list_items',
+        description: 'List all item templates in the database.',
+        inputSchema: z.object({
+            type: z.enum(['weapon', 'armor', 'consumable', 'quest', 'misc']).optional().describe('Filter by item type')
+        })
+    },
+    SEARCH_ITEMS: {
+        name: 'search_items',
+        description: 'Search for items by name, type, or value range.',
+        inputSchema: z.object({
+            name: z.string().optional().describe('Search by name (partial match)'),
+            type: z.enum(['weapon', 'armor', 'consumable', 'quest', 'misc']).optional().describe('Filter by item type'),
+            minValue: z.number().min(0).optional().describe('Minimum item value'),
+            maxValue: z.number().min(0).optional().describe('Maximum item value')
+        })
+    },
+    UPDATE_ITEM: {
+        name: 'update_item',
+        description: 'Update an existing item template.',
+        inputSchema: z.object({
+            itemId: z.string().describe('The ID of the item to update'),
+            name: z.string().optional(),
+            description: z.string().optional(),
+            type: z.enum(['weapon', 'armor', 'consumable', 'quest', 'misc']).optional(),
+            weight: z.number().min(0).optional(),
+            value: z.number().min(0).optional(),
+            properties: z.record(z.any()).optional()
+        })
+    },
+    DELETE_ITEM: {
+        name: 'delete_item',
+        description: 'Delete an item template from the database.',
+        inputSchema: z.object({
+            itemId: z.string().describe('The ID of the item to delete')
+        })
     },
     GIVE_ITEM: {
         name: 'give_item',
@@ -35,6 +84,25 @@ export const InventoryTools = {
             characterId: z.string(),
             itemId: z.string(),
             quantity: z.number().int().min(1).default(1)
+        })
+    },
+    TRANSFER_ITEM: {
+        name: 'transfer_item',
+        description: 'Transfer an item from one character to another.',
+        inputSchema: z.object({
+            fromCharacterId: z.string().describe('Character giving the item'),
+            toCharacterId: z.string().describe('Character receiving the item'),
+            itemId: z.string().describe('The item to transfer'),
+            quantity: z.number().int().min(1).default(1).describe('How many to transfer')
+        })
+    },
+    USE_ITEM: {
+        name: 'use_item',
+        description: 'Use a consumable item (removes it from inventory and applies effects).',
+        inputSchema: z.object({
+            characterId: z.string().describe('Character using the item'),
+            itemId: z.string().describe('The consumable item to use'),
+            targetId: z.string().optional().describe('Optional target character for the effect')
         })
     },
     EQUIP_ITEM: {
@@ -57,6 +125,13 @@ export const InventoryTools = {
     GET_INVENTORY: {
         name: 'get_inventory',
         description: 'List all items in a character\'s inventory.',
+        inputSchema: z.object({
+            characterId: z.string()
+        })
+    },
+    GET_INVENTORY_DETAILED: {
+        name: 'get_inventory_detailed',
+        description: 'Get detailed inventory with full item info, sorted by equipped/type/name.',
         inputSchema: z.object({
             characterId: z.string()
         })
@@ -158,6 +233,193 @@ export async function handleGetInventory(args: unknown, _ctx: SessionContext) {
     const parsed = InventoryTools.GET_INVENTORY.inputSchema.parse(args);
 
     const inventory = inventoryRepo.getInventory(parsed.characterId);
+
+    return {
+        content: [{
+            type: 'text' as const,
+            text: JSON.stringify(inventory, null, 2)
+        }]
+    };
+}
+
+export async function handleGetItem(args: unknown, _ctx: SessionContext) {
+    const { itemRepo } = ensureDb();
+    const parsed = InventoryTools.GET_ITEM.inputSchema.parse(args);
+
+    const item = itemRepo.findById(parsed.itemId);
+
+    if (!item) {
+        throw new Error(`Item not found: ${parsed.itemId}`);
+    }
+
+    return {
+        content: [{
+            type: 'text' as const,
+            text: JSON.stringify({ item }, null, 2)
+        }]
+    };
+}
+
+export async function handleListItems(args: unknown, _ctx: SessionContext) {
+    const { itemRepo } = ensureDb();
+    const parsed = InventoryTools.LIST_ITEMS.inputSchema.parse(args);
+
+    let items;
+    if (parsed.type) {
+        items = itemRepo.findByType(parsed.type);
+    } else {
+        items = itemRepo.findAll();
+    }
+
+    return {
+        content: [{
+            type: 'text' as const,
+            text: JSON.stringify({ items, count: items.length }, null, 2)
+        }]
+    };
+}
+
+export async function handleSearchItems(args: unknown, _ctx: SessionContext) {
+    const { itemRepo } = ensureDb();
+    const parsed = InventoryTools.SEARCH_ITEMS.inputSchema.parse(args);
+
+    const items = itemRepo.search(parsed);
+
+    return {
+        content: [{
+            type: 'text' as const,
+            text: JSON.stringify({ items, count: items.length, query: parsed }, null, 2)
+        }]
+    };
+}
+
+export async function handleUpdateItem(args: unknown, _ctx: SessionContext) {
+    const { itemRepo } = ensureDb();
+    const parsed = InventoryTools.UPDATE_ITEM.inputSchema.parse(args);
+
+    const { itemId, ...updates } = parsed;
+    const item = itemRepo.update(itemId, updates);
+
+    if (!item) {
+        throw new Error(`Item not found: ${itemId}`);
+    }
+
+    return {
+        content: [{
+            type: 'text' as const,
+            text: JSON.stringify({ item, message: 'Item updated successfully' }, null, 2)
+        }]
+    };
+}
+
+export async function handleDeleteItem(args: unknown, _ctx: SessionContext) {
+    const { itemRepo } = ensureDb();
+    const parsed = InventoryTools.DELETE_ITEM.inputSchema.parse(args);
+
+    const existing = itemRepo.findById(parsed.itemId);
+    if (!existing) {
+        throw new Error(`Item not found: ${parsed.itemId}`);
+    }
+
+    itemRepo.delete(parsed.itemId);
+
+    return {
+        content: [{
+            type: 'text' as const,
+            text: JSON.stringify({ message: `Item "${existing.name}" deleted successfully`, itemId: parsed.itemId }, null, 2)
+        }]
+    };
+}
+
+export async function handleTransferItem(args: unknown, _ctx: SessionContext) {
+    const { inventoryRepo, itemRepo } = ensureDb();
+    const parsed = InventoryTools.TRANSFER_ITEM.inputSchema.parse(args);
+
+    // Get item details for the response
+    const item = itemRepo.findById(parsed.itemId);
+    if (!item) {
+        throw new Error(`Item not found: ${parsed.itemId}`);
+    }
+
+    const success = inventoryRepo.transferItem(
+        parsed.fromCharacterId,
+        parsed.toCharacterId,
+        parsed.itemId,
+        parsed.quantity
+    );
+
+    if (!success) {
+        throw new Error(`Transfer failed. Source may not have enough quantity or item is equipped.`);
+    }
+
+    return {
+        content: [{
+            type: 'text' as const,
+            text: JSON.stringify({
+                message: `Transferred ${parsed.quantity}x ${item.name}`,
+                from: parsed.fromCharacterId,
+                to: parsed.toCharacterId,
+                item: item.name,
+                quantity: parsed.quantity
+            }, null, 2)
+        }]
+    };
+}
+
+export async function handleUseItem(args: unknown, _ctx: SessionContext) {
+    const { inventoryRepo, itemRepo } = ensureDb();
+    const parsed = InventoryTools.USE_ITEM.inputSchema.parse(args);
+
+    // Get item details
+    const item = itemRepo.findById(parsed.itemId);
+    if (!item) {
+        throw new Error(`Item not found: ${parsed.itemId}`);
+    }
+
+    // Verify it's a consumable
+    if (item.type !== 'consumable') {
+        throw new Error(`Item "${item.name}" is not a consumable (type: ${item.type})`);
+    }
+
+    // Verify ownership
+    const inventory = inventoryRepo.getInventory(parsed.characterId);
+    const hasItem = inventory.items.some(i => i.itemId === parsed.itemId && i.quantity > 0);
+    if (!hasItem) {
+        throw new Error(`Character does not have item "${item.name}"`);
+    }
+
+    // Remove one from inventory
+    const removed = inventoryRepo.removeItem(parsed.characterId, parsed.itemId, 1);
+    if (!removed) {
+        throw new Error(`Failed to consume item`);
+    }
+
+    // Extract effect from properties
+    const effect = item.properties?.effect || item.properties?.effects || 'No defined effect';
+
+    return {
+        content: [{
+            type: 'text' as const,
+            text: JSON.stringify({
+                message: `Used ${item.name}`,
+                item: {
+                    id: item.id,
+                    name: item.name,
+                    description: item.description
+                },
+                effect,
+                target: parsed.targetId || parsed.characterId,
+                consumed: true
+            }, null, 2)
+        }]
+    };
+}
+
+export async function handleGetInventoryDetailed(args: unknown, _ctx: SessionContext) {
+    const { inventoryRepo } = ensureDb();
+    const parsed = InventoryTools.GET_INVENTORY_DETAILED.inputSchema.parse(args);
+
+    const inventory = inventoryRepo.getInventoryWithDetails(parsed.characterId);
 
     return {
         content: [{

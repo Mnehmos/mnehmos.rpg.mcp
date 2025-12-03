@@ -44,6 +44,81 @@ export class ItemRepository {
         stmt.run(id);
     }
 
+    update(id: string, updates: Partial<Omit<Item, 'id' | 'createdAt'>>): Item | null {
+        const existing = this.findById(id);
+        if (!existing) return null;
+
+        const now = new Date().toISOString();
+        const updated = {
+            ...existing,
+            ...updates,
+            updatedAt: now
+        };
+
+        const stmt = this.db.prepare(`
+            UPDATE items SET
+                name = @name,
+                description = @description,
+                type = @type,
+                weight = @weight,
+                value = @value,
+                properties = @properties,
+                updated_at = @updatedAt
+            WHERE id = @id
+        `);
+
+        stmt.run({
+            id: updated.id,
+            name: updated.name,
+            description: updated.description || null,
+            type: updated.type,
+            weight: updated.weight,
+            value: updated.value,
+            properties: JSON.stringify(updated.properties || {}),
+            updatedAt: updated.updatedAt
+        });
+
+        return this.findById(id);
+    }
+
+    findByName(name: string): Item[] {
+        const stmt = this.db.prepare('SELECT * FROM items WHERE LOWER(name) LIKE LOWER(?)');
+        const rows = stmt.all(`%${name}%`) as ItemRow[];
+        return rows.map(row => this.rowToItem(row));
+    }
+
+    findByType(type: string): Item[] {
+        const stmt = this.db.prepare('SELECT * FROM items WHERE type = ?');
+        const rows = stmt.all(type) as ItemRow[];
+        return rows.map(row => this.rowToItem(row));
+    }
+
+    search(query: { name?: string; type?: string; minValue?: number; maxValue?: number }): Item[] {
+        let sql = 'SELECT * FROM items WHERE 1=1';
+        const params: any[] = [];
+
+        if (query.name) {
+            sql += ' AND LOWER(name) LIKE LOWER(?)';
+            params.push(`%${query.name}%`);
+        }
+        if (query.type) {
+            sql += ' AND type = ?';
+            params.push(query.type);
+        }
+        if (query.minValue !== undefined) {
+            sql += ' AND value >= ?';
+            params.push(query.minValue);
+        }
+        if (query.maxValue !== undefined) {
+            sql += ' AND value <= ?';
+            params.push(query.maxValue);
+        }
+
+        const stmt = this.db.prepare(sql);
+        const rows = stmt.all(...params) as ItemRow[];
+        return rows.map(row => this.rowToItem(row));
+    }
+
     private rowToItem(row: ItemRow): Item {
         return ItemSchema.parse({
             id: row.id,

@@ -191,5 +191,31 @@ export function migrate(db: Database.Database) {
     updated_at TEXT NOT NULL,
     FOREIGN KEY(world_id) REFERENCES worlds(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS secrets(
+    id TEXT PRIMARY KEY,
+    world_id TEXT NOT NULL,
+    type TEXT NOT NULL,
+    category TEXT NOT NULL,
+    name TEXT NOT NULL,
+    public_description TEXT NOT NULL,
+    secret_description TEXT NOT NULL,
+    linked_entity_id TEXT,
+    linked_entity_type TEXT,
+    revealed INTEGER NOT NULL DEFAULT 0,
+    revealed_at TEXT,
+    revealed_by TEXT,
+    reveal_conditions TEXT NOT NULL DEFAULT '[]', --JSON array of conditions
+    sensitivity TEXT NOT NULL DEFAULT 'medium',
+    leak_patterns TEXT NOT NULL DEFAULT '[]', --JSON array of keywords to avoid
+    notes TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(world_id) REFERENCES worlds(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_secrets_world ON secrets(world_id);
+  CREATE INDEX IF NOT EXISTS idx_secrets_revealed ON secrets(revealed);
+  CREATE INDEX IF NOT EXISTS idx_secrets_linked ON secrets(linked_entity_id, linked_entity_type);
   `);
 }
