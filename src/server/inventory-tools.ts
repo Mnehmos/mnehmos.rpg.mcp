@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { randomUUID } from 'crypto';
 import { ItemRepository } from '../storage/repos/item.repo.js';
 import { InventoryRepository } from '../storage/repos/inventory.repo.js';
-import { ItemSchema } from '../schema/inventory.js';
+import { ItemSchema, INVENTORY_LIMITS } from '../schema/inventory.js';
 import { getDb } from '../storage/index.js';
 import { SessionContext } from './types.js';
 
@@ -161,8 +161,72 @@ export async function handleCreateItemTemplate(args: unknown, _ctx: SessionConte
 }
 
 export async function handleGiveItem(args: unknown, _ctx: SessionContext) {
-    const { inventoryRepo } = ensureDb();
+    const { inventoryRepo, itemRepo } = ensureDb();
     const parsed = InventoryTools.GIVE_ITEM.inputSchema.parse(args);
+
+    // Validate quantity limits
+    if (parsed.quantity > INVENTORY_LIMITS.MAX_GIVE_QUANTITY) {
+        throw new Error(`Cannot give more than ${INVENTORY_LIMITS.MAX_GIVE_QUANTITY} items at once. Requested quantity: ${parsed.quantity}`);
+    }
+
+    // Get item details for validation
+    const item = itemRepo.findById(parsed.itemId);
+    if (!item) {
+        throw new Error(`Item not found: ${parsed.itemId}`);
+    }
+
+    // Check unique item constraints
+    const properties = item.properties || {};
+    const isUnique = properties.unique === true;
+    const isWorldUnique = properties.worldUnique === true;
+
+    if (isUnique || isWorldUnique) {
+        // Unique items can only have quantity of 1
+        if (parsed.quantity > 1) {
+            throw new Error(`Cannot give more than 1 of unique item "${item.name}"`);
+        }
+
+        // Check if character already has this unique item
+        const inventory = inventoryRepo.getInventory(parsed.characterId);
+        const existingItem = inventory.items.find(i => i.itemId === parsed.itemId);
+        if (existingItem) {
+            throw new Error(`Character already owns unique item "${item.name}". Unique items cannot stack.`);
+        }
+
+        // For world-unique items, check if ANY character has it
+        if (isWorldUnique) {
+            const allOwners = inventoryRepo.findItemOwners(parsed.itemId);
+            if (allOwners.length > 0) {
+                throw new Error(`World-unique item "${item.name}" is already owned by another character. Only one can exist in the world.`);
+            }
+        }
+    }
+
+    // Check weight capacity
+    const currentInventory = inventoryRepo.getInventoryWithDetails(parsed.characterId);
+    const addedWeight = item.weight * parsed.quantity;
+    const newTotalWeight = currentInventory.totalWeight + addedWeight;
+
+    if (newTotalWeight > currentInventory.capacity) {
+        throw new Error(
+            `Cannot add items: would exceed weight capacity. ` +
+            `Current: ${currentInventory.totalWeight.toFixed(1)}/${currentInventory.capacity}, ` +
+            `Adding: ${addedWeight.toFixed(1)}, ` +
+            `Would be: ${newTotalWeight.toFixed(1)}`
+        );
+    }
+
+    // Check stack size limits (existing + new shouldn't exceed max)
+    const existingItem = currentInventory.items.find(i => i.item.id === parsed.itemId);
+    const existingQuantity = existingItem?.quantity || 0;
+    const newTotal = existingQuantity + parsed.quantity;
+
+    if (newTotal > INVENTORY_LIMITS.MAX_STACK_SIZE) {
+        throw new Error(
+            `Cannot add items: would exceed max stack size of ${INVENTORY_LIMITS.MAX_STACK_SIZE}. ` +
+            `Current: ${existingQuantity}, Adding: ${parsed.quantity}, Would be: ${newTotal}`
+        );
+    }
 
     inventoryRepo.addItem(parsed.characterId, parsed.itemId, parsed.quantity);
 

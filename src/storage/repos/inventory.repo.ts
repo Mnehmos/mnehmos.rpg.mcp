@@ -73,6 +73,15 @@ export class InventoryRepository {
         stmt.run(characterId, itemId);
     }
 
+    /**
+     * Find all characters who own a specific item (for world-unique enforcement)
+     */
+    findItemOwners(itemId: string): string[] {
+        const stmt = this.db.prepare('SELECT character_id FROM inventory_items WHERE item_id = ?');
+        const rows = stmt.all(itemId) as { character_id: string }[];
+        return rows.map(r => r.character_id);
+    }
+
     transferItem(fromCharacterId: string, toCharacterId: string, itemId: string, quantity: number = 1): boolean {
         // Verify source has enough
         const getStmt = this.db.prepare('SELECT quantity, equipped FROM inventory_items WHERE character_id = ? AND item_id = ?');
