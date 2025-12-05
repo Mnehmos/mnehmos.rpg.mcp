@@ -14,6 +14,10 @@ export interface CombatParticipant {
     maxHp: number;
     conditions: Condition[];
     position?: { x: number; y: number; z?: number };  // CRIT-003: Spatial position
+    // HIGH-002: Damage modifiers
+    resistances?: string[];    // Damage types that deal half damage
+    vulnerabilities?: string[]; // Damage types that deal double damage
+    immunities?: string[];      // Damage types that deal no damage
     abilityScores?: {
         strength: number;
         dexterity: number;
@@ -198,32 +202,71 @@ export class CombatEngine {
     }
 
     /**
+     * HIGH-002: Calculate damage after applying resistance/vulnerability/immunity
+     */
+    private calculateDamageWithModifiers(
+        baseDamage: number,
+        damageType: string | undefined,
+        target: CombatParticipant
+    ): { finalDamage: number; modifier: 'immune' | 'resistant' | 'vulnerable' | 'normal' } {
+        if (!damageType) {
+            return { finalDamage: baseDamage, modifier: 'normal' };
+        }
+
+        const typeLC = damageType.toLowerCase();
+
+        // Check immunity first (takes precedence)
+        if (target.immunities?.some(i => i.toLowerCase() === typeLC)) {
+            return { finalDamage: 0, modifier: 'immune' };
+        }
+
+        // Check resistance
+        if (target.resistances?.some(r => r.toLowerCase() === typeLC)) {
+            return { finalDamage: Math.floor(baseDamage / 2), modifier: 'resistant' };
+        }
+
+        // Check vulnerability
+        if (target.vulnerabilities?.some(v => v.toLowerCase() === typeLC)) {
+            return { finalDamage: baseDamage * 2, modifier: 'vulnerable' };
+        }
+
+        return { finalDamage: baseDamage, modifier: 'normal' };
+    }
+
+    /**
      * Execute an attack with full transparency
      * Returns detailed breakdown of what happened
      */
     executeAttack(
-        actorId: string, 
-        targetId: string, 
-        attackBonus: number, 
-        dc: number, 
-        damage: number
+        actorId: string,
+        targetId: string,
+        attackBonus: number,
+        dc: number,
+        damage: number,
+        damageType?: string  // HIGH-002: Optional damage type for resistance calculation
     ): CombatActionResult {
         if (!this.state) throw new Error('No active combat');
 
         const actor = this.state.participants.find(p => p.id === actorId);
         const target = this.state.participants.find(p => p.id === targetId);
-        
+
         if (!actor) throw new Error(`Actor ${actorId} not found`);
         if (!target) throw new Error(`Target ${targetId} not found`);
 
         const hpBefore = target.hp;
-        
+
         // Roll with full transparency
         const attackRoll = this.rng.checkDegreeDetailed(attackBonus, dc);
-        
+
         let damageDealt = 0;
+        let damageModifier: 'immune' | 'resistant' | 'vulnerable' | 'normal' = 'normal';
+
         if (attackRoll.isHit) {
-            damageDealt = attackRoll.isCrit ? damage * 2 : damage;
+            const baseDamage = attackRoll.isCrit ? damage * 2 : damage;
+            // HIGH-002: Apply resistance/vulnerability/immunity
+            const modResult = this.calculateDamageWithModifiers(baseDamage, damageType, target);
+            damageDealt = modResult.finalDamage;
+            damageModifier = modResult.modifier;
             target.hp = Math.max(0, target.hp - damageDealt);
         }
 
@@ -231,18 +274,30 @@ export class CombatEngine {
 
         // Build detailed breakdown
         let breakdown = `🎲 Attack Roll: d20(${attackRoll.roll}) + ${attackBonus} = ${attackRoll.total} vs AC ${dc}\n`;
-        
+
         if (attackRoll.isNat20) {
             breakdown += `   ⭐ NATURAL 20!\n`;
         } else if (attackRoll.isNat1) {
             breakdown += `   💀 NATURAL 1!\n`;
         }
-        
+
         breakdown += `   ${attackRoll.isHit ? '✅ HIT' : '❌ MISS'}`;
-        
+
         if (attackRoll.isHit) {
             breakdown += attackRoll.isCrit ? ' (CRITICAL!)' : '';
-            breakdown += `\n\n💥 Damage: ${damageDealt}${attackRoll.isCrit ? ' (doubled from crit)' : ''}\n`;
+
+            // HIGH-002: Show damage type and modifier
+            const typeStr = damageType ? ` ${damageType}` : '';
+            let modStr = '';
+            if (damageModifier === 'immune') {
+                modStr = ' [IMMUNE - No damage!]';
+            } else if (damageModifier === 'resistant') {
+                modStr = ' [Resistant - Halved!]';
+            } else if (damageModifier === 'vulnerable') {
+                modStr = ' [Vulnerable - Doubled!]';
+            }
+
+            breakdown += `\n\n💥 Damage: ${damageDealt}${typeStr}${attackRoll.isCrit ? ' (crit)' : ''}${modStr}\n`;
             breakdown += `   ${target.name}: ${hpBefore} → ${target.hp}/${target.maxHp} HP`;
             if (defeated) {
                 breakdown += ` [DEFEATED]`;

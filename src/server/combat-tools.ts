@@ -238,7 +238,14 @@ Example:
                 isEnemy: z.boolean().optional().describe('Whether this is an enemy (auto-detected if not set)'),
                 conditions: z.array(z.any()).default([]),
                 position: z.object({ x: z.number(), y: z.number(), z: z.number().optional() }).optional()
-                    .describe('CRIT-003: Spatial position for movement (x, y coordinates)')
+                    .describe('CRIT-003: Spatial position for movement (x, y coordinates)'),
+                // HIGH-002: Damage modifiers
+                resistances: z.array(z.string()).optional()
+                    .describe('Damage types that deal half damage (e.g., ["fire", "cold"])'),
+                vulnerabilities: z.array(z.string()).optional()
+                    .describe('Damage types that deal double damage'),
+                immunities: z.array(z.string()).optional()
+                    .describe('Damage types that deal no damage')
             })).min(1),
             terrain: z.object({
                 obstacles: z.array(z.string()).default([]).describe('Array of "x,y" strings for blocking tiles'),
@@ -287,6 +294,8 @@ Examples:
             attackBonus: z.number().int().optional(),
             dc: z.number().int().optional(),
             damage: z.number().int().optional(),
+            damageType: z.string().optional()
+                .describe('HIGH-002: Damage type (e.g., "fire", "cold", "slashing") for resistance calculation'),
             amount: z.number().int().optional(),
             targetPosition: z.object({ x: z.number(), y: z.number() }).optional()
                 .describe('CRIT-003: Target position for move action')
@@ -322,7 +331,7 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
     // Create combat engine
     const engine = new CombatEngine(parsed.seed, pubsub || undefined);
 
-    // Convert participants to proper format (preserve isEnemy and position if provided)
+    // Convert participants to proper format (preserve isEnemy, position, and resistances)
     const participants: CombatParticipant[] = parsed.participants.map(p => ({
         id: p.id,
         name: p.name,
@@ -331,7 +340,11 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
         maxHp: p.maxHp,
         isEnemy: p.isEnemy,  // Will be auto-detected in startEncounter if undefined
         conditions: [],
-        position: p.position  // CRIT-003: Preserve spatial position
+        position: p.position,  // CRIT-003: Preserve spatial position
+        // HIGH-002: Preserve damage modifiers
+        resistances: p.resistances,
+        vulnerabilities: p.vulnerabilities,
+        immunities: p.immunities
     } as CombatParticipant));
 
     // Start encounter
@@ -452,14 +465,18 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
         if (parsed.attackBonus === undefined || parsed.dc === undefined || parsed.damage === undefined) {
             throw new Error('Attack action requires attackBonus, dc, and damage');
         }
+        if (!parsed.targetId) {
+            throw new Error('Attack action requires targetId');
+        }
 
-        // Use the new detailed attack method
+        // Use the new detailed attack method with optional damageType for HIGH-002
         result = engine.executeAttack(
             parsed.actorId,
             parsed.targetId,
             parsed.attackBonus,
             parsed.dc,
-            parsed.damage
+            parsed.damage,
+            parsed.damageType  // HIGH-002: Pass damage type for resistance calculation
         );
 
         output = formatAttackResult(result);
