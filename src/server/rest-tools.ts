@@ -3,11 +3,13 @@ import { SessionContext } from './types.js';
 import { getDb } from '../storage/index.js';
 import { CharacterRepository } from '../storage/repos/character.repo.js';
 
+// CRIT-002: Import spell slot recovery functions
+import { restoreAllSpellSlots, restorePactSlots, getSpellcastingConfig } from '../engine/magic/spell-validator.js';
+
 /**
  * CRIT-002 Fix: Rest Mechanics
  *
- * Implements long rest and short rest for HP restoration.
- * Foundation for spell slot recovery once spellcasting system is added.
+ * Implements long rest and short rest for HP and spell slot restoration.
  */
 
 export const RestTools = {
@@ -72,11 +74,47 @@ export async function handleTakeLongRest(args: unknown, _ctx: SessionContext) {
     const hpRestored = character.maxHp - character.hp;
     const newHp = character.maxHp;
 
-    // Update character HP
-    characterRepo.update(parsed.characterId, { hp: newHp });
+    // CRIT-002: Restore spell slots on long rest
+    const charClass = character.characterClass || 'fighter';
+    const spellConfig = getSpellcastingConfig(charClass as any);
 
-    // Future: restore spell slots here when spellcasting system exists
-    // const spellSlotsRestored = restoreAllSpellSlots(character);
+    let spellSlotsRestored: any = undefined;
+    let updatedChar = { ...character, hp: newHp };
+
+    if (spellConfig.canCast && character.level >= spellConfig.startLevel) {
+        // Restore spell slots
+        const restoredChar = restoreAllSpellSlots(character);
+
+        // Track what was restored
+        if (spellConfig.pactMagic) {
+            spellSlotsRestored = {
+                type: 'pactMagic',
+                slotsRestored: restoredChar.pactMagicSlots?.max || 0,
+                slotLevel: restoredChar.pactMagicSlots?.slotLevel || 0
+            };
+            updatedChar = { ...updatedChar, pactMagicSlots: restoredChar.pactMagicSlots };
+        } else if (restoredChar.spellSlots) {
+            spellSlotsRestored = {
+                type: 'standard',
+                level1: restoredChar.spellSlots.level1.max,
+                level2: restoredChar.spellSlots.level2.max,
+                level3: restoredChar.spellSlots.level3.max,
+                level4: restoredChar.spellSlots.level4.max,
+                level5: restoredChar.spellSlots.level5.max,
+                level6: restoredChar.spellSlots.level6.max,
+                level7: restoredChar.spellSlots.level7.max,
+                level8: restoredChar.spellSlots.level8.max,
+                level9: restoredChar.spellSlots.level9.max
+            };
+            updatedChar = { ...updatedChar, spellSlots: restoredChar.spellSlots };
+        }
+
+        // Clear concentration
+        updatedChar = { ...updatedChar, concentratingOn: null, activeSpells: [] };
+    }
+
+    // Update character HP and spell slots
+    characterRepo.update(parsed.characterId, updatedChar);
 
     return {
         content: [{
@@ -89,9 +127,7 @@ export async function handleTakeLongRest(args: unknown, _ctx: SessionContext) {
                 maxHp: character.maxHp,
                 hpRestored: hpRestored,
                 restType: 'long',
-                // Future fields:
-                // spellSlotsRestored: spellSlotsRestored,
-                // abilitiesReset: []
+                spellSlotsRestored: spellSlotsRestored
             }, null, 2)
         }]
     };
@@ -125,8 +161,25 @@ export async function handleTakeShortRest(args: unknown, _ctx: SessionContext) {
     const actualHealing = Math.min(totalHealing, character.maxHp - character.hp);
     const newHp = character.hp + actualHealing;
 
-    // Update character HP
-    characterRepo.update(parsed.characterId, { hp: newHp });
+    // CRIT-002: Restore warlock pact magic slots on short rest
+    const charClass = character.characterClass || 'fighter';
+    const spellConfig = getSpellcastingConfig(charClass as any);
+
+    let pactSlotsRestored: any = undefined;
+    let updatedChar: any = { hp: newHp };
+
+    if (spellConfig.pactMagic && spellConfig.canCast && character.level >= spellConfig.startLevel) {
+        // Warlock gets pact slots back on short rest
+        const restoredChar = restorePactSlots(character);
+        pactSlotsRestored = {
+            slotsRestored: restoredChar.pactMagicSlots?.max || 0,
+            slotLevel: restoredChar.pactMagicSlots?.slotLevel || 0
+        };
+        updatedChar = { ...updatedChar, pactMagicSlots: restoredChar.pactMagicSlots };
+    }
+
+    // Update character HP (and warlock pact slots if applicable)
+    characterRepo.update(parsed.characterId, updatedChar);
 
     return {
         content: [{
@@ -142,7 +195,8 @@ export async function handleTakeShortRest(args: unknown, _ctx: SessionContext) {
                 hitDieSize: `d${hitDieSize}`,
                 conModifier: conModifier,
                 rolls: rolls,
-                restType: 'short'
+                restType: 'short',
+                pactSlotsRestored: pactSlotsRestored // Warlock only
             }, null, 2)
         }]
     };
