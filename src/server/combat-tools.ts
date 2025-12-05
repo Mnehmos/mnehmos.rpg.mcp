@@ -493,17 +493,71 @@ export async function handleAdvanceTurn(args: unknown, ctx: SessionContext) {
 
 export async function handleEndEncounter(args: unknown, ctx: SessionContext) {
     const parsed = CombatTools.END_ENCOUNTER.inputSchema.parse(args);
-    const success = getCombatManager().delete(`${ctx.sessionId}:${parsed.encounterId}`);
+    const namespacedId = `${ctx.sessionId}:${parsed.encounterId}`;
 
-    if (!success) {
+    // Get the engine BEFORE deleting to access final state
+    const engine = getCombatManager().get(namespacedId);
+
+    if (!engine) {
         throw new Error(`Encounter ${parsed.encounterId} not found.`);
     }
+
+    const finalState = engine.getState();
+
+    // CRIT-001 FIX: Sync HP changes back to character records
+    const syncResults: { id: string; name: string; hp: number; synced: boolean }[] = [];
+
+    if (finalState) {
+        const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+        const { CharacterRepository } = await import('../storage/repos/character.repo.js');
+        const charRepo = new CharacterRepository(db);
+
+        for (const participant of finalState.participants) {
+            // Try to find this participant in the character database
+            const character = charRepo.findById(participant.id);
+
+            if (character) {
+                // Sync HP back to character record
+                charRepo.update(participant.id, { hp: participant.hp });
+                syncResults.push({
+                    id: participant.id,
+                    name: participant.name,
+                    hp: participant.hp,
+                    synced: true
+                });
+            } else {
+                // Ad-hoc participant (not in DB) - skip silently
+                syncResults.push({
+                    id: participant.id,
+                    name: participant.name,
+                    hp: participant.hp,
+                    synced: false
+                });
+            }
+        }
+    }
+
+    // Now delete the encounter from memory
+    getCombatManager().delete(namespacedId);
+
+    // Build response with sync information
+    let output = `\n🏁 COMBAT ENDED\nEncounter ID: ${parsed.encounterId}\n\n`;
+
+    const syncedChars = syncResults.filter(r => r.synced);
+    if (syncedChars.length > 0) {
+        output += `📊 Character HP Synced:\n`;
+        for (const char of syncedChars) {
+            output += `   • ${char.name}: ${char.hp} HP\n`;
+        }
+    }
+
+    output += `\nAll combatants have been removed from the battlefield.`;
 
     return {
         content: [
             {
                 type: 'text' as const,
-                text: `\n🏁 COMBAT ENDED\nEncounter ID: ${parsed.encounterId}\n\nAll combatants have been removed from the battlefield.`
+                text: output
             }
         ]
     };

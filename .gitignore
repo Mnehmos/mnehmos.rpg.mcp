@@ -56,3 +56,6 @@ build_errors.txt
 
 # Reference materials (keep docs, ignore cloned repos)
 reference/azgaar/
+
+# Developer-only agent orchestration docs (not for version control)
+Agents/

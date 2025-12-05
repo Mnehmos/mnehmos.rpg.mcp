@@ -16,7 +16,8 @@
       "Bash(git stash:*)",
       "Bash(git add:*)",
       "Bash(git commit:*)",
-      "Bash(npx tsc:*)"
+      "Bash(npx tsc:*)",
+      "Skill(quest-keeper-master)"
     ],
     "deny": [],
     "ask": []

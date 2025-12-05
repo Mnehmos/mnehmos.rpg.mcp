@@ -43,7 +43,8 @@ describe('WorldRepository', () => {
         repo.create(world);
 
         const retrieved = repo.findById('world-1');
-        expect(retrieved).toEqual(world);
+        // Retrieved world may have additional fields like 'environment'
+        expect(retrieved).toMatchObject(world);
     });
 
     it('should return null for non-existent world', () => {
@@ -76,8 +77,9 @@ describe('WorldRepository', () => {
 
         const all = repo.findAll();
         expect(all).toHaveLength(2);
-        expect(all).toContainEqual(world1);
-        expect(all).toContainEqual(world2);
+        // Use toMatchObject to allow for extra fields like 'environment'
+        expect(all.find(w => w.id === 'world-1')).toMatchObject(world1);
+        expect(all.find(w => w.id === 'world-2')).toMatchObject(world2);
     });
 
     it('should delete a world', () => {
