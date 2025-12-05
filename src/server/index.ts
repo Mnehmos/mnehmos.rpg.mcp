@@ -11,6 +11,7 @@ import { StrategyTools, handleStrategyTool } from './strategy-tools.js';
 import { TurnManagementTools, handleTurnManagementTool } from './turn-management-tools.js';
 import { SecretTools, handleCreateSecret, handleGetSecret, handleListSecrets, handleUpdateSecret, handleDeleteSecret, handleRevealSecret, handleCheckRevealConditions, handleGetSecretsForContext, handleCheckForLeaks } from './secret-tools.js';
 import { PartyTools, handleCreateParty, handleGetParty, handleListParties, handleUpdateParty, handleDeleteParty, handleAddPartyMember, handleRemovePartyMember, handleUpdatePartyMember, handleSetPartyLeader, handleSetActiveCharacter, handleGetPartyMembers, handleGetPartyContext, handleGetUnassignedCharacters, handleMoveParty, handleGetPartyPosition, handleGetPartiesInRegion } from './party-tools.js';
+import { RestTools, handleTakeLongRest, handleTakeShortRest } from './rest-tools.js';
 import { PubSub } from '../engine/pubsub.js';
 import { registerEventTools } from './events.js';
 import { AuditLogger } from './audit.js';
@@ -720,6 +721,21 @@ async function main() {
         SecretTools.CHECK_FOR_LEAKS.description,
         SecretTools.CHECK_FOR_LEAKS.inputSchema.extend({ sessionId: z.string().optional() }).shape,
         auditLogger.wrapHandler(SecretTools.CHECK_FOR_LEAKS.name, withSession(SecretTools.CHECK_FOR_LEAKS.inputSchema, handleCheckForLeaks))
+    );
+
+    // Register Rest Tools (CRIT-002 Fix: HP recovery via resting)
+    server.tool(
+        RestTools.TAKE_LONG_REST.name,
+        RestTools.TAKE_LONG_REST.description,
+        RestTools.TAKE_LONG_REST.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(RestTools.TAKE_LONG_REST.name, withSession(RestTools.TAKE_LONG_REST.inputSchema, handleTakeLongRest))
+    );
+
+    server.tool(
+        RestTools.TAKE_SHORT_REST.name,
+        RestTools.TAKE_SHORT_REST.description,
+        RestTools.TAKE_SHORT_REST.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(RestTools.TAKE_SHORT_REST.name, withSession(RestTools.TAKE_SHORT_REST.inputSchema, handleTakeShortRest))
     );
 
     // Connect transport
