@@ -9,6 +9,12 @@ import { getDb } from '../storage/index.js';
 import { EncounterRepository } from '../storage/repos/encounter.repo.js';
 import { SessionContext } from './types.js';
 
+// CRIT-006: Import spellcasting validation and resolution
+import { validateSpellCast, consumeSpellSlot } from '../engine/magic/spell-validator.js';
+import { resolveSpell } from '../engine/magic/spell-resolver.js';
+import { CharacterRepository } from '../storage/repos/character.repo.js';
+import type { Character } from '../schema/character.js';
+
 // Global combat state (in-memory for MVP)
 let pubsub: PubSub | null = null;
 
@@ -164,6 +170,74 @@ function formatHealResult(result: CombatActionResult): string {
 }
 
 /**
+ * CRIT-006: Format spell cast result for display
+ */
+function formatSpellCastResult(
+    casterName: string,
+    resolution: { spellName: string; damage?: number; damageType?: string; healing?: number; diceRolled: string; saveResult?: string; saveDC?: number; autoHit?: boolean; dartCount?: number; concentration?: boolean },
+    target: { name: string; hp: number; maxHp: number } | undefined,
+    targetHpBefore: number
+): string {
+    let output = `\n┌─────────────────────────────────────────┐\n`;
+    output += `│ ✨ SPELL CAST\n`;
+    output += `└─────────────────────────────────────────┘\n\n`;
+
+    output += `${casterName} casts ${resolution.spellName}!\n\n`;
+
+    // Dice rolled
+    if (resolution.diceRolled) {
+        output += `🎲 Rolled: ${resolution.diceRolled}\n`;
+    }
+
+    // Special: Magic Missile darts
+    if (resolution.dartCount) {
+        output += `✨ Darts: ${resolution.dartCount}\n`;
+    }
+
+    // Save info
+    if (resolution.saveResult && resolution.saveDC) {
+        const saveIcon = resolution.saveResult === 'passed' ? '✓' : '✗';
+        output += `🛡️ Save DC ${resolution.saveDC}: ${saveIcon} ${resolution.saveResult}\n`;
+    }
+
+    // Auto-hit
+    if (resolution.autoHit) {
+        output += `🎯 Auto-hit!\n`;
+    }
+
+    // Damage
+    if (resolution.damage && resolution.damage > 0) {
+        const damageType = resolution.damageType || 'magical';
+        output += `💥 Damage: ${resolution.damage} ${damageType}\n`;
+
+        if (target) {
+            output += `\n${target.name}: ${targetHpBefore} → ${target.hp} HP`;
+            if (target.hp <= 0) {
+                output += ` 💀 DEFEATED!`;
+            }
+        }
+    }
+
+    // Healing
+    if (resolution.healing && resolution.healing > 0) {
+        output += `💚 Healing: ${resolution.healing}\n`;
+
+        if (target) {
+            output += `\n${target.name}: ${targetHpBefore} → ${target.hp} HP`;
+        }
+    }
+
+    // Concentration
+    if (resolution.concentration) {
+        output += `\n⚡ Concentration required`;
+    }
+
+    output += `\n\n→ Call advance_turn to proceed`;
+
+    return output;
+}
+
+/**
  * HIGH-003: Format disengage result for display
  */
 function formatDisengageResult(actorName: string): string {
@@ -286,7 +360,7 @@ Example:
     },
     EXECUTE_COMBAT_ACTION: {
         name: 'execute_combat_action',
-        description: `Execute a combat action (attack, heal, move, etc.).
+        description: `Execute a combat action (attack, heal, move, cast_spell, etc.).
 
 Examples:
 {
@@ -314,12 +388,20 @@ Examples:
 {
   "action": "disengage",
   "actorId": "hero-1"
+}
+
+{
+  "action": "cast_spell",
+  "actorId": "wizard-1",
+  "spellName": "Fireball",
+  "targetId": "goblin-1",
+  "slotLevel": 3
 }`,
         inputSchema: z.object({
             encounterId: z.string().describe('The ID of the encounter'),
-            action: z.enum(['attack', 'heal', 'move', 'disengage']),
+            action: z.enum(['attack', 'heal', 'move', 'disengage', 'cast_spell']),
             actorId: z.string(),
-            targetId: z.string().optional().describe('Target ID for attack/heal actions'),
+            targetId: z.string().optional().describe('Target ID for attack/heal/cast_spell actions'),
             attackBonus: z.number().int().optional(),
             dc: z.number().int().optional(),
             damage: z.number().int().optional(),
@@ -327,7 +409,12 @@ Examples:
                 .describe('HIGH-002: Damage type (e.g., "fire", "cold", "slashing") for resistance calculation'),
             amount: z.number().int().optional(),
             targetPosition: z.object({ x: z.number(), y: z.number() }).optional()
-                .describe('CRIT-003: Target position for move action')
+                .describe('CRIT-003: Target position for move action'),
+            // CRIT-006: Spell casting fields
+            spellName: z.string().optional()
+                .describe('CRIT-006: Name of the spell to cast (must exist in spell database)'),
+            slotLevel: z.number().int().min(1).max(9).optional()
+                .describe('CRIT-006: Spell slot level to use (for upcasting)')
         })
     },
     ADVANCE_TURN: {
@@ -671,6 +758,121 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
                 detailedBreakdown: output
             };
         }
+    } else if (parsed.action === 'cast_spell') {
+        // CRIT-006: Validated spell casting - prevents LLM hallucination
+        if (!parsed.spellName) {
+            throw new Error('cast_spell action requires spellName');
+        }
+
+        // CRIT-006: Block raw damage parameter for spell casting
+        if (parsed.damage !== undefined) {
+            throw new Error('damage parameter not allowed for cast_spell - damage is calculated from spell');
+        }
+
+        const currentState = engine.getState();
+        if (!currentState) {
+            throw new Error('No combat state');
+        }
+
+        const actor = currentState.participants.find(p => p.id === parsed.actorId);
+        if (!actor) {
+            throw new Error(`Actor ${parsed.actorId} not found`);
+        }
+
+        // Load character data for spellcasting validation
+        const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+        const charRepo = new CharacterRepository(db);
+        let casterChar: Character | null = null;
+
+        try {
+            casterChar = charRepo.findById(parsed.actorId);
+        } catch {
+            // Character might not exist in DB (e.g., test setup)
+            // Create minimal character for validation
+        }
+
+        // If no character record, create minimal one from participant data
+        if (!casterChar) {
+            // This is a fallback - ideally all casters are in the character table
+            throw new Error(`Character ${parsed.actorId} not found in database. Spellcasting requires a character record with class and spell slots.`);
+        }
+
+        // Validate spell cast (CRIT-006 core validation)
+        const validation = validateSpellCast(casterChar, parsed.spellName, parsed.slotLevel);
+
+        if (!validation.valid) {
+            throw new Error(validation.error?.message || 'Invalid spell cast');
+        }
+
+        // Spell is valid - resolve effects
+        const spell = validation.spell!;
+        const effectiveSlotLevel = validation.effectiveSlotLevel || spell.level;
+
+        // Get target for damage/effects
+        let target = currentState.participants.find(p => p.id === parsed.targetId);
+        const targetHpBefore = target?.hp || 0;
+
+        // Resolve spell effects
+        const resolution = resolveSpell(spell, casterChar, effectiveSlotLevel, {
+            targetAC: target ? (target as any).ac || 10 : 10
+        });
+
+        // Apply damage/healing to target
+        if (resolution.damage && resolution.damage > 0 && target) {
+            const damageType = resolution.damageType || 'force';
+
+            // Use engine to apply damage (handles resistances/immunities)
+            engine.executeAttack(
+                parsed.actorId,
+                parsed.targetId!,
+                100, // Auto-hit for spell damage
+                0,   // DC doesn't matter
+                resolution.damage,
+                damageType
+            );
+
+            target = currentState.participants.find(p => p.id === parsed.targetId);
+        }
+
+        if (resolution.healing && resolution.healing > 0 && target) {
+            engine.executeHeal(parsed.actorId, parsed.targetId!, resolution.healing);
+            target = currentState.participants.find(p => p.id === parsed.targetId);
+        }
+
+        // Consume spell slot (if not cantrip)
+        if (effectiveSlotLevel > 0) {
+            const updatedChar = consumeSpellSlot(casterChar, effectiveSlotLevel);
+            charRepo.update(casterChar.id, updatedChar);
+        }
+
+        // Handle concentration
+        if (spell.concentration) {
+            // Update character's concentration
+            charRepo.update(casterChar.id, {
+                concentratingOn: spell.name,
+                activeSpells: [...(casterChar.activeSpells || []), spell.name]
+            });
+        }
+
+        // Format output
+        output = formatSpellCastResult(actor.name, resolution, target, targetHpBefore);
+
+        // Create result (spellCast info added to detailedBreakdown)
+        result = {
+            type: 'attack',
+            success: resolution.success,
+            actor: { id: actor.id, name: actor.name },
+            target: target ? {
+                id: target.id,
+                name: target.name,
+                hpBefore: targetHpBefore,
+                hpAfter: target.hp,
+                maxHp: target.maxHp
+            } : { id: 'none', name: 'none', hpBefore: 0, hpAfter: 0, maxHp: 0 },
+            defeated: target ? target.hp <= 0 : false,
+            message: `${actor.name} cast ${spell.name}`,
+            detailedBreakdown: output + `\n[SPELL: ${spell.name}, SLOT: ${effectiveSlotLevel > 0 ? effectiveSlotLevel : 'cantrip'}, DMG: ${resolution.damage || 0}, HEAL: ${resolution.healing || 0}]`
+        };
     } else {
         throw new Error(`Unknown action: ${parsed.action}`);
     }
