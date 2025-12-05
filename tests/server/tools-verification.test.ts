@@ -2,6 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { handleCreateEncounter, clearCombatState } from '../../src/server/combat-tools';
 import { handleCreateWorld, handleDeleteWorld, getTestDb, closeTestDb } from '../../src/server/crud-tools';
 
+// Helper to extract embedded JSON from human-readable output
+function extractStateJson(text: string): Record<string, any> {
+    const match = text.match(/<!-- STATE_JSON\n([\s\S]*?)\nSTATE_JSON -->/);
+    return match ? JSON.parse(match[1]) : {};
+}
+
 describe('Registered Tools Verification', () => {
     describe('Combat Tools', () => {
         it('should create an encounter', async () => {
@@ -15,7 +21,8 @@ describe('Registered Tools Verification', () => {
             }, { sessionId: 'test-session' });
 
             expect(result.content).toBeDefined();
-            const content = JSON.parse(result.content[0].text);
+            // Combat tools return human-readable text with embedded JSON
+            const content = extractStateJson(result.content[0].text);
             expect(content.encounterId).toBeDefined();
             expect(content.round).toBe(1);
             expect(content.participants).toBeDefined();

@@ -13,6 +13,7 @@ export interface CombatParticipant {
     hp: number;
     maxHp: number;
     conditions: Condition[];
+    position?: { x: number; y: number; z?: number };  // CRIT-003: Spatial position
     abilityScores?: {
         strength: number;
         dexterity: number;
@@ -31,6 +32,10 @@ export interface CombatState {
     turnOrder: string[]; // IDs in initiative order
     currentTurnIndex: number;
     round: number;
+    terrain?: {  // CRIT-003: Terrain configuration
+        obstacles: string[];  // "x,y" format blocking tiles
+        difficultTerrain?: string[];
+    };
 }
 
 /**

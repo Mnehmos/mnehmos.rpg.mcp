@@ -288,7 +288,7 @@ describe('Combat MCP Tools', () => {
 
             // Note: handleGetEncounterState can auto-load from DB, so we check
             // that the encounter was deleted from memory by verifying the manager
-            expect(getCombatManager().get(`${mockCtx.sessionId}:${encounterId}`)).toBeUndefined();
+            expect(getCombatManager().get(`${mockCtx.sessionId}:${encounterId}`)).toBeNull();
         });
 
         it('should throw error when no encounter exists', async () => {
@@ -331,7 +331,7 @@ describe('Combat MCP Tools', () => {
             getCombatManager().delete(`${mockCtx.sessionId}:${encounterId}`);
 
             // Verify it's gone from memory
-            expect(getCombatManager().get(`${mockCtx.sessionId}:${encounterId}`)).toBeUndefined();
+            expect(getCombatManager().get(`${mockCtx.sessionId}:${encounterId}`)).toBeNull();
 
             // 5. Load from DB
             const loadResult = await handleLoadEncounter({ encounterId }, mockCtx);

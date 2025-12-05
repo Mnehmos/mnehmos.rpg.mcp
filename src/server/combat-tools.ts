@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CombatEngine, CombatParticipant, CombatState, CombatActionResult } from '../engine/combat/engine.js';
+import { SpatialEngine } from '../engine/spatial/engine.js';
 
 import { PubSub } from '../engine/pubsub.js';
 
@@ -154,11 +155,45 @@ function formatHealResult(result: CombatActionResult): string {
     let output = `\n┌─────────────────────────────────────────┐\n`;
     output += `│ 💚 HEAL ACTION\n`;
     output += `└─────────────────────────────────────────┘\n\n`;
-    
+
     output += `${result.actor.name} heals ${result.target.name}!\n\n`;
     output += result.detailedBreakdown;
     output += `\n\n→ Call advance_turn to proceed`;
-    
+
+    return output;
+}
+
+/**
+ * CRIT-003: Format a move result for display
+ */
+function formatMoveResult(
+    actorName: string,
+    fromPos: { x: number; y: number } | undefined,
+    toPos: { x: number; y: number },
+    success: boolean,
+    failReason: string | null,
+    distance?: number
+): string {
+    let output = `\n┌─────────────────────────────────────────┐\n`;
+    output += `│ 🚶 MOVE ACTION\n`;
+    output += `└─────────────────────────────────────────┘\n\n`;
+
+    if (success) {
+        if (fromPos) {
+            output += `${actorName} moved from (${fromPos.x}, ${fromPos.y}) to (${toPos.x}, ${toPos.y})`;
+            if (distance !== undefined) {
+                output += ` [${distance} tiles]`;
+            }
+            output += `\n`;
+        } else {
+            output += `${actorName} placed at (${toPos.x}, ${toPos.y})\n`;
+        }
+    } else {
+        output += `${actorName} cannot move to (${toPos.x}, ${toPos.y})\n`;
+        output += `Reason: ${failReason}\n`;
+    }
+
+    output += `\n→ Call advance_turn to proceed`;
     return output;
 }
 
@@ -201,8 +236,14 @@ Example:
                 hp: z.number().int().positive(),
                 maxHp: z.number().int().positive(),
                 isEnemy: z.boolean().optional().describe('Whether this is an enemy (auto-detected if not set)'),
-                conditions: z.array(z.any()).default([])
-            })).min(1)
+                conditions: z.array(z.any()).default([]),
+                position: z.object({ x: z.number(), y: z.number(), z: z.number().optional() }).optional()
+                    .describe('CRIT-003: Spatial position for movement (x, y coordinates)')
+            })).min(1),
+            terrain: z.object({
+                obstacles: z.array(z.string()).default([]).describe('Array of "x,y" strings for blocking tiles'),
+                difficultTerrain: z.array(z.string()).optional().describe('Array of "x,y" strings for difficult terrain')
+            }).optional().describe('CRIT-003: Terrain configuration for collision')
         })
     },
     GET_ENCOUNTER_STATE: {
@@ -214,7 +255,7 @@ Example:
     },
     EXECUTE_COMBAT_ACTION: {
         name: 'execute_combat_action',
-        description: `Execute a combat action (attack, heal, etc.).
+        description: `Execute a combat action (attack, heal, move, etc.).
 
 Examples:
 {
@@ -231,16 +272,24 @@ Examples:
   "actorId": "cleric-1",
   "targetId": "hero-1",
   "amount": 8
+}
+
+{
+  "action": "move",
+  "actorId": "hero-1",
+  "targetPosition": { "x": 5, "y": 3 }
 }`,
         inputSchema: z.object({
             encounterId: z.string().describe('The ID of the encounter'),
-            action: z.enum(['attack', 'heal']),
+            action: z.enum(['attack', 'heal', 'move']),
             actorId: z.string(),
-            targetId: z.string(),
+            targetId: z.string().optional().describe('Target ID for attack/heal actions'),
             attackBonus: z.number().int().optional(),
             dc: z.number().int().optional(),
             damage: z.number().int().optional(),
-            amount: z.number().int().optional()
+            amount: z.number().int().optional(),
+            targetPosition: z.object({ x: z.number(), y: z.number() }).optional()
+                .describe('CRIT-003: Target position for move action')
         })
     },
     ADVANCE_TURN: {
@@ -273,7 +322,7 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
     // Create combat engine
     const engine = new CombatEngine(parsed.seed, pubsub || undefined);
 
-    // Convert participants to proper format (preserve isEnemy if provided)
+    // Convert participants to proper format (preserve isEnemy and position if provided)
     const participants: CombatParticipant[] = parsed.participants.map(p => ({
         id: p.id,
         name: p.name,
@@ -281,11 +330,17 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
         hp: p.hp,
         maxHp: p.maxHp,
         isEnemy: p.isEnemy,  // Will be auto-detected in startEncounter if undefined
-        conditions: []
-    }));
+        conditions: [],
+        position: p.position  // CRIT-003: Preserve spatial position
+    } as CombatParticipant));
 
     // Start encounter
     const state = engine.startEncounter(participants);
+
+    // CRIT-003: Add terrain to state if provided
+    if (parsed.terrain && state) {
+        (state as any).terrain = parsed.terrain;
+    }
 
     // Generate encounter ID
     const encounterId = `encounter-${parsed.seed}-${Date.now()}`;
@@ -413,9 +468,86 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
         if (parsed.amount === undefined) {
             throw new Error('Heal action requires amount');
         }
+        if (!parsed.targetId) {
+            throw new Error('Heal action requires targetId');
+        }
 
         result = engine.executeHeal(parsed.actorId, parsed.targetId, parsed.amount);
         output = formatHealResult(result);
+    } else if (parsed.action === 'move') {
+        // CRIT-003: Spatial movement with collision checking
+        if (!parsed.targetPosition) {
+            throw new Error('Move action requires targetPosition');
+        }
+
+        const currentState = engine.getState();
+        if (!currentState) {
+            throw new Error('No combat state');
+        }
+
+        const actor = currentState.participants.find(p => p.id === parsed.actorId);
+        if (!actor) {
+            throw new Error(`Actor ${parsed.actorId} not found`);
+        }
+
+        // Get actor's current position
+        const actorPos = (actor as any).position;
+        if (!actorPos) {
+            // No position set - just set the target position directly
+            (actor as any).position = parsed.targetPosition;
+            output = formatMoveResult(actor.name, undefined, parsed.targetPosition, true, null);
+        } else {
+            // Build obstacle set from other participants and terrain
+            const obstacles = new Set<string>();
+
+            // Add other participant positions as obstacles
+            for (const p of currentState.participants) {
+                if (p.id !== parsed.actorId && (p as any).position) {
+                    const pos = (p as any).position;
+                    obstacles.add(`${pos.x},${pos.y}`);
+                }
+            }
+
+            // Add terrain obstacles if available
+            const terrain = (currentState as any).terrain;
+            if (terrain?.obstacles) {
+                for (const obs of terrain.obstacles) {
+                    obstacles.add(obs);
+                }
+            }
+
+            // Check if destination is blocked
+            const destKey = `${parsed.targetPosition.x},${parsed.targetPosition.y}`;
+            if (obstacles.has(destKey)) {
+                output = formatMoveResult(actor.name, actorPos, parsed.targetPosition, false, 'Destination is blocked');
+            } else {
+                // Use spatial engine to find path
+                const spatial = new SpatialEngine();
+                const path = spatial.findPath(
+                    { x: actorPos.x, y: actorPos.y },
+                    { x: parsed.targetPosition.x, y: parsed.targetPosition.y },
+                    obstacles
+                );
+
+                if (path === null) {
+                    // No valid path
+                    output = formatMoveResult(actor.name, actorPos, parsed.targetPosition, false, 'No valid path - blocked by obstacles');
+                } else {
+                    // Move successful - update position
+                    (actor as any).position = parsed.targetPosition;
+                    output = formatMoveResult(actor.name, actorPos, parsed.targetPosition, true, null, path.length - 1);
+                }
+            }
+        }
+
+        // Create dummy result for consistency
+        result = {
+            success: output.includes('moved'),
+            actor: { id: actor.id, name: actor.name, hp: actor.hp, maxHp: actor.maxHp },
+            target: { id: actor.id, name: actor.name, hp: actor.hp, maxHp: actor.maxHp },
+            defeated: false,
+            detailedBreakdown: output
+        };
     } else {
         throw new Error(`Unknown action: ${parsed.action}`);
     }
