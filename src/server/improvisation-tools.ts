@@ -231,10 +231,7 @@ Example:
             target_id: z.string().optional(),
             target_type: z.enum(['character', 'npc']).optional(),
             effect_name: z.string().optional()
-        }).refine(
-            data => data.effect_id !== undefined || (data.target_id && data.target_type && data.effect_name),
-            { message: 'Must provide either effect_id or (target_id, target_type, effect_name)' }
-        )
+        })
     },
 
     PROCESS_EFFECT_TRIGGERS: {
@@ -658,6 +655,13 @@ function formatEffectSummary(effect: CustomEffect): string {
  */
 export async function handleRemoveCustomEffect(args: unknown, _ctx: SessionContext) {
     const parsed = ImprovisationTools.REMOVE_CUSTOM_EFFECT.inputSchema.parse(args);
+
+    // Validate that either effect_id or (target_id, target_type, effect_name) are provided
+    if (parsed.effect_id === undefined &&
+        !(parsed.target_id && parsed.target_type && parsed.effect_name)) {
+        throw new Error('Must provide either effect_id or (target_id, target_type, effect_name)');
+    }
+
     const { effectsRepo } = ensureDb();
 
     let removed = false;
