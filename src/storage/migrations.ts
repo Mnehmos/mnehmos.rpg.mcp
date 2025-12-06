@@ -550,6 +550,25 @@ export function migrate(db: Database.Database) {
   );
 
   CREATE INDEX IF NOT EXISTS idx_concentration_character ON concentration(character_id);
+
+  -- Aura System - tracks active area-effect auras centered on characters
+  CREATE TABLE IF NOT EXISTS auras(
+    id TEXT PRIMARY KEY,
+    owner_id TEXT NOT NULL,
+    spell_name TEXT NOT NULL,
+    spell_level INTEGER NOT NULL CHECK (spell_level BETWEEN 0 AND 9),
+    radius INTEGER NOT NULL CHECK (radius > 0), -- Radius in feet
+    affects_allies INTEGER NOT NULL DEFAULT 0, -- boolean
+    affects_enemies INTEGER NOT NULL DEFAULT 0, -- boolean
+    affects_self INTEGER NOT NULL DEFAULT 0, -- boolean
+    effects TEXT NOT NULL, -- JSON array of AuraEffect objects
+    started_at INTEGER NOT NULL, -- Round number
+    max_duration INTEGER, -- Maximum rounds (null = indefinite)
+    requires_concentration INTEGER NOT NULL DEFAULT 0, -- boolean
+    FOREIGN KEY(owner_id) REFERENCES characters(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_auras_owner ON auras(owner_id);
   `);
 
   // Run migrations for existing databases that don't have the new columns

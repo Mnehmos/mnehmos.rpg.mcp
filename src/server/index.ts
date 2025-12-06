@@ -13,6 +13,8 @@ import { SecretTools, handleCreateSecret, handleGetSecret, handleListSecrets, ha
 import { PartyTools, handleCreateParty, handleGetParty, handleListParties, handleUpdateParty, handleDeleteParty, handleAddPartyMember, handleRemovePartyMember, handleUpdatePartyMember, handleSetPartyLeader, handleSetActiveCharacter, handleGetPartyMembers, handleGetPartyContext, handleGetUnassignedCharacters, handleMoveParty, handleGetPartyPosition, handleGetPartiesInRegion } from './party-tools.js';
 import { RestTools, handleTakeLongRest, handleTakeShortRest } from './rest-tools.js';
 import { ConcentrationTools, handleCheckConcentrationSave, handleBreakConcentration, handleGetConcentrationState, handleCheckConcentrationDuration, handleCheckAutoBreak } from './concentration-tools.js';
+import { ScrollTools, handleUseSpellScroll, handleCreateSpellScroll, handleIdentifyScroll, handleGetScrollUseDC, handleGetScrollDetails, handleCheckScrollUsability } from './scroll-tools.js';
+import { AuraTools, handleCreateAura, handleGetActiveAuras, handleGetAurasAffectingCharacter, handleProcessAuraEffects, handleRemoveAura, handleRemoveCharacterAuras, handleExpireAuras } from './aura-tools.js';
 import { NpcMemoryTools, handleGetNpcRelationship, handleUpdateNpcRelationship, handleRecordConversationMemory, handleGetConversationHistory, handleGetRecentInteractions, handleGetNpcContext, handleInteractSocially } from './npc-memory-tools.js';
 import { TheftTools, handleStealItem, handleCheckItemStolen, handleCheckStolenItemsOnCharacter, handleCheckItemRecognition, handleSellToFence, handleRegisterFence, handleReportTheft, handleAdvanceHeatDecay, handleGetFence, handleListFences } from './theft-tools.js';
 import { CorpseTools, handleGetCorpse, handleGetCorpseByCharacter, handleListCorpsesInEncounter, handleListCorpsesNearby, handleLootCorpse, handleHarvestCorpse, handleCreateCorpse, handleGenerateLoot, handleGetCorpseInventory, handleCreateLootTable, handleGetLootTable, handleListLootTables, handleAdvanceCorpseDecay, handleCleanupCorpses } from './corpse-tools.js';
@@ -794,6 +796,99 @@ async function main() {
         ConcentrationTools.CHECK_AUTO_BREAK.description,
         ConcentrationTools.CHECK_AUTO_BREAK.inputSchema.extend({ sessionId: z.string().optional() }).shape,
         auditLogger.wrapHandler(ConcentrationTools.CHECK_AUTO_BREAK.name, withSession(ConcentrationTools.CHECK_AUTO_BREAK.inputSchema, handleCheckAutoBreak))
+    );
+
+    // Register Scroll Tools (Spell Scroll System)
+    server.tool(
+        ScrollTools.USE_SPELL_SCROLL.name,
+        ScrollTools.USE_SPELL_SCROLL.description,
+        ScrollTools.USE_SPELL_SCROLL.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(ScrollTools.USE_SPELL_SCROLL.name, withSession(ScrollTools.USE_SPELL_SCROLL.inputSchema, handleUseSpellScroll))
+    );
+
+    server.tool(
+        ScrollTools.CREATE_SPELL_SCROLL.name,
+        ScrollTools.CREATE_SPELL_SCROLL.description,
+        ScrollTools.CREATE_SPELL_SCROLL.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(ScrollTools.CREATE_SPELL_SCROLL.name, withSession(ScrollTools.CREATE_SPELL_SCROLL.inputSchema, handleCreateSpellScroll))
+    );
+
+    server.tool(
+        ScrollTools.IDENTIFY_SCROLL.name,
+        ScrollTools.IDENTIFY_SCROLL.description,
+        ScrollTools.IDENTIFY_SCROLL.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(ScrollTools.IDENTIFY_SCROLL.name, withSession(ScrollTools.IDENTIFY_SCROLL.inputSchema, handleIdentifyScroll))
+    );
+
+    server.tool(
+        ScrollTools.GET_SCROLL_USE_DC.name,
+        ScrollTools.GET_SCROLL_USE_DC.description,
+        ScrollTools.GET_SCROLL_USE_DC.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(ScrollTools.GET_SCROLL_USE_DC.name, withSession(ScrollTools.GET_SCROLL_USE_DC.inputSchema, handleGetScrollUseDC))
+    );
+
+    server.tool(
+        ScrollTools.GET_SCROLL_DETAILS.name,
+        ScrollTools.GET_SCROLL_DETAILS.description,
+        ScrollTools.GET_SCROLL_DETAILS.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(ScrollTools.GET_SCROLL_DETAILS.name, withSession(ScrollTools.GET_SCROLL_DETAILS.inputSchema, handleGetScrollDetails))
+    );
+
+    server.tool(
+        ScrollTools.CHECK_SCROLL_USABILITY.name,
+        ScrollTools.CHECK_SCROLL_USABILITY.description,
+        ScrollTools.CHECK_SCROLL_USABILITY.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(ScrollTools.CHECK_SCROLL_USABILITY.name, withSession(ScrollTools.CHECK_SCROLL_USABILITY.inputSchema, handleCheckScrollUsability))
+    );
+
+    // Register Aura Tools (Area Effect Aura System)
+    server.tool(
+        AuraTools.CREATE_AURA.name,
+        AuraTools.CREATE_AURA.description,
+        AuraTools.CREATE_AURA.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(AuraTools.CREATE_AURA.name, withSession(AuraTools.CREATE_AURA.inputSchema, handleCreateAura))
+    );
+
+    server.tool(
+        AuraTools.GET_ACTIVE_AURAS.name,
+        AuraTools.GET_ACTIVE_AURAS.description,
+        AuraTools.GET_ACTIVE_AURAS.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(AuraTools.GET_ACTIVE_AURAS.name, withSession(AuraTools.GET_ACTIVE_AURAS.inputSchema, handleGetActiveAuras))
+    );
+
+    server.tool(
+        AuraTools.GET_AURAS_AFFECTING_CHARACTER.name,
+        AuraTools.GET_AURAS_AFFECTING_CHARACTER.description,
+        AuraTools.GET_AURAS_AFFECTING_CHARACTER.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(AuraTools.GET_AURAS_AFFECTING_CHARACTER.name, withSession(AuraTools.GET_AURAS_AFFECTING_CHARACTER.inputSchema, handleGetAurasAffectingCharacter))
+    );
+
+    server.tool(
+        AuraTools.PROCESS_AURA_EFFECTS.name,
+        AuraTools.PROCESS_AURA_EFFECTS.description,
+        AuraTools.PROCESS_AURA_EFFECTS.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(AuraTools.PROCESS_AURA_EFFECTS.name, withSession(AuraTools.PROCESS_AURA_EFFECTS.inputSchema, handleProcessAuraEffects))
+    );
+
+    server.tool(
+        AuraTools.REMOVE_AURA.name,
+        AuraTools.REMOVE_AURA.description,
+        AuraTools.REMOVE_AURA.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(AuraTools.REMOVE_AURA.name, withSession(AuraTools.REMOVE_AURA.inputSchema, handleRemoveAura))
+    );
+
+    server.tool(
+        AuraTools.REMOVE_CHARACTER_AURAS.name,
+        AuraTools.REMOVE_CHARACTER_AURAS.description,
+        AuraTools.REMOVE_CHARACTER_AURAS.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(AuraTools.REMOVE_CHARACTER_AURAS.name, withSession(AuraTools.REMOVE_CHARACTER_AURAS.inputSchema, handleRemoveCharacterAuras))
+    );
+
+    server.tool(
+        AuraTools.EXPIRE_AURAS.name,
+        AuraTools.EXPIRE_AURAS.description,
+        AuraTools.EXPIRE_AURAS.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(AuraTools.EXPIRE_AURAS.name, withSession(AuraTools.EXPIRE_AURAS.inputSchema, handleExpireAuras))
     );
 
     // Register NPC Memory Tools (HIGH-004: NPC Relationship & Memory System)

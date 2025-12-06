@@ -14,7 +14,7 @@ export const ItemSchema = z.object({
         .min(1, 'Item name cannot be empty')
         .refine(s => s.trim().length > 0, 'Item name cannot be whitespace only'),
     description: z.string().optional(),
-    type: z.enum(['weapon', 'armor', 'consumable', 'quest', 'misc']),
+    type: z.enum(['weapon', 'armor', 'consumable', 'quest', 'misc', 'scroll']),
     weight: z.number().min(0).default(0),
     value: z.number().min(0).max(INVENTORY_LIMITS.MAX_ITEM_VALUE,
         `Item value cannot exceed ${INVENTORY_LIMITS.MAX_ITEM_VALUE.toLocaleString()} gold`).default(0),

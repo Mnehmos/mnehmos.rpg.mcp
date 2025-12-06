@@ -35,7 +35,7 @@ export const InventoryTools = {
         name: 'list_items',
         description: 'List all item templates in the database.',
         inputSchema: z.object({
-            type: z.enum(['weapon', 'armor', 'consumable', 'quest', 'misc']).optional().describe('Filter by item type')
+            type: z.enum(['weapon', 'armor', 'consumable', 'quest', 'misc', 'scroll']).optional().describe('Filter by item type')
         })
     },
     SEARCH_ITEMS: {
@@ -43,7 +43,7 @@ export const InventoryTools = {
         description: 'Search for items by name, type, or value range.',
         inputSchema: z.object({
             name: z.string().optional().describe('Search by name (partial match)'),
-            type: z.enum(['weapon', 'armor', 'consumable', 'quest', 'misc']).optional().describe('Filter by item type'),
+            type: z.enum(['weapon', 'armor', 'consumable', 'quest', 'misc', 'scroll']).optional().describe('Filter by item type'),
             minValue: z.number().min(0).optional().describe('Minimum item value'),
             maxValue: z.number().min(0).optional().describe('Maximum item value')
         })
@@ -55,7 +55,7 @@ export const InventoryTools = {
             itemId: z.string().describe('The ID of the item to update'),
             name: z.string().optional(),
             description: z.string().optional(),
-            type: z.enum(['weapon', 'armor', 'consumable', 'quest', 'misc']).optional(),
+            type: z.enum(['weapon', 'armor', 'consumable', 'quest', 'misc', 'scroll']).optional(),
             weight: z.number().min(0).optional(),
             value: z.number().min(0).optional(),
             properties: z.record(z.any()).optional()
