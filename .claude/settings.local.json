@@ -10,7 +10,8 @@
       "Bash(npm run build:*)",
       "Bash(git checkout:*)",
       "Bash(test:*)",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "Bash(find:*)"
     ],
     "deny": [],
     "ask": []

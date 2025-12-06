@@ -58,12 +58,20 @@ function buildStateJson(state: CombatState, encounterId: string) {
             isEnemy: p.isEnemy,
             conditions: p.conditions.map(c => c.type),
             isDefeated: p.hp <= 0,
-            isCurrentTurn: p.id === currentParticipant?.id
+            isCurrentTurn: p.id === currentParticipant?.id,
+            // Spatial visualization data
+            position: p.position ?? null,
+            size: p.size ?? 'medium',
+            movementSpeed: p.movementSpeed ?? 30,
+            movementRemaining: p.movementRemaining ?? (p.movementSpeed ?? 30)
         })),
         // HIGH-006: Lair action status
         isLairActionPending: state.turnOrder[state.currentTurnIndex] === 'LAIR',
         hasLairActions: state.hasLairActions ?? false,
-        lairOwnerId: state.lairOwnerId
+        lairOwnerId: state.lairOwnerId,
+        // Spatial visualization data
+        terrain: state.terrain ?? { obstacles: [], difficultTerrain: [] },
+        gridBounds: state.gridBounds ?? null
     };
 }
 
@@ -301,6 +309,136 @@ function formatMoveResult(
     return output;
 }
 
+// ============================================================
+// GRID VISUALIZATION - ASCII rendering for spatial combat
+// ============================================================
+
+/**
+ * Render an ASCII grid map of the combat state
+ * Shows participant positions, terrain, and coordinate labels
+ */
+function renderGrid(state: CombatState, options?: { width?: number; height?: number; showLegend?: boolean }): string {
+    const width = options?.width ?? 20;
+    const height = options?.height ?? 20;
+    const showLegend = options?.showLegend ?? true;
+
+    // Build grid with empty cells
+    const grid: string[][] = [];
+    for (let y = 0; y < height; y++) {
+        grid[y] = [];
+        for (let x = 0; x < width; x++) {
+            grid[y][x] = '·';  // Empty tile
+        }
+    }
+
+    // Place terrain obstacles
+    const terrain = state.terrain ?? { obstacles: [] };
+    for (const obs of terrain.obstacles) {
+        const [x, y] = obs.split(',').map(Number);
+        if (x >= 0 && x < width && y >= 0 && y < height) {
+            grid[y][x] = '█';  // Solid obstacle
+        }
+    }
+
+    // Place difficult terrain
+    if (terrain.difficultTerrain) {
+        for (const dt of terrain.difficultTerrain) {
+            const [x, y] = dt.split(',').map(Number);
+            if (x >= 0 && x < width && y >= 0 && y < height && grid[y][x] === '·') {
+                grid[y][x] = '░';  // Difficult terrain
+            }
+        }
+    }
+
+    // Place participants
+    const legend: string[] = [];
+    let friendlyIndex = 1;
+    let enemyIndex = 1;
+
+    for (const p of state.participants) {
+        if (!p.position) continue;
+        const { x, y } = p.position;
+        if (x >= 0 && x < width && y >= 0 && y < height) {
+            let symbol: string;
+            if (p.hp <= 0) {
+                symbol = '☠';  // Defeated
+            } else if (p.isEnemy) {
+                symbol = String(enemyIndex);
+                legend.push(`  ${symbol} = ${p.name} (Enemy, HP: ${p.hp}/${p.maxHp})`);
+                enemyIndex = (enemyIndex % 9) + 1;
+            } else {
+                symbol = String.fromCharCode(64 + friendlyIndex);  // A, B, C...
+                legend.push(`  ${symbol} = ${p.name} (HP: ${p.hp}/${p.maxHp})`);
+                friendlyIndex++;
+            }
+            grid[y][x] = symbol;
+        }
+    }
+
+    // Build output string
+    let output = '\n┌─ COMBAT MAP ─────────────────────────────┐\n';
+
+    // Column headers (x-axis)
+    output += '    ';
+    for (let x = 0; x < width; x++) {
+        output += (x % 5 === 0) ? String(x).padStart(2, ' ').slice(-1) : ' ';
+    }
+    output += '\n';
+
+    // Grid rows (with y-axis labels)
+    for (let y = 0; y < height; y++) {
+        const yLabel = (y % 5 === 0) ? String(y).padStart(2, ' ') : '  ';
+        output += `${yLabel} │`;
+        for (let x = 0; x < width; x++) {
+            output += grid[y][x];
+        }
+        output += '│\n';
+    }
+
+    output += '└───────────────────────────────────────────┘\n';
+
+    // Legend
+    if (showLegend && legend.length > 0) {
+        output += '\n📍 LEGEND:\n';
+        output += legend.join('\n') + '\n';
+        output += '\n  · = Empty   █ = Obstacle   ░ = Difficult Terrain   ☠ = Defeated\n';
+    }
+
+    return output;
+}
+
+/**
+ * Calculate which tiles and participants are affected by an Area of Effect
+ */
+function calculateAoE(
+    state: CombatState,
+    shape: 'circle' | 'cone' | 'line',
+    origin: { x: number; y: number },
+    params: { radius?: number; direction?: { x: number; y: number }; length?: number; angle?: number; width?: number }
+): { tiles: { x: number; y: number }[]; affectedParticipants: { id: string; name: string; position: { x: number; y: number } }[] } {
+    const spatial = new SpatialEngine();
+    let tiles: { x: number; y: number }[] = [];
+
+    if (shape === 'circle' && params.radius !== undefined) {
+        tiles = spatial.getCircleTiles(origin, params.radius);
+    } else if (shape === 'cone' && params.direction && params.length !== undefined && params.angle !== undefined) {
+        tiles = spatial.getConeTiles(origin, params.direction, params.length, params.angle);
+    } else if (shape === 'line' && params.direction && params.length !== undefined) {
+        // Line is a cone with 0 angle, or we use getLineTiles
+        const endX = origin.x + params.direction.x * params.length;
+        const endY = origin.y + params.direction.y * params.length;
+        tiles = spatial.getLineTiles(origin, { x: endX, y: endY });
+    }
+
+    // Find participants in affected tiles
+    const tileSet = new Set(tiles.map(t => `${t.x},${t.y}`));
+    const affectedParticipants = state.participants
+        .filter(p => p.position && tileSet.has(`${p.position.x},${p.position.y}`) && p.hp > 0)
+        .map(p => ({ id: p.id, name: p.name, position: p.position! }));
+
+    return { tiles, affectedParticipants };
+}
+
 // Tool definitions
 export const CombatTools = {
     CREATE_ENCOUNTER: {
@@ -467,6 +605,79 @@ Examples:
             }).optional().describe('Saving throw required to avoid/reduce effect'),
             halfDamageOnSave: z.boolean().default(true).describe('Whether successful save halves damage')
         })
+    },
+    // ============================================================
+    // VISUALIZATION TOOLS
+    // ============================================================
+    RENDER_MAP: {
+        name: 'render_map',
+        description: `Render an ASCII map of the current combat state showing participant positions, obstacles, and terrain.
+Returns a text-based grid visualization with:
+- A-Z for friendly participants
+- 1-9 for enemies
+- █ for obstacles
+- ░ for difficult terrain
+- ☠ for defeated combatants
+
+Example:
+{
+  "encounterId": "encounter-battle-1-123456",
+  "width": 15,
+  "height": 15
+}`,
+        inputSchema: z.object({
+            encounterId: z.string().describe('The ID of the encounter'),
+            width: z.number().int().min(5).max(50).default(20).describe('Grid width (default: 20)'),
+            height: z.number().int().min(5).max(50).default(20).describe('Grid height (default: 20)'),
+            showLegend: z.boolean().default(true).describe('Include legend explaining symbols')
+        })
+    },
+    CALCULATE_AOE: {
+        name: 'calculate_aoe',
+        description: `Calculate which tiles and participants are affected by an Area of Effect spell or ability.
+Supports circle (Fireball), cone (Burning Hands), and line (Lightning Bolt) shapes.
+
+Example - Fireball (20ft radius circle):
+{
+  "encounterId": "encounter-1",
+  "shape": "circle",
+  "origin": { "x": 10, "y": 10 },
+  "radius": 4
+}
+
+Example - Burning Hands (15ft cone):
+{
+  "encounterId": "encounter-1",
+  "shape": "cone",
+  "origin": { "x": 5, "y": 5 },
+  "direction": { "x": 1, "y": 0 },
+  "length": 3,
+  "angle": 90
+}
+
+Example - Lightning Bolt (100ft line):
+{
+  "encounterId": "encounter-1",
+  "shape": "line",
+  "origin": { "x": 0, "y": 5 },
+  "direction": { "x": 1, "y": 0 },
+  "length": 20
+}`,
+        inputSchema: z.object({
+            encounterId: z.string().describe('The ID of the encounter'),
+            shape: z.enum(['circle', 'cone', 'line']).describe('Shape of the AoE'),
+            origin: z.object({
+                x: z.number(),
+                y: z.number()
+            }).describe('Origin point of the AoE'),
+            radius: z.number().optional().describe('Radius for circle shape (in tiles)'),
+            direction: z.object({
+                x: z.number(),
+                y: z.number()
+            }).optional().describe('Direction vector for cone/line (e.g., {x:1,y:0} = East)'),
+            length: z.number().optional().describe('Length for cone/line shapes (in tiles)'),
+            angle: z.number().optional().describe('Angle for cone shape (in degrees, e.g., 90 for quarter circle)')
+        })
     }
 } as const;
 
@@ -522,7 +733,11 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
             hp: p.hp,
             maxHp: p.maxHp,
             conditions: p.conditions,
-            abilityScores: p.abilityScores
+            abilityScores: p.abilityScores,
+            // Spatial visualization data
+            position: p.position,
+            movementSpeed: p.movementSpeed ?? 30,
+            size: p.size ?? 'medium'
         })),
         round: state.round,
         activeTokenId: state.turnOrder[state.currentTurnIndex],
@@ -1367,4 +1582,108 @@ export async function handleExecuteLairAction(args: unknown, ctx: SessionContext
 // Helper for tests
 export function clearCombatState() {
     // No-op or clear manager
+}
+
+// ============================================================
+// VISUALIZATION TOOL HANDLERS
+// ============================================================
+
+export async function handleRenderMap(args: unknown, ctx: SessionContext) {
+    const parsed = CombatTools.RENDER_MAP.inputSchema.parse(args);
+    let engine = getCombatManager().get(`${ctx.sessionId}:${parsed.encounterId}`);
+
+    // Auto-load from database if not in memory
+    if (!engine) {
+        const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+        const repo = new EncounterRepository(db);
+        const state = repo.loadState(parsed.encounterId);
+
+        if (!state) {
+            throw new Error(`Encounter ${parsed.encounterId} not found.`);
+        }
+
+        engine = new CombatEngine(parsed.encounterId, pubsub || undefined);
+        engine.loadState(state);
+        getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
+    }
+
+    const state = engine.getState();
+    if (!state) {
+        throw new Error('No active encounter');
+    }
+
+    const map = renderGrid(state, {
+        width: parsed.width,
+        height: parsed.height,
+        showLegend: parsed.showLegend
+    });
+
+    return {
+        content: [{
+            type: 'text' as const,
+            text: map
+        }]
+    };
+}
+
+export async function handleCalculateAoe(args: unknown, ctx: SessionContext) {
+    const parsed = CombatTools.CALCULATE_AOE.inputSchema.parse(args);
+    let engine = getCombatManager().get(`${ctx.sessionId}:${parsed.encounterId}`);
+
+    // Auto-load from database if not in memory
+    if (!engine) {
+        const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+        const repo = new EncounterRepository(db);
+        const state = repo.loadState(parsed.encounterId);
+
+        if (!state) {
+            throw new Error(`Encounter ${parsed.encounterId} not found.`);
+        }
+
+        engine = new CombatEngine(parsed.encounterId, pubsub || undefined);
+        engine.loadState(state);
+        getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
+    }
+
+    const state = engine.getState();
+    if (!state) {
+        throw new Error('No active encounter');
+    }
+
+    const result = calculateAoE(state, parsed.shape, parsed.origin, {
+        radius: parsed.radius,
+        direction: parsed.direction,
+        length: parsed.length,
+        angle: parsed.angle
+    });
+
+    // Format output
+    let output = `\n┌─ AREA OF EFFECT ────────────────────────┐\n`;
+    output += `│ Shape: ${parsed.shape.toUpperCase()}\n`;
+    output += `│ Origin: (${parsed.origin.x}, ${parsed.origin.y})\n`;
+    if (parsed.radius) output += `│ Radius: ${parsed.radius} tiles\n`;
+    if (parsed.length) output += `│ Length: ${parsed.length} tiles\n`;
+    if (parsed.angle) output += `│ Angle: ${parsed.angle}°\n`;
+    output += `└─────────────────────────────────────────┘\n\n`;
+
+    output += `📍 Affected Tiles: ${result.tiles.length}\n`;
+
+    if (result.affectedParticipants.length > 0) {
+        output += `\n⚠️ AFFECTED CREATURES:\n`;
+        for (const p of result.affectedParticipants) {
+            output += `  • ${p.name} at (${p.position.x}, ${p.position.y})\n`;
+        }
+    } else {
+        output += `\n✓ No creatures in area of effect\n`;
+    }
+
+    // Also return JSON for programmatic use
+    output += `\n<!-- AOE_JSON\n${JSON.stringify(result)}\nAOE_JSON -->`;
+
+    return {
+        content: [{
+            type: 'text' as const,
+            text: output
+        }]
+    };
 }

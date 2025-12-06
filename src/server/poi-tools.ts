@@ -21,13 +21,11 @@ import { RegionRepository } from '../storage/repos/region.repo.js';
 import {
     POI,
     POICategory,
-    POIDiscoveryState,
-    POIIcon,
     MapLayer,
     getIconForStructureType,
     getCategoryForStructureType
 } from '../schema/poi.js';
-import { NodeNetwork, RoomNode, Exit } from '../schema/spatial.js';
+import { NodeNetwork, Exit } from '../schema/spatial.js';
 import { SessionContext } from './types.js';
 
 // ============================================================
@@ -531,7 +529,7 @@ export async function handleSyncStructuresToPOIs(args: unknown, _ctx: SessionCon
     };
 }
 
-export async function handleGetMapVisualization(args: unknown, ctx: SessionContext) {
+export async function handleGetMapVisualization(args: unknown, _ctx: SessionContext) {
     const parsed = POITools.GET_MAP_VISUALIZATION.inputSchema.parse(args);
     const { poi: poiRepo, world: worldRepo, region: regionRepo, character: charRepo } = getRepos();
 

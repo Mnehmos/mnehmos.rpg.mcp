@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { Encounter, EncounterSchema, GridBounds, Terrain, DEFAULT_GRID_BOUNDS } from '../../schema/encounter.js';
+import { Encounter, EncounterSchema, DEFAULT_GRID_BOUNDS } from '../../schema/encounter.js';
 
 /**
  * EncounterRepository - Persistence layer for combat encounters

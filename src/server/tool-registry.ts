@@ -10,7 +10,7 @@ import { ToolRegistry, ToolMetadata, ToolCategory } from './tool-metadata.js';
 
 // Import all tool definitions (minimal schemas for token efficiency)
 import { Tools, handleGenerateWorld, handleGetWorldState, handleApplyMapPatch, handleGetWorldMapOverview, handleGetRegionMap, handleGetWorldTiles, handlePreviewMapPatch, handleFindValidPoiLocation, handleSuggestPoiLocations } from './tools.js';
-import { CombatTools, handleCreateEncounter, handleGetEncounterState, handleExecuteCombatAction, handleAdvanceTurn, handleEndEncounter, handleLoadEncounter, handleRollDeathSave, handleExecuteLairAction } from './combat-tools.js';
+import { CombatTools, handleCreateEncounter, handleGetEncounterState, handleExecuteCombatAction, handleAdvanceTurn, handleEndEncounter, handleLoadEncounter, handleRollDeathSave, handleExecuteLairAction, handleRenderMap, handleCalculateAoe } from './combat-tools.js';
 import { CRUDTools, handleCreateWorld, handleGetWorld, handleListWorlds, handleDeleteWorld, handleCreateCharacter, handleGetCharacter, handleUpdateCharacter, handleListCharacters, handleDeleteCharacter, handleUpdateWorldEnvironment } from './crud-tools.js';
 import { InventoryTools, handleCreateItemTemplate, handleGiveItem, handleRemoveItem, handleEquipItem, handleUnequipItem, handleGetInventory, handleGetItem, handleListItems, handleSearchItems, handleUpdateItem, handleDeleteItem, handleTransferItem, handleUseItem, handleGetInventoryDetailed } from './inventory-tools.js';
 import { QuestTools, handleCreateQuest, handleGetQuest, handleListQuests, handleAssignQuest, handleUpdateObjective, handleCompleteObjective, handleCompleteQuest, handleGetQuestLog } from './quest-tools.js';
@@ -179,6 +179,21 @@ export function buildToolRegistry(): ToolRegistry {
         ['Lair action resolution', 'Environmental effects'], false, 'medium'),
       schema: CombatTools.EXECUTE_LAIR_ACTION.inputSchema,
       handler: handleExecuteLairAction
+    },
+    // === COMBAT VISUALIZATION TOOLS ===
+    [CombatTools.RENDER_MAP.name]: {
+      metadata: meta(CombatTools.RENDER_MAP.name, CombatTools.RENDER_MAP.description, 'combat',
+        ['map', 'grid', 'visualization', 'ascii', 'combat', 'position', 'spatial'],
+        ['Combat map visualization', 'Participant positions', 'Terrain display'], true, 'medium'),
+      schema: CombatTools.RENDER_MAP.inputSchema,
+      handler: handleRenderMap
+    },
+    [CombatTools.CALCULATE_AOE.name]: {
+      metadata: meta(CombatTools.CALCULATE_AOE.name, CombatTools.CALCULATE_AOE.description, 'combat',
+        ['aoe', 'area', 'effect', 'fireball', 'cone', 'line', 'spell', 'radius'],
+        ['AoE calculation', 'Target detection', 'Spell area'], false, 'medium'),
+      schema: CombatTools.CALCULATE_AOE.inputSchema,
+      handler: handleCalculateAoe
     },
 
     // === CHARACTER/CRUD TOOLS ===

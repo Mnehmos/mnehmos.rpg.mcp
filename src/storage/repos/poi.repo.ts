@@ -11,8 +11,7 @@ import {
     POI,
     POISchema,
     POICategory,
-    POIDiscoveryState,
-    POIIcon
+    POIDiscoveryState
 } from '../../schema/poi.js';
 
 export class POIRepository {
