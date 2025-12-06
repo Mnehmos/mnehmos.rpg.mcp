@@ -12,6 +12,7 @@ import { TurnManagementTools, handleTurnManagementTool } from './turn-management
 import { SecretTools, handleCreateSecret, handleGetSecret, handleListSecrets, handleUpdateSecret, handleDeleteSecret, handleRevealSecret, handleCheckRevealConditions, handleGetSecretsForContext, handleCheckForLeaks } from './secret-tools.js';
 import { PartyTools, handleCreateParty, handleGetParty, handleListParties, handleUpdateParty, handleDeleteParty, handleAddPartyMember, handleRemovePartyMember, handleUpdatePartyMember, handleSetPartyLeader, handleSetActiveCharacter, handleGetPartyMembers, handleGetPartyContext, handleGetUnassignedCharacters, handleMoveParty, handleGetPartyPosition, handleGetPartiesInRegion } from './party-tools.js';
 import { RestTools, handleTakeLongRest, handleTakeShortRest } from './rest-tools.js';
+import { ConcentrationTools, handleCheckConcentrationSave, handleBreakConcentration, handleGetConcentrationState, handleCheckConcentrationDuration, handleCheckAutoBreak } from './concentration-tools.js';
 import { NpcMemoryTools, handleGetNpcRelationship, handleUpdateNpcRelationship, handleRecordConversationMemory, handleGetConversationHistory, handleGetRecentInteractions, handleGetNpcContext, handleInteractSocially } from './npc-memory-tools.js';
 import { TheftTools, handleStealItem, handleCheckItemStolen, handleCheckStolenItemsOnCharacter, handleCheckItemRecognition, handleSellToFence, handleRegisterFence, handleReportTheft, handleAdvanceHeatDecay, handleGetFence, handleListFences } from './theft-tools.js';
 import { CorpseTools, handleGetCorpse, handleGetCorpseByCharacter, handleListCorpsesInEncounter, handleListCorpsesNearby, handleLootCorpse, handleHarvestCorpse, handleCreateCorpse, handleGenerateLoot, handleGetCorpseInventory, handleCreateLootTable, handleGetLootTable, handleListLootTables, handleAdvanceCorpseDecay, handleCleanupCorpses } from './corpse-tools.js';
@@ -757,6 +758,42 @@ async function main() {
         RestTools.TAKE_SHORT_REST.description,
         RestTools.TAKE_SHORT_REST.inputSchema.extend({ sessionId: z.string().optional() }).shape,
         auditLogger.wrapHandler(RestTools.TAKE_SHORT_REST.name, withSession(RestTools.TAKE_SHORT_REST.inputSchema, handleTakeShortRest))
+    );
+
+    // Register Concentration Tools (Concentration Management System)
+    server.tool(
+        ConcentrationTools.CHECK_CONCENTRATION_SAVE.name,
+        ConcentrationTools.CHECK_CONCENTRATION_SAVE.description,
+        ConcentrationTools.CHECK_CONCENTRATION_SAVE.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(ConcentrationTools.CHECK_CONCENTRATION_SAVE.name, withSession(ConcentrationTools.CHECK_CONCENTRATION_SAVE.inputSchema, handleCheckConcentrationSave))
+    );
+
+    server.tool(
+        ConcentrationTools.BREAK_CONCENTRATION.name,
+        ConcentrationTools.BREAK_CONCENTRATION.description,
+        ConcentrationTools.BREAK_CONCENTRATION.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(ConcentrationTools.BREAK_CONCENTRATION.name, withSession(ConcentrationTools.BREAK_CONCENTRATION.inputSchema, handleBreakConcentration))
+    );
+
+    server.tool(
+        ConcentrationTools.GET_CONCENTRATION_STATE.name,
+        ConcentrationTools.GET_CONCENTRATION_STATE.description,
+        ConcentrationTools.GET_CONCENTRATION_STATE.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(ConcentrationTools.GET_CONCENTRATION_STATE.name, withSession(ConcentrationTools.GET_CONCENTRATION_STATE.inputSchema, handleGetConcentrationState))
+    );
+
+    server.tool(
+        ConcentrationTools.CHECK_CONCENTRATION_DURATION.name,
+        ConcentrationTools.CHECK_CONCENTRATION_DURATION.description,
+        ConcentrationTools.CHECK_CONCENTRATION_DURATION.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(ConcentrationTools.CHECK_CONCENTRATION_DURATION.name, withSession(ConcentrationTools.CHECK_CONCENTRATION_DURATION.inputSchema, handleCheckConcentrationDuration))
+    );
+
+    server.tool(
+        ConcentrationTools.CHECK_AUTO_BREAK.name,
+        ConcentrationTools.CHECK_AUTO_BREAK.description,
+        ConcentrationTools.CHECK_AUTO_BREAK.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+        auditLogger.wrapHandler(ConcentrationTools.CHECK_AUTO_BREAK.name, withSession(ConcentrationTools.CHECK_AUTO_BREAK.inputSchema, handleCheckAutoBreak))
     );
 
     // Register NPC Memory Tools (HIGH-004: NPC Relationship & Memory System)

@@ -13,6 +13,8 @@ import { SessionContext } from './types.js';
 import { validateSpellCast, consumeSpellSlot } from '../engine/magic/spell-validator.js';
 import { resolveSpell } from '../engine/magic/spell-resolver.js';
 import { CharacterRepository } from '../storage/repos/character.repo.js';
+import { ConcentrationRepository } from '../storage/repos/concentration.repo.js';
+import { startConcentration, checkConcentration, breakConcentration } from '../engine/magic/concentration.js';
 import type { Character } from '../schema/character.js';
 
 // Global combat state (in-memory for MVP)
@@ -644,6 +646,26 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
             parsed.damageType  // HIGH-002: Pass damage type for resistance calculation
         );
 
+        // Check concentration if target took damage and is concentrating
+        if (result.success && result.damage && result.damage > 0) {
+            const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+            const concentrationRepo = new ConcentrationRepository(db);
+            const charRepo = new CharacterRepository(db);
+            const targetChar = charRepo.findById(parsed.targetId);
+
+            if (targetChar && concentrationRepo.isConcentrating(parsed.targetId)) {
+                const concentrationCheck = checkConcentration(targetChar, result.damage, concentrationRepo);
+                if (concentrationCheck.broken) {
+                    // Break concentration
+                    breakConcentration(
+                        { characterId: parsed.targetId, reason: 'damage', damageAmount: result.damage },
+                        concentrationRepo,
+                        charRepo
+                    );
+                }
+            }
+        }
+
         output = formatAttackResult(result);
         
     } else if (parsed.action === 'heal') {
@@ -881,6 +903,25 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
             );
 
             target = currentState.participants.find(p => p.id === parsed.targetId);
+
+            // Check concentration if target is concentrating
+            if (target) {
+                const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+                const concentrationRepo = new ConcentrationRepository(db);
+                const targetChar = charRepo.findById(parsed.targetId!);
+
+                if (targetChar && concentrationRepo.isConcentrating(parsed.targetId!)) {
+                    const concentrationCheck = checkConcentration(targetChar, resolution.damage, concentrationRepo);
+                    if (concentrationCheck.broken) {
+                        // Break concentration
+                        breakConcentration(
+                            { characterId: parsed.targetId!, reason: 'damage', damageAmount: resolution.damage },
+                            concentrationRepo,
+                            charRepo
+                        );
+                    }
+                }
+            }
         }
 
         if (resolution.healing && resolution.healing > 0 && target) {
@@ -896,11 +937,35 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
 
         // Handle concentration
         if (spell.concentration) {
-            // Update character's concentration
-            charRepo.update(casterChar.id, {
-                concentratingOn: spell.name,
-                activeSpells: [...(casterChar.activeSpells || []), spell.name]
-            });
+            const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+            const concentrationRepo = new ConcentrationRepository(db);
+            const currentState = engine.getState();
+
+            // Parse duration from spell (e.g., "Concentration, up to 1 minute")
+            let maxDuration: number | undefined;
+            const durationMatch = spell.duration.match(/(\d+)\s+(minute|hour)/i);
+            if (durationMatch) {
+                const value = parseInt(durationMatch[1]);
+                const unit = durationMatch[2].toLowerCase();
+                // Convert to rounds (1 round = 6 seconds)
+                if (unit === 'minute') {
+                    maxDuration = value * 10; // 1 minute = 10 rounds
+                } else if (unit === 'hour') {
+                    maxDuration = value * 600; // 1 hour = 600 rounds
+                }
+            }
+
+            // Start concentration
+            startConcentration(
+                casterChar.id,
+                spell.name,
+                effectiveSlotLevel,
+                currentState?.round || 1,
+                maxDuration,
+                parsed.targetId ? [parsed.targetId] : undefined,
+                concentrationRepo,
+                charRepo
+            );
         }
 
         // Format output with SPELL tag for test parsing

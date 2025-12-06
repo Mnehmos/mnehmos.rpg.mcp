@@ -536,6 +536,20 @@ export function migrate(db: Database.Database) {
 
   CREATE INDEX IF NOT EXISTS idx_room_nodes_biome ON room_nodes(biome_context);
   CREATE INDEX IF NOT EXISTS idx_room_nodes_visited ON room_nodes(last_visited_at DESC);
+
+  -- Concentration System - tracks active concentration spells
+  CREATE TABLE IF NOT EXISTS concentration(
+    character_id TEXT PRIMARY KEY,
+    active_spell TEXT NOT NULL,
+    spell_level INTEGER NOT NULL CHECK (spell_level BETWEEN 0 AND 9),
+    target_ids TEXT, -- JSON array of target IDs
+    started_at INTEGER NOT NULL, -- Round number
+    max_duration INTEGER, -- Maximum rounds (null = indefinite)
+    save_dc_base INTEGER NOT NULL DEFAULT 10, -- Base DC for concentration saves
+    FOREIGN KEY(character_id) REFERENCES characters(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_concentration_character ON concentration(character_id);
   `);
 
   // Run migrations for existing databases that don't have the new columns
