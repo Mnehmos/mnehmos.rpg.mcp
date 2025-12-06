@@ -49074,6 +49074,34 @@ var PositionSchema = external_exports.object({
   y: external_exports.number(),
   z: external_exports.number().optional()
 });
+var GridBoundsSchema = external_exports.object({
+  minX: external_exports.number().default(0),
+  maxX: external_exports.number().default(100),
+  minY: external_exports.number().default(0),
+  maxY: external_exports.number().default(100),
+  minZ: external_exports.number().optional(),
+  maxZ: external_exports.number().optional()
+});
+var DEFAULT_GRID_BOUNDS = {
+  minX: 0,
+  maxX: 100,
+  minY: 0,
+  maxY: 100
+};
+var SizeCategorySchema = external_exports.enum([
+  "tiny",
+  // 2.5ft, shares space
+  "small",
+  // 5ft, 1 square
+  "medium",
+  // 5ft, 1 square
+  "large",
+  // 10ft, 2x2 squares
+  "huge",
+  // 15ft, 3x3 squares
+  "gargantuan"
+  // 20ft+, 4x4+ squares
+]);
 var TokenSchema = external_exports.object({
   id: external_exports.string(),
   name: external_exports.string(),
@@ -49087,6 +49115,13 @@ var TokenSchema = external_exports.object({
   conditions: external_exports.array(ConditionSchema),
   position: PositionSchema.optional(),
   // CRIT-003: Spatial position for movement
+  // Phase 4: Movement economy
+  movementSpeed: external_exports.number().default(30),
+  // Base speed in feet (6 squares at 5ft/square)
+  movementRemaining: external_exports.number().optional(),
+  // Remaining movement this turn
+  size: SizeCategorySchema.default("medium"),
+  // Creature size for footprint
   abilityScores: external_exports.object({
     strength: external_exports.number(),
     dexterity: external_exports.number(),
@@ -49112,6 +49147,8 @@ var EncounterSchema = external_exports.object({
   status: external_exports.enum(["active", "completed", "paused"]),
   terrain: TerrainSchema.optional(),
   // CRIT-003: Terrain obstacles
+  gridBounds: GridBoundsSchema.optional(),
+  // BUG-001: Spatial boundary validation
   createdAt: external_exports.string().datetime(),
   updatedAt: external_exports.string().datetime()
 });
@@ -49121,20 +49158,40 @@ var EncounterRepository = class {
   db;
   constructor(db) {
     this.db = db;
+    this.ensureSchema();
+  }
+  /**
+   * Ensure the encounters table has all required columns
+   * This handles migration for existing databases
+   */
+  ensureSchema() {
+    const tableInfo = this.db.prepare("PRAGMA table_info(encounters)").all();
+    const columnNames = tableInfo.map((c) => c.name);
+    if (!columnNames.includes("terrain")) {
+      this.db.prepare("ALTER TABLE encounters ADD COLUMN terrain TEXT").run();
+    }
+    if (!columnNames.includes("grid_bounds")) {
+      this.db.prepare("ALTER TABLE encounters ADD COLUMN grid_bounds TEXT").run();
+    }
   }
   create(encounter) {
     const validEncounter = EncounterSchema.parse(encounter);
     const stmt = this.db.prepare(`
-      INSERT INTO encounters (id, region_id, tokens, round, active_token_id, status, created_at, updated_at)
-      VALUES (@id, @regionId, @tokens, @round, @activeTokenId, @status, @createdAt, @updatedAt)
+      INSERT INTO encounters (id, region_id, tokens, round, active_token_id, status, terrain, grid_bounds, created_at, updated_at)
+      VALUES (@id, @regionId, @tokens, @round, @activeTokenId, @status, @terrain, @gridBounds, @createdAt, @updatedAt)
     `);
     stmt.run({
       id: validEncounter.id,
       regionId: validEncounter.regionId || null,
+      // PHASE 1: Tokens JSON now includes position data
       tokens: JSON.stringify(validEncounter.tokens),
       round: validEncounter.round,
       activeTokenId: validEncounter.activeTokenId || null,
       status: validEncounter.status,
+      // PHASE 1: Persist terrain separately
+      terrain: validEncounter.terrain ? JSON.stringify(validEncounter.terrain) : null,
+      // PHASE 2: Persist grid bounds
+      gridBounds: validEncounter.gridBounds ? JSON.stringify(validEncounter.gridBounds) : null,
       createdAt: validEncounter.createdAt,
       updatedAt: validEncounter.updatedAt
     });
@@ -49153,26 +49210,76 @@ var EncounterRepository = class {
       updatedAt: row.updated_at
     }));
   }
+  /**
+   * Save combat state to database
+   * PHASE 1: Now persists positions, terrain, and grid bounds
+   *
+   * @param encounterId The encounter ID
+   * @param state The CombatState object (includes participants with positions)
+   */
   saveState(encounterId, state) {
     const stmt = this.db.prepare(`
-            UPDATE encounters 
-            SET tokens = ?, round = ?, active_token_id = ?, status = ?, updated_at = ?
+            UPDATE encounters
+            SET tokens = ?, round = ?, active_token_id = ?, status = ?, terrain = ?, grid_bounds = ?, updated_at = ?
             WHERE id = ?
         `);
     const currentTurnId = state.turnOrder[state.currentTurnIndex];
-    stmt.run(JSON.stringify(state.participants), state.round, currentTurnId, "active", (/* @__PURE__ */ new Date()).toISOString(), encounterId);
+    stmt.run(
+      JSON.stringify(state.participants),
+      state.round,
+      currentTurnId,
+      "active",
+      // PHASE 1: Persist terrain
+      state.terrain ? JSON.stringify(state.terrain) : null,
+      // PHASE 2: Persist grid bounds
+      state.gridBounds ? JSON.stringify(state.gridBounds) : null,
+      (/* @__PURE__ */ new Date()).toISOString(),
+      encounterId
+    );
   }
+  /**
+   * Load combat state from database
+   * PHASE 1: Now restores positions, terrain, and grid bounds
+   *
+   * @param encounterId The encounter ID
+   * @returns CombatState object with all spatial data, or null if not found
+   */
   loadState(encounterId) {
     const row = this.findById(encounterId);
     if (!row)
       return null;
     const participants = JSON.parse(row.tokens);
+    const terrain = row.terrain ? JSON.parse(row.terrain) : void 0;
+    const gridBounds = row.grid_bounds ? JSON.parse(row.grid_bounds) : DEFAULT_GRID_BOUNDS;
+    const sortedParticipants = [...participants].sort((a, b) => {
+      const initA = a.initiative ?? 0;
+      const initB = b.initiative ?? 0;
+      if (initB !== initA)
+        return initB - initA;
+      return a.id.localeCompare(b.id);
+    });
+    const turnOrder = sortedParticipants.map((p) => p.id);
+    const lairOwner = participants.find((p) => p.hasLairActions);
+    if (lairOwner) {
+      const lairIndex = sortedParticipants.findIndex((p) => (p.initiative ?? 0) <= 20);
+      if (lairIndex === -1) {
+        turnOrder.push("LAIR");
+      } else {
+        turnOrder.splice(lairIndex, 0, "LAIR");
+      }
+    }
     return {
       participants,
-      turnOrder: participants.map((p) => p.id),
-      // This assumes participants are sorted by turn order
-      currentTurnIndex: participants.findIndex((p) => p.id === row.active_token_id),
-      round: row.round
+      turnOrder,
+      currentTurnIndex: turnOrder.indexOf(row.active_token_id ?? turnOrder[0]),
+      round: row.round,
+      // PHASE 1: Restore terrain
+      terrain,
+      // PHASE 2: Restore grid bounds
+      gridBounds,
+      // LAIR action support
+      hasLairActions: !!lairOwner,
+      lairOwnerId: lairOwner?.id
     };
   }
   findById(id) {
@@ -50638,12 +50745,20 @@ function buildStateJson(state, encounterId) {
       isEnemy: p.isEnemy,
       conditions: p.conditions.map((c) => c.type),
       isDefeated: p.hp <= 0,
-      isCurrentTurn: p.id === currentParticipant?.id
+      isCurrentTurn: p.id === currentParticipant?.id,
+      // Spatial visualization data
+      position: p.position ?? null,
+      size: p.size ?? "medium",
+      movementSpeed: p.movementSpeed ?? 30,
+      movementRemaining: p.movementRemaining ?? (p.movementSpeed ?? 30)
     })),
     // HIGH-006: Lair action status
     isLairActionPending: state.turnOrder[state.currentTurnIndex] === "LAIR",
     hasLairActions: state.hasLairActions ?? false,
-    lairOwnerId: state.lairOwnerId
+    lairOwnerId: state.lairOwnerId,
+    // Spatial visualization data
+    terrain: state.terrain ?? { obstacles: [], difficultTerrain: [], water: [] },
+    gridBounds: state.gridBounds ?? null
   };
 }
 function formatCombatStateText(state) {
@@ -50864,6 +50979,93 @@ function formatMoveResult(actorName, fromPos, toPos, success, failReason, distan
 \u2192 Call advance_turn to proceed`;
   return output;
 }
+function renderGrid(state, options) {
+  const width = options?.width ?? 20;
+  const height = options?.height ?? 20;
+  const showLegend = options?.showLegend ?? true;
+  const grid = [];
+  for (let y = 0; y < height; y++) {
+    grid[y] = [];
+    for (let x = 0; x < width; x++) {
+      grid[y][x] = "\xB7";
+    }
+  }
+  const terrain = state.terrain ?? { obstacles: [] };
+  for (const obs of terrain.obstacles) {
+    const [x, y] = obs.split(",").map(Number);
+    if (x >= 0 && x < width && y >= 0 && y < height) {
+      grid[y][x] = "\u2588";
+    }
+  }
+  if (terrain.difficultTerrain) {
+    for (const dt of terrain.difficultTerrain) {
+      const [x, y] = dt.split(",").map(Number);
+      if (x >= 0 && x < width && y >= 0 && y < height && grid[y][x] === "\xB7") {
+        grid[y][x] = "\u2591";
+      }
+    }
+  }
+  const legend = [];
+  let friendlyIndex = 1;
+  let enemyIndex = 1;
+  for (const p of state.participants) {
+    if (!p.position)
+      continue;
+    const { x, y } = p.position;
+    if (x >= 0 && x < width && y >= 0 && y < height) {
+      let symbol;
+      if (p.hp <= 0) {
+        symbol = "\u2620";
+      } else if (p.isEnemy) {
+        symbol = String(enemyIndex);
+        legend.push(`  ${symbol} = ${p.name} (Enemy, HP: ${p.hp}/${p.maxHp})`);
+        enemyIndex = enemyIndex % 9 + 1;
+      } else {
+        symbol = String.fromCharCode(64 + friendlyIndex);
+        legend.push(`  ${symbol} = ${p.name} (HP: ${p.hp}/${p.maxHp})`);
+        friendlyIndex++;
+      }
+      grid[y][x] = symbol;
+    }
+  }
+  let output = "\n\u250C\u2500 COMBAT MAP \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510\n";
+  output += "    ";
+  for (let x = 0; x < width; x++) {
+    output += x % 5 === 0 ? String(x).padStart(2, " ").slice(-1) : " ";
+  }
+  output += "\n";
+  for (let y = 0; y < height; y++) {
+    const yLabel = y % 5 === 0 ? String(y).padStart(2, " ") : "  ";
+    output += `${yLabel} \u2502`;
+    for (let x = 0; x < width; x++) {
+      output += grid[y][x];
+    }
+    output += "\u2502\n";
+  }
+  output += "\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518\n";
+  if (showLegend && legend.length > 0) {
+    output += "\n\u{1F4CD} LEGEND:\n";
+    output += legend.join("\n") + "\n";
+    output += "\n  \xB7 = Empty   \u2588 = Obstacle   \u2591 = Difficult Terrain   \u2620 = Defeated\n";
+  }
+  return output;
+}
+function calculateAoE(state, shape, origin, params) {
+  const spatial = new SpatialEngine();
+  let tiles = [];
+  if (shape === "circle" && params.radius !== void 0) {
+    tiles = spatial.getCircleTiles(origin, params.radius);
+  } else if (shape === "cone" && params.direction && params.length !== void 0 && params.angle !== void 0) {
+    tiles = spatial.getConeTiles(origin, params.direction, params.length, params.angle);
+  } else if (shape === "line" && params.direction && params.length !== void 0) {
+    const endX = origin.x + params.direction.x * params.length;
+    const endY = origin.y + params.direction.y * params.length;
+    tiles = spatial.getLineTiles(origin, { x: endX, y: endY });
+  }
+  const tileSet = new Set(tiles.map((t) => `${t.x},${t.y}`));
+  const affectedParticipants = state.participants.filter((p) => p.position && tileSet.has(`${p.position.x},${p.position.y}`) && p.hp > 0).map((p) => ({ id: p.id, name: p.name, position: p.position }));
+  return { tiles, affectedParticipants };
+}
 var CombatTools = {
   CREATE_ENCOUNTER: {
     name: "create_encounter",
@@ -50911,7 +51113,8 @@ Example:
       })).min(1),
       terrain: external_exports.object({
         obstacles: external_exports.array(external_exports.string()).default([]).describe('Array of "x,y" strings for blocking tiles'),
-        difficultTerrain: external_exports.array(external_exports.string()).optional().describe('Array of "x,y" strings for difficult terrain')
+        difficultTerrain: external_exports.array(external_exports.string()).optional().describe('Array of "x,y" strings for difficult terrain'),
+        water: external_exports.array(external_exports.string()).optional().describe('Array of "x,y" strings for water terrain (streams, rivers)')
       }).optional().describe("CRIT-003: Terrain configuration for collision")
     })
   },
@@ -51021,6 +51224,79 @@ Examples:
       }).optional().describe("Saving throw required to avoid/reduce effect"),
       halfDamageOnSave: external_exports.boolean().default(true).describe("Whether successful save halves damage")
     })
+  },
+  // ============================================================
+  // VISUALIZATION TOOLS
+  // ============================================================
+  RENDER_MAP: {
+    name: "render_map",
+    description: `Render an ASCII map of the current combat state showing participant positions, obstacles, and terrain.
+Returns a text-based grid visualization with:
+- A-Z for friendly participants
+- 1-9 for enemies
+- \u2588 for obstacles
+- \u2591 for difficult terrain
+- \u2620 for defeated combatants
+
+Example:
+{
+  "encounterId": "encounter-battle-1-123456",
+  "width": 15,
+  "height": 15
+}`,
+    inputSchema: external_exports.object({
+      encounterId: external_exports.string().describe("The ID of the encounter"),
+      width: external_exports.number().int().min(5).max(50).default(20).describe("Grid width (default: 20)"),
+      height: external_exports.number().int().min(5).max(50).default(20).describe("Grid height (default: 20)"),
+      showLegend: external_exports.boolean().default(true).describe("Include legend explaining symbols")
+    })
+  },
+  CALCULATE_AOE: {
+    name: "calculate_aoe",
+    description: `Calculate which tiles and participants are affected by an Area of Effect spell or ability.
+Supports circle (Fireball), cone (Burning Hands), and line (Lightning Bolt) shapes.
+
+Example - Fireball (20ft radius circle):
+{
+  "encounterId": "encounter-1",
+  "shape": "circle",
+  "origin": { "x": 10, "y": 10 },
+  "radius": 4
+}
+
+Example - Burning Hands (15ft cone):
+{
+  "encounterId": "encounter-1",
+  "shape": "cone",
+  "origin": { "x": 5, "y": 5 },
+  "direction": { "x": 1, "y": 0 },
+  "length": 3,
+  "angle": 90
+}
+
+Example - Lightning Bolt (100ft line):
+{
+  "encounterId": "encounter-1",
+  "shape": "line",
+  "origin": { "x": 0, "y": 5 },
+  "direction": { "x": 1, "y": 0 },
+  "length": 20
+}`,
+    inputSchema: external_exports.object({
+      encounterId: external_exports.string().describe("The ID of the encounter"),
+      shape: external_exports.enum(["circle", "cone", "line"]).describe("Shape of the AoE"),
+      origin: external_exports.object({
+        x: external_exports.number(),
+        y: external_exports.number()
+      }).describe("Origin point of the AoE"),
+      radius: external_exports.number().optional().describe("Radius for circle shape (in tiles)"),
+      direction: external_exports.object({
+        x: external_exports.number(),
+        y: external_exports.number()
+      }).optional().describe("Direction vector for cone/line (e.g., {x:1,y:0} = East)"),
+      length: external_exports.number().optional().describe("Length for cone/line shapes (in tiles)"),
+      angle: external_exports.number().optional().describe("Angle for cone shape (in degrees, e.g., 90 for quarter circle)")
+    })
   }
 };
 async function handleCreateEncounter(args, ctx) {
@@ -51063,7 +51339,11 @@ async function handleCreateEncounter(args, ctx) {
       hp: p.hp,
       maxHp: p.maxHp,
       conditions: p.conditions,
-      abilityScores: p.abilityScores
+      abilityScores: p.abilityScores,
+      // Spatial visualization data
+      position: p.position,
+      movementSpeed: p.movementSpeed ?? 30,
+      size: p.size ?? "medium"
     })),
     round: state.round,
     activeTokenId: state.turnOrder[state.currentTurnIndex],
@@ -51720,6 +52000,105 @@ async function handleExecuteLairAction(args, ctx) {
   const db = getDb(process.env.NODE_ENV === "test" ? ":memory:" : "rpg.db");
   const repo = new EncounterRepository(db);
   repo.saveState(parsed.encounterId, engine.getState());
+  return {
+    content: [{
+      type: "text",
+      text: output
+    }]
+  };
+}
+async function handleRenderMap(args, ctx) {
+  const parsed = CombatTools.RENDER_MAP.inputSchema.parse(args);
+  let engine = getCombatManager().get(`${ctx.sessionId}:${parsed.encounterId}`);
+  if (!engine) {
+    const db = getDb(process.env.NODE_ENV === "test" ? ":memory:" : "rpg.db");
+    const repo = new EncounterRepository(db);
+    const state2 = repo.loadState(parsed.encounterId);
+    if (!state2) {
+      throw new Error(`Encounter ${parsed.encounterId} not found.`);
+    }
+    engine = new CombatEngine(parsed.encounterId, pubsub2 || void 0);
+    engine.loadState(state2);
+    getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
+  }
+  const state = engine.getState();
+  if (!state) {
+    throw new Error("No active encounter");
+  }
+  const map = renderGrid(state, {
+    width: parsed.width,
+    height: parsed.height,
+    showLegend: parsed.showLegend
+  });
+  return {
+    content: [{
+      type: "text",
+      text: map
+    }]
+  };
+}
+async function handleCalculateAoe(args, ctx) {
+  const parsed = CombatTools.CALCULATE_AOE.inputSchema.parse(args);
+  let engine = getCombatManager().get(`${ctx.sessionId}:${parsed.encounterId}`);
+  if (!engine) {
+    const db = getDb(process.env.NODE_ENV === "test" ? ":memory:" : "rpg.db");
+    const repo = new EncounterRepository(db);
+    const state2 = repo.loadState(parsed.encounterId);
+    if (!state2) {
+      throw new Error(`Encounter ${parsed.encounterId} not found.`);
+    }
+    engine = new CombatEngine(parsed.encounterId, pubsub2 || void 0);
+    engine.loadState(state2);
+    getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
+  }
+  const state = engine.getState();
+  if (!state) {
+    throw new Error("No active encounter");
+  }
+  const result = calculateAoE(state, parsed.shape, parsed.origin, {
+    radius: parsed.radius,
+    direction: parsed.direction,
+    length: parsed.length,
+    angle: parsed.angle
+  });
+  let output = `
+\u250C\u2500 AREA OF EFFECT \u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2510
+`;
+  output += `\u2502 Shape: ${parsed.shape.toUpperCase()}
+`;
+  output += `\u2502 Origin: (${parsed.origin.x}, ${parsed.origin.y})
+`;
+  if (parsed.radius)
+    output += `\u2502 Radius: ${parsed.radius} tiles
+`;
+  if (parsed.length)
+    output += `\u2502 Length: ${parsed.length} tiles
+`;
+  if (parsed.angle)
+    output += `\u2502 Angle: ${parsed.angle}\xB0
+`;
+  output += `\u2514\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2518
+
+`;
+  output += `\u{1F4CD} Affected Tiles: ${result.tiles.length}
+`;
+  if (result.affectedParticipants.length > 0) {
+    output += `
+\u26A0\uFE0F AFFECTED CREATURES:
+`;
+    for (const p of result.affectedParticipants) {
+      output += `  \u2022 ${p.name} at (${p.position.x}, ${p.position.y})
+`;
+    }
+  } else {
+    output += `
+\u2713 No creatures in area of effect
+`;
+  }
+  output += `
+<!-- AOE_JSON
+${JSON.stringify(result)}
+AOE_JSON -->`;
   return {
     content: [{
       type: "text",
@@ -63992,6 +64371,17 @@ function buildToolRegistry() {
       metadata: meta(CombatTools.EXECUTE_LAIR_ACTION.name, CombatTools.EXECUTE_LAIR_ACTION.description, "combat", ["lair", "action", "legendary", "environment", "boss"], ["Lair action resolution", "Environmental effects"], false, "medium"),
       schema: CombatTools.EXECUTE_LAIR_ACTION.inputSchema,
       handler: handleExecuteLairAction
+    },
+    // === COMBAT VISUALIZATION TOOLS ===
+    [CombatTools.RENDER_MAP.name]: {
+      metadata: meta(CombatTools.RENDER_MAP.name, CombatTools.RENDER_MAP.description, "combat", ["map", "grid", "visualization", "ascii", "combat", "position", "spatial"], ["Combat map visualization", "Participant positions", "Terrain display"], true, "medium"),
+      schema: CombatTools.RENDER_MAP.inputSchema,
+      handler: handleRenderMap
+    },
+    [CombatTools.CALCULATE_AOE.name]: {
+      metadata: meta(CombatTools.CALCULATE_AOE.name, CombatTools.CALCULATE_AOE.description, "combat", ["aoe", "area", "effect", "fireball", "cone", "line", "spell", "radius"], ["AoE calculation", "Target detection", "Spell area"], false, "medium"),
+      schema: CombatTools.CALCULATE_AOE.inputSchema,
+      handler: handleCalculateAoe
     },
     // === CHARACTER/CRUD TOOLS ===
     [CRUDTools.CREATE_WORLD.name]: {

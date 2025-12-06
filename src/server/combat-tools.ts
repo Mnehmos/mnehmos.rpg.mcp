@@ -70,7 +70,7 @@ function buildStateJson(state: CombatState, encounterId: string) {
         hasLairActions: state.hasLairActions ?? false,
         lairOwnerId: state.lairOwnerId,
         // Spatial visualization data
-        terrain: state.terrain ?? { obstacles: [], difficultTerrain: [] },
+        terrain: state.terrain ?? { obstacles: [], difficultTerrain: [], water: [] },
         gridBounds: state.gridBounds ?? null
     };
 }
@@ -491,7 +491,8 @@ Example:
             })).min(1),
             terrain: z.object({
                 obstacles: z.array(z.string()).default([]).describe('Array of "x,y" strings for blocking tiles'),
-                difficultTerrain: z.array(z.string()).optional().describe('Array of "x,y" strings for difficult terrain')
+                difficultTerrain: z.array(z.string()).optional().describe('Array of "x,y" strings for difficult terrain'),
+                water: z.array(z.string()).optional().describe('Array of "x,y" strings for water terrain (streams, rivers)')
             }).optional().describe('CRIT-003: Terrain configuration for collision')
         })
     },
