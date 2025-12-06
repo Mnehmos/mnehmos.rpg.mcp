@@ -606,6 +606,13 @@ function runMigrations(db: Database.Database) {
     console.error('[Migration] Adding immunities column to characters table');
     db.exec(`ALTER TABLE characters ADD COLUMN immunities TEXT DEFAULT '[]';`);
   }
+
+  // Add currency column for gold/silver/copper tracking
+  const hasCurrency = charColumns.some(col => col.name === 'currency');
+  if (!hasCurrency) {
+    console.error('[Migration] Adding currency column to characters table');
+    db.exec(`ALTER TABLE characters ADD COLUMN currency TEXT DEFAULT '{"gold":0,"silver":0,"copper":0}';`);
+  }
 }
 
 function createPostMigrationIndexes(db: Database.Database) {

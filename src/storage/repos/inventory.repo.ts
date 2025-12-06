@@ -21,14 +21,14 @@ export class InventoryRepository {
             slot: row.slot || undefined
         }));
 
-        // Note: Capacity and currency would typically be stored on the character or a separate table.
-        // For now, we'll use defaults or mock values as they aren't in the schema yet.
-        // In a real implementation, we'd likely join with the characters table or an inventory_metadata table.
+        // Get currency from characters table
+        const currency = this.getCurrency(characterId);
+
         return InventorySchema.parse({
             characterId,
             items,
             capacity: 100, // Default
-            currency: { gold: 0, silver: 0, copper: 0 } // Default
+            currency
         });
     }
 
@@ -145,13 +145,144 @@ export class InventoryRepository {
 
         const totalWeight = items.reduce((sum, i) => sum + (i.item.weight * i.quantity), 0);
 
+        const currency = this.getCurrency(characterId);
+
         return {
             characterId,
             items,
             totalWeight,
             capacity: 100,
-            currency: { gold: 0, silver: 0, copper: 0 }
+            currency
         };
+    }
+
+    // ============================================================
+    // CURRENCY OPERATIONS
+    // ============================================================
+
+    /**
+     * Get currency for a character
+     */
+    getCurrency(characterId: string): { gold: number; silver: number; copper: number } {
+        const stmt = this.db.prepare('SELECT currency FROM characters WHERE id = ?');
+        const row = stmt.get(characterId) as { currency: string | null } | undefined;
+
+        if (!row || !row.currency) {
+            return { gold: 0, silver: 0, copper: 0 };
+        }
+
+        try {
+            const parsed = JSON.parse(row.currency);
+            return {
+                gold: parsed.gold ?? 0,
+                silver: parsed.silver ?? 0,
+                copper: parsed.copper ?? 0
+            };
+        } catch {
+            return { gold: 0, silver: 0, copper: 0 };
+        }
+    }
+
+    /**
+     * Set currency for a character (replaces existing)
+     */
+    setCurrency(characterId: string, currency: { gold?: number; silver?: number; copper?: number }): void {
+        const current = this.getCurrency(characterId);
+        const updated = {
+            gold: currency.gold ?? current.gold,
+            silver: currency.silver ?? current.silver,
+            copper: currency.copper ?? current.copper
+        };
+
+        const stmt = this.db.prepare('UPDATE characters SET currency = ? WHERE id = ?');
+        stmt.run(JSON.stringify(updated), characterId);
+    }
+
+    /**
+     * Add currency to a character
+     */
+    addCurrency(characterId: string, currency: { gold?: number; silver?: number; copper?: number }): { gold: number; silver: number; copper: number } {
+        const current = this.getCurrency(characterId);
+        const updated = {
+            gold: current.gold + (currency.gold ?? 0),
+            silver: current.silver + (currency.silver ?? 0),
+            copper: current.copper + (currency.copper ?? 0)
+        };
+
+        const stmt = this.db.prepare('UPDATE characters SET currency = ? WHERE id = ?');
+        stmt.run(JSON.stringify(updated), characterId);
+
+        return updated;
+    }
+
+    /**
+     * Remove currency from a character
+     * @returns true if successful, false if insufficient funds
+     */
+    removeCurrency(characterId: string, currency: { gold?: number; silver?: number; copper?: number }): boolean {
+        const current = this.getCurrency(characterId);
+
+        // Convert everything to copper for comparison
+        const currentTotal = current.gold * 100 + current.silver * 10 + current.copper;
+        const removeTotal = (currency.gold ?? 0) * 100 + (currency.silver ?? 0) * 10 + (currency.copper ?? 0);
+
+        if (removeTotal > currentTotal) {
+            return false;
+        }
+
+        // Simple subtraction (doesn't auto-convert denominations)
+        const updated = {
+            gold: current.gold - (currency.gold ?? 0),
+            silver: current.silver - (currency.silver ?? 0),
+            copper: current.copper - (currency.copper ?? 0)
+        };
+
+        // Handle negative values by borrowing
+        if (updated.copper < 0) {
+            const needed = Math.ceil(-updated.copper / 10);
+            updated.silver -= needed;
+            updated.copper += needed * 10;
+        }
+        if (updated.silver < 0) {
+            const needed = Math.ceil(-updated.silver / 10);
+            updated.gold -= needed;
+            updated.silver += needed * 10;
+        }
+
+        if (updated.gold < 0) {
+            return false; // Shouldn't happen if our total check was correct
+        }
+
+        const stmt = this.db.prepare('UPDATE characters SET currency = ? WHERE id = ?');
+        stmt.run(JSON.stringify(updated), characterId);
+
+        return true;
+    }
+
+    /**
+     * Transfer currency between characters
+     * @returns true if successful, false if insufficient funds
+     */
+    transferCurrency(fromCharacterId: string, toCharacterId: string, currency: { gold?: number; silver?: number; copper?: number }): boolean {
+        const transfer = this.db.transaction(() => {
+            if (!this.removeCurrency(fromCharacterId, currency)) {
+                return false;
+            }
+            this.addCurrency(toCharacterId, currency);
+            return true;
+        });
+
+        return transfer();
+    }
+
+    /**
+     * Check if character has at least this much currency
+     */
+    hasCurrency(characterId: string, currency: { gold?: number; silver?: number; copper?: number }): boolean {
+        const current = this.getCurrency(characterId);
+        const currentTotal = current.gold * 100 + current.silver * 10 + current.copper;
+        const requiredTotal = (currency.gold ?? 0) * 100 + (currency.silver ?? 0) * 10 + (currency.copper ?? 0);
+        return currentTotal >= requiredTotal;
     }
 }
 

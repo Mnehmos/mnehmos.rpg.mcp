@@ -369,10 +369,22 @@ export class TheftRepository {
 
     /**
      * Record a fence transaction
+     * @param paySeller - If true, transfers gold from fence to seller
+     * @param sellerId - Required if paySeller is true
+     * @param price - Required if paySeller is true (amount to pay)
      */
-    recordFenceTransaction(fenceId: string, itemId: string, itemHeatLevel: HeatLevel): void {
+    recordFenceTransaction(
+        fenceId: string,
+        itemId: string,
+        itemHeatLevel: HeatLevel,
+        options?: {
+            paySeller?: boolean;
+            sellerId?: string;
+            price?: number;
+        }
+    ): { fenced: boolean; paid: boolean; amountPaid?: number } {
         const fence = this.getFence(fenceId);
-        if (!fence) return;
+        if (!fence) return { fenced: false, paid: false };
 
         const heatValue = HEAT_VALUES[itemHeatLevel];
 
@@ -386,6 +398,15 @@ export class TheftRepository {
 
         // Mark item as fenced
         this.markFenced(itemId, fenceId);
+
+        // Optionally pay the seller
+        let paid = false;
+        if (options?.paySeller && options?.sellerId && options?.price) {
+            this.inventoryRepo.addCurrency(options.sellerId, { gold: options.price });
+            paid = true;
+        }
+
+        return { fenced: true, paid, amountPaid: paid ? options?.price : undefined };
     }
 
     /**

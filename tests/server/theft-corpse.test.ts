@@ -1271,3 +1271,280 @@ describe('Category 11: Optional Item Transfers', () => {
         expect(record.transferred).toBe(false);
     });
 });
+
+// ============================================================================
+// CATEGORY 12: CURRENCY OPERATIONS
+// ============================================================================
+describe('Category 12: Currency Operations', () => {
+
+    test('12.1 - new character starts with zero currency', () => {
+        const character = createCharacter({ name: 'Penniless' });
+
+        const currency = invRepo.getCurrency(character.id);
+
+        expect(currency.gold).toBe(0);
+        expect(currency.silver).toBe(0);
+        expect(currency.copper).toBe(0);
+    });
+
+    test('12.2 - can set currency for character', () => {
+        const character = createCharacter({ name: 'Wealthy' });
+
+        invRepo.setCurrency(character.id, { gold: 100, silver: 50, copper: 25 });
+
+        const currency = invRepo.getCurrency(character.id);
+        expect(currency.gold).toBe(100);
+        expect(currency.silver).toBe(50);
+        expect(currency.copper).toBe(25);
+    });
+
+    test('12.3 - can add currency to character', () => {
+        const character = createCharacter({ name: 'Earner' });
+        invRepo.setCurrency(character.id, { gold: 10 });
+
+        const updated = invRepo.addCurrency(character.id, { gold: 5, silver: 30 });
+
+        expect(updated.gold).toBe(15);
+        expect(updated.silver).toBe(30);
+        expect(updated.copper).toBe(0);
+    });
+
+    test('12.4 - can remove currency from character', () => {
+        const character = createCharacter({ name: 'Spender' });
+        invRepo.setCurrency(character.id, { gold: 50, silver: 20 });
+
+        const success = invRepo.removeCurrency(character.id, { gold: 30, silver: 10 });
+
+        expect(success).toBe(true);
+        const currency = invRepo.getCurrency(character.id);
+        expect(currency.gold).toBe(20);
+        expect(currency.silver).toBe(10);
+    });
+
+    test('12.5 - cannot remove more currency than available', () => {
+        const character = createCharacter({ name: 'Poor' });
+        invRepo.setCurrency(character.id, { gold: 10 });
+
+        const success = invRepo.removeCurrency(character.id, { gold: 50 });
+
+        expect(success).toBe(false);
+        // Currency should be unchanged
+        const currency = invRepo.getCurrency(character.id);
+        expect(currency.gold).toBe(10);
+    });
+
+    test('12.6 - can transfer currency between characters', () => {
+        const giver = createCharacter({ name: 'Giver' });
+        const receiver = createCharacter({ name: 'Receiver' });
+        invRepo.setCurrency(giver.id, { gold: 100 });
+
+        const success = invRepo.transferCurrency(giver.id, receiver.id, { gold: 40 });
+
+        expect(success).toBe(true);
+        expect(invRepo.getCurrency(giver.id).gold).toBe(60);
+        expect(invRepo.getCurrency(receiver.id).gold).toBe(40);
+    });
+
+    test('12.7 - currency transfer fails if insufficient funds', () => {
+        const giver = createCharacter({ name: 'Broke Giver' });
+        const receiver = createCharacter({ name: 'Hopeful Receiver' });
+        invRepo.setCurrency(giver.id, { gold: 10 });
+
+        const success = invRepo.transferCurrency(giver.id, receiver.id, { gold: 50 });
+
+        expect(success).toBe(false);
+        // Neither should have changed
+        expect(invRepo.getCurrency(giver.id).gold).toBe(10);
+        expect(invRepo.getCurrency(receiver.id).gold).toBe(0);
+    });
+
+    test('12.8 - hasCurrency checks correctly', () => {
+        const character = createCharacter({ name: 'Checker' });
+        invRepo.setCurrency(character.id, { gold: 50, silver: 25 });
+
+        expect(invRepo.hasCurrency(character.id, { gold: 30 })).toBe(true);
+        expect(invRepo.hasCurrency(character.id, { gold: 50, silver: 25 })).toBe(true);
+        expect(invRepo.hasCurrency(character.id, { gold: 100 })).toBe(false);
+    });
+
+    test('12.9 - hasCurrency works with mixed denominations', () => {
+        const character = createCharacter({ name: 'Mixed' });
+        // 50 gold = 5000 copper, 25 silver = 250 copper, 10 copper = 10 copper
+        // Total: 5260 copper
+        invRepo.setCurrency(character.id, { gold: 50, silver: 25, copper: 10 });
+
+        // 52 gold 60 copper = 5260 copper - should have exactly enough
+        expect(invRepo.hasCurrency(character.id, { gold: 52, copper: 60 })).toBe(true);
+        // 53 gold = 5300 copper - should not have enough
+        expect(invRepo.hasCurrency(character.id, { gold: 53 })).toBe(false);
+    });
+
+    test('12.10 - inventory includes currency', () => {
+        const character = createCharacter({ name: 'Investor' });
+        invRepo.setCurrency(character.id, { gold: 75, silver: 50, copper: 100 });
+
+        const inventory = invRepo.getInventory(character.id);
+
+        expect(inventory.currency.gold).toBe(75);
+        expect(inventory.currency.silver).toBe(50);
+        expect(inventory.currency.copper).toBe(100);
+    });
+});
+
+// ============================================================================
+// CATEGORY 13: FENCE PAYMENT
+// ============================================================================
+describe('Category 13: Fence Payment', () => {
+
+    test('13.1 - fence transaction without payment (narrative only)', () => {
+        const fenceNpc = createCharacter({ name: 'Narrative Fence' });
+        const thief = createCharacter({ name: 'Narrative Thief' });
+        const merchant = createCharacter({ name: 'Victim' });
+        const itemId = createItem('Stolen Goods', 200);
+
+        theftRepo.registerFence({
+            npcId: fenceNpc.id,
+            maxHeatLevel: 'cold',
+            buyRate: 0.5
+        });
+
+        theftRepo.recordTheft({
+            itemId,
+            stolenFrom: merchant.id,
+            stolenBy: thief.id
+        });
+
+        // Cool the item down
+        theftRepo.updateHeatLevel(itemId, 'cold');
+
+        const result = theftRepo.recordFenceTransaction(fenceNpc.id, itemId, 'cold');
+
+        expect(result.fenced).toBe(true);
+        expect(result.paid).toBe(false);
+        expect(result.amountPaid).toBeUndefined();
+
+        // Thief should have no gold
+        expect(invRepo.getCurrency(thief.id).gold).toBe(0);
+    });
+
+    test('13.2 - fence transaction with payment', () => {
+        const fenceNpc = createCharacter({ name: 'Paying Fence' });
+        const thief = createCharacter({ name: 'Paid Thief' });
+        const merchant = createCharacter({ name: 'Another Victim' });
+        const itemId = createItem('Valuable Loot', 500);
+
+        theftRepo.registerFence({
+            npcId: fenceNpc.id,
+            maxHeatLevel: 'cold',
+            buyRate: 0.4 // 40%
+        });
+
+        theftRepo.recordTheft({
+            itemId,
+            stolenFrom: merchant.id,
+            stolenBy: thief.id
+        });
+
+        // Cool the item down
+        theftRepo.updateHeatLevel(itemId, 'cold');
+
+        // Calculate price (500 * 0.4 = 200 gold)
+        const result = theftRepo.recordFenceTransaction(fenceNpc.id, itemId, 'cold', {
+            paySeller: true,
+            sellerId: thief.id,
+            price: 200
+        });
+
+        expect(result.fenced).toBe(true);
+        expect(result.paid).toBe(true);
+        expect(result.amountPaid).toBe(200);
+
+        // Thief should have the gold
+        expect(invRepo.getCurrency(thief.id).gold).toBe(200);
+    });
+
+    test('13.3 - fence payment accumulates with existing gold', () => {
+        const fenceNpc = createCharacter({ name: 'Second Fence' });
+        const thief = createCharacter({ name: 'Repeat Thief' });
+        const merchant = createCharacter({ name: 'Merchant 2' });
+
+        // Thief already has some gold
+        invRepo.setCurrency(thief.id, { gold: 50 });
+
+        theftRepo.registerFence({
+            npcId: fenceNpc.id,
+            maxHeatLevel: 'cold',
+            buyRate: 0.5
+        });
+
+        const itemId = createItem('Another Item', 100);
+        theftRepo.recordTheft({
+            itemId,
+            stolenFrom: merchant.id,
+            stolenBy: thief.id
+        });
+        theftRepo.updateHeatLevel(itemId, 'cold');
+
+        theftRepo.recordFenceTransaction(fenceNpc.id, itemId, 'cold', {
+            paySeller: true,
+            sellerId: thief.id,
+            price: 50 // 100 * 0.5
+        });
+
+        // Thief should have 50 + 50 = 100 gold
+        expect(invRepo.getCurrency(thief.id).gold).toBe(100);
+    });
+
+    test('13.4 - canFenceAccept calculates correct price', () => {
+        const fenceNpc = createCharacter({ name: 'Price Fence' });
+        const merchant = createCharacter({ name: 'Price Victim' });
+        const thief = createCharacter({ name: 'Price Thief' });
+        const itemId = createItem('Priced Item', 1000);
+
+        theftRepo.registerFence({
+            npcId: fenceNpc.id,
+            maxHeatLevel: 'cold',
+            buyRate: 0.35, // 35%
+            dailyHeatCapacity: 100
+        });
+
+        theftRepo.recordTheft({
+            itemId,
+            stolenFrom: merchant.id,
+            stolenBy: thief.id
+        });
+        theftRepo.updateHeatLevel(itemId, 'cold');
+
+        const record = theftRepo.getTheftRecord(itemId)!;
+        const result = theftRepo.canFenceAccept(fenceNpc.id, record, 1000);
+
+        expect(result.accepted).toBe(true);
+        expect(result.price).toBe(350); // 1000 * 0.35
+    });
+
+    test('13.5 - default fence transaction behavior is no payment (backwards compatible)', () => {
+        const fenceNpc = createCharacter({ name: 'Default Fence' });
+        const merchant = createCharacter({ name: 'Default Victim' });
+        const thief = createCharacter({ name: 'Default Thief' });
+        const itemId = createItem('Default Item', 100);
+
+        theftRepo.registerFence({
+            npcId: fenceNpc.id,
+            maxHeatLevel: 'cold'
+        });
+
+        theftRepo.recordTheft({
+            itemId,
+            stolenFrom: merchant.id,
+            stolenBy: thief.id
+        });
+        theftRepo.updateHeatLevel(itemId, 'cold');
+
+        // Call without options (backwards compatible)
+        const result = theftRepo.recordFenceTransaction(fenceNpc.id, itemId, 'cold');
+
+        expect(result.fenced).toBe(true);
+        expect(result.paid).toBe(false);
+        expect(invRepo.getCurrency(thief.id).gold).toBe(0);
+    });
+});
