@@ -14,6 +14,7 @@ import { describe, test, expect, beforeEach, afterEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { v4 as uuid } from 'uuid';
 import { migrate } from '../../src/storage/migrations.js';
+import { setDb, closeDb } from '../../src/storage/index.js';
 import { CustomEffectsRepository } from '../../src/storage/repos/custom-effects.repo.js';
 import { CharacterRepository } from '../../src/storage/repos/character.repo.js';
 import {
@@ -34,12 +35,14 @@ let charRepo: CharacterRepository;
 beforeEach(() => {
     db = new Database(':memory:');
     migrate(db);
+    // Set the test database as the singleton so handlers use it
+    setDb(db);
     effectsRepo = new CustomEffectsRepository(db);
     charRepo = new CharacterRepository(db);
 });
 
 afterEach(() => {
-    db.close();
+    closeDb();
 });
 
 // Helper functions

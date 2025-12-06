@@ -1,10 +1,10 @@
 {
   "permissions": {
     "allow": [
-      "Skill(rpg-mcp-backend)",
-      "Bash(grep:*)",
-      "Bash(cat:*)",
-      "Bash(node -e:*)",
+      "Bash(git commit -m \"$(cat <<''EOF''\nfeat(currency): Add gold/silver/copper tracking and fence payment option\n\n- Add currency column to characters table (migration)\n- InventoryRepository: getCurrency, setCurrency, addCurrency, removeCurrency\n- InventoryRepository: transferCurrency, hasCurrency methods\n- Currency auto-converts denominations when borrowing needed\n- recordFenceTransaction now accepts paySeller option\n- DM can choose narrative-only or mechanical gold payment\n- Backwards compatible - defaults to no transfer\n- Added 15 tests for currency and fence payment (597 total)\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nCo-Authored-By: Claude <noreply@anthropic.com>\nEOF\n)\")",
+      "Bash(git commit:*)",
+      "Bash(dir:*)",
+      "Bash(npm test:*)",
       "Bash(git add:*)"
     ],
     "deny": [],
