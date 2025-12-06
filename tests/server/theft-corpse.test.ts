@@ -188,6 +188,21 @@ describe('Category 1: Theft Recording', () => {
 
         expect(record.witnesses).toEqual([]);
     });
+
+    // EDGE-001: Self-theft validation
+    test('1.8 - EDGE-001: self-theft should be rejected (thief === victim)', () => {
+        const character = createCharacter({ name: 'Self-Thief' });
+        const itemId = createItem('Self Item');
+        addItemToInventory(character.id, itemId);
+
+        expect(() => {
+            theftRepo.recordTheft({
+                itemId,
+                stolenFrom: character.id,
+                stolenBy: character.id  // Same as stolenFrom - should fail!
+            });
+        }).toThrow('Cannot steal from yourself');
+    });
 });
 
 // ============================================================================

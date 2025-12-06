@@ -73,6 +73,11 @@ export class TheftRepository {
         transferItem?: boolean;
         quantity?: number;
     }): StolenItemRecord & { transferred: boolean } {
+        // EDGE-001: Prevent self-theft
+        if (record.stolenFrom === record.stolenBy) {
+            throw new Error('Cannot steal from yourself');
+        }
+
         const now = new Date().toISOString();
         const id = uuid();
 
