@@ -201,7 +201,7 @@ describe('Category 1: Theft Recording', () => {
                 stolenFrom: character.id,
                 stolenBy: character.id  // Same as stolenFrom - should fail!
             });
-        }).toThrow('Cannot steal from yourself');
+        }).toThrow('A character cannot steal from themselves');
     });
 });
 
@@ -469,7 +469,7 @@ describe('Category 3: Fence Operations', () => {
     });
 
     // EDGE-006: Victim/fence conflict detection
-    test('3.10 - EDGE-006: registering victim as fence returns warning', () => {
+    test('3.10 - EDGE-006: registering victim as fence throws error', () => {
         const victimMerchant = createCharacter({ name: 'Victim Merchant' });
         const thief = createCharacter({ name: 'Thief' });
         const itemId = createItem('Stolen Item');
@@ -482,17 +482,16 @@ describe('Category 3: Fence Operations', () => {
             stolenBy: thief.id
         });
 
-        // Now register the victim as a fence - should work but return warning
-        const result = theftRepo.registerFence({
-            npcId: victimMerchant.id,
-            buyRate: 0.3
-        });
-
-        expect(result.npcId).toBe(victimMerchant.id);
-        expect(result.warning).toContain('victim');
+        // Now attempt to register the victim as a fence - should throw error
+        expect(() => {
+            theftRepo.registerFence({
+                npcId: victimMerchant.id,
+                buyRate: 0.3
+            });
+        }).toThrow('Cannot register a theft victim as a fence');
     });
 
-    test('3.11 - EDGE-006: registering non-victim as fence has no warning', () => {
+    test('3.11 - EDGE-006: registering non-victim as fence succeeds', () => {
         const normalFence = createCharacter({ name: 'Normal Fence' });
 
         const result = theftRepo.registerFence({
@@ -501,7 +500,7 @@ describe('Category 3: Fence Operations', () => {
         });
 
         expect(result.npcId).toBe(normalFence.id);
-        expect(result.warning).toBeUndefined();
+        expect(result.buyRate).toBe(0.5);
     });
 });
 
@@ -1971,5 +1970,73 @@ describe('Category 15: Harvest With Item Creation', () => {
         expect(result.success).toBe(true);
         expect(result.transferred).toBe(false);
         expect(result.itemId).toBeUndefined();
+    });
+});
+
+// ============================================================================
+// CATEGORY 10: EDGE CASE FIXES
+// ============================================================================
+describe('Category 10: Edge Case Fixes', () => {
+
+    test('EDGE-001 - prevent self-theft at repository level', () => {
+        const character = createCharacter({ name: 'Test Character' });
+        const itemId = createItem('Self-owned Item', 100);
+        addItemToInventory(character.id, itemId);
+
+        // Attempt to steal from self
+        expect(() => {
+            theftRepo.recordTheft({
+                itemId,
+                stolenFrom: character.id,
+                stolenBy: character.id,  // Same as victim!
+                stolenLocation: null
+            });
+        }).toThrow('A character cannot steal from themselves');
+    });
+
+    test('EDGE-006 - prevent victim from being registered as fence', () => {
+        const victim = createCharacter({ name: 'Victim NPC' });
+        const thief = createCharacter({ name: 'Thief' });
+        const itemId = createItem('Stolen Gold Ring', 200);
+        addItemToInventory(victim.id, itemId);
+
+        // Record a theft where victim had something stolen
+        theftRepo.recordTheft({
+            itemId,
+            stolenFrom: victim.id,
+            stolenBy: thief.id,
+            stolenLocation: 'tavern'
+        });
+
+        // Attempt to register victim as a fence
+        expect(() => {
+            theftRepo.registerFence({
+                npcId: victim.id,
+                factionId: null,
+                buyRate: 0.4,
+                maxHeatLevel: 'hot',
+                dailyHeatCapacity: 100,
+                specializations: [],
+                cooldownDays: 7
+            });
+        }).toThrow('Cannot register a theft victim as a fence');
+    });
+
+    test('EDGE-006 - allow fence registration if no items stolen from them', () => {
+        const cleanNpc = createCharacter({ name: 'Clean Fence NPC' });
+
+        // This should succeed because cleanNpc has never been a victim
+        const fence = theftRepo.registerFence({
+            npcId: cleanNpc.id,
+            factionId: null,
+            buyRate: 0.4,
+            maxHeatLevel: 'hot',
+            dailyHeatCapacity: 100,
+            specializations: [],
+            cooldownDays: 7
+        });
+
+        expect(fence.npcId).toBe(cleanNpc.id);
+        expect(fence.buyRate).toBe(0.4);
     });
 });

@@ -338,7 +338,7 @@ Example:
                 hp: z.number().int().positive(),
                 maxHp: z.number().int().positive(),
                 isEnemy: z.boolean().optional().describe('Whether this is an enemy (auto-detected if not set)'),
-                conditions: z.array(z.any()).default([]),
+                conditions: z.array(z.string()).default([]),
                 position: z.object({ x: z.number(), y: z.number(), z: z.number().optional() }).optional()
                     .describe('CRIT-003: Spatial position for movement (x, y coordinates)'),
                 // HIGH-002: Damage modifiers

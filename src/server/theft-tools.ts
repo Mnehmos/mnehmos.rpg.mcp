@@ -147,6 +147,19 @@ export async function handleStealItem(args: unknown, _ctx: SessionContext) {
     const parsed = TheftTools.STEAL_ITEM.inputSchema.parse(args);
     const repo = getRepo();
 
+    // EDGE-001: Prevent self-theft - a character cannot steal from themselves
+    if (parsed.thiefId === parsed.victimId) {
+        return {
+            content: [{
+                type: 'text' as const,
+                text: JSON.stringify({
+                    success: false,
+                    error: 'A character cannot steal from themselves'
+                }, null, 2)
+            }]
+        };
+    }
+
     const record = repo.recordTheft({
         itemId: parsed.itemId,
         stolenFrom: parsed.victimId,
@@ -380,6 +393,23 @@ export async function handleSellToFence(args: unknown, _ctx: SessionContext) {
 export async function handleRegisterFence(args: unknown, _ctx: SessionContext) {
     const parsed = TheftTools.REGISTER_FENCE.inputSchema.parse(args);
     const repo = getRepo();
+
+    // EDGE-006: Prevent theft victims from being registered as fences
+    // This creates immersion-breaking scenarios where victims buy back their own stolen goods
+    const stolenFromVictim = repo.getItemsStolenFrom(parsed.npcId);
+    if (stolenFromVictim.length > 0) {
+        return {
+            content: [{
+                type: 'text' as const,
+                text: JSON.stringify({
+                    success: false,
+                    error: 'Cannot register a theft victim as a fence',
+                    reason: `${parsed.npcId} has had ${stolenFromVictim.length} item(s) stolen from them`,
+                    suggestion: 'Theft victims cannot act as fences for narrative consistency'
+                }, null, 2)
+            }]
+        };
+    }
 
     const fence = repo.registerFence({
         npcId: parsed.npcId,

@@ -6,7 +6,8 @@
       "Bash(dir:*)",
       "Bash(npm test:*)",
       "Bash(git add:*)",
-      "Bash(git push)"
+      "Bash(git push)",
+      "Bash(npm run build:*)"
     ],
     "deny": [],
     "ask": []

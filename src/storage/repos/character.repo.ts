@@ -16,13 +16,13 @@ export class CharacterRepository {
                               cantrips_known, max_spell_level, concentrating_on, conditions,
                               legendary_actions, legendary_actions_remaining, legendary_resistances,
                               legendary_resistances_remaining, has_lair_actions, resistances, vulnerabilities, immunities,
-                              current_room_id, created_at, updated_at)
+                              current_room_id, perception_bonus, stealth_bonus, created_at, updated_at)
       VALUES (@id, @name, @stats, @hp, @maxHp, @ac, @level, @factionId, @behavior, @characterType,
               @characterClass, @spellSlots, @pactMagicSlots, @knownSpells, @preparedSpells,
               @cantripsKnown, @maxSpellLevel, @concentratingOn, @conditions,
               @legendaryActions, @legendaryActionsRemaining, @legendaryResistances,
               @legendaryResistancesRemaining, @hasLairActions, @resistances, @vulnerabilities, @immunities,
-              @currentRoomId, @createdAt, @updatedAt)
+              @currentRoomId, @perceptionBonus, @stealthBonus, @createdAt, @updatedAt)
     `);
 
         stmt.run({
@@ -57,6 +57,9 @@ export class CharacterRepository {
             immunities: JSON.stringify(validChar.immunities || []),
             // PHASE-1: Spatial awareness
             currentRoomId: validChar.currentRoomId || null,
+            // PHASE-2: Social hearing mechanics skill bonuses
+            perceptionBonus: validChar.perceptionBonus || 0,
+            stealthBonus: validChar.stealthBonus || 0,
             createdAt: validChar.createdAt,
             updatedAt: validChar.updatedAt,
         });
@@ -114,7 +117,7 @@ export class CharacterRepository {
                 legendary_actions = ?, legendary_actions_remaining = ?,
                 legendary_resistances = ?, legendary_resistances_remaining = ?,
                 has_lair_actions = ?, resistances = ?, vulnerabilities = ?, immunities = ?,
-                current_room_id = ?, updated_at = ?
+                current_room_id = ?, perception_bonus = ?, stealth_bonus = ?, updated_at = ?
             WHERE id = ?
         `);
 
@@ -149,6 +152,9 @@ export class CharacterRepository {
             JSON.stringify(validChar.immunities || []),
             // PHASE-1: Spatial awareness
             validChar.currentRoomId || null,
+            // PHASE-2: Social hearing mechanics skill bonuses
+            validChar.perceptionBonus || 0,
+            validChar.stealthBonus || 0,
             validChar.updatedAt,
             id
         );
@@ -193,6 +199,9 @@ export class CharacterRepository {
             immunities: row.immunities ? JSON.parse(row.immunities) : [],
             // PHASE-1: Spatial awareness
             currentRoomId: row.current_room_id || undefined,
+            // PHASE-2: Social hearing mechanics skill bonuses
+            perceptionBonus: row.perception_bonus ?? 0,
+            stealthBonus: row.stealth_bonus ?? 0,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
         };
@@ -241,6 +250,9 @@ interface CharacterRow {
     immunities: string | null;
     // PHASE-1: Spatial awareness
     current_room_id: string | null;
+    // PHASE-2: Social hearing mechanics skill bonuses
+    perception_bonus: number | null;
+    stealth_bonus: number | null;
     created_at: string;
     updated_at: string;
 }

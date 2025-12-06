@@ -27,6 +27,12 @@ export const CharacterSchema = z.object({
     level: z.number().int().min(1),
     characterType: CharacterTypeSchema.optional().default('pc'),
 
+    // PHASE-2: Social Hearing Mechanics - skill bonuses for opposed rolls
+    perceptionBonus: z.number().int().optional().default(0)
+        .describe('Proficiency bonus for Perception checks (WIS-based)'),
+    stealthBonus: z.number().int().optional().default(0)
+        .describe('Proficiency bonus for Stealth checks (DEX-based)'),
+
     // Spellcasting fields (CRIT-002/006)
     // Flexible character class - allows any string (standard D&D classes or custom like "Chronomancer")
     characterClass: z.string().optional().default('fighter'),

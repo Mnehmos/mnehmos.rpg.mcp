@@ -718,6 +718,19 @@ function runMigrations(db: Database.Database) {
     console.error('[Migration] Adding current_room_id column to characters table');
     db.exec(`ALTER TABLE characters ADD COLUMN current_room_id TEXT REFERENCES room_nodes(id) ON DELETE SET NULL;`);
   }
+
+  // PHASE-2: Add perception and stealth skill bonuses for social hearing mechanics
+  const hasPerceptionBonus = charColumns.some(col => col.name === 'perception_bonus');
+  const hasStealthBonus = charColumns.some(col => col.name === 'stealth_bonus');
+
+  if (!hasPerceptionBonus) {
+    console.error('[Migration] Adding perception_bonus column to characters table');
+    db.exec(`ALTER TABLE characters ADD COLUMN perception_bonus INTEGER DEFAULT 0;`);
+  }
+  if (!hasStealthBonus) {
+    console.error('[Migration] Adding stealth_bonus column to characters table');
+    db.exec(`ALTER TABLE characters ADD COLUMN stealth_bonus INTEGER DEFAULT 0;`);
+  }
 }
 
 function createPostMigrationIndexes(db: Database.Database) {
