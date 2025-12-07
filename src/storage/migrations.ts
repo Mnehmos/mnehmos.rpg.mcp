@@ -569,6 +569,27 @@ export function migrate(db: Database.Database) {
   );
 
   CREATE INDEX IF NOT EXISTS idx_auras_owner ON auras(owner_id);
+
+  -- EVENT INBOX: Polling-based event queue for "autonomous" NPC actions
+  -- Events are pushed by internal systems, polled by frontend
+  CREATE TABLE IF NOT EXISTS event_inbox (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event_type TEXT NOT NULL CHECK (event_type IN (
+      'npc_action', 'combat_update', 'world_change', 'quest_update',
+      'time_passage', 'environmental', 'system'
+    )),
+    payload TEXT NOT NULL,              -- JSON event data
+    source_type TEXT CHECK (source_type IN ('npc', 'combat', 'world', 'system', 'scheduler')),
+    source_id TEXT,                     -- ID of source entity
+    priority INTEGER NOT NULL DEFAULT 0, -- Higher = more urgent
+    created_at TEXT NOT NULL DEFAULT (DATETIME('now')),
+    consumed_at TEXT,                   -- NULL means unread
+    expires_at TEXT                     -- Optional TTL
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_event_inbox_unconsumed ON event_inbox(consumed_at) WHERE consumed_at IS NULL;
+  CREATE INDEX IF NOT EXISTS idx_event_inbox_created ON event_inbox(created_at DESC);
+  CREATE INDEX IF NOT EXISTS idx_event_inbox_priority ON event_inbox(priority DESC);
   `);
 
   // Run migrations for existing databases that don't have the new columns

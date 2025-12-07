@@ -120,14 +120,27 @@ async function main() {
   
   const registry = buildToolRegistry();
   const toolCount = Object.keys(registry).length;
+  const sessionIdSchema = z.object({ sessionId: z.string().optional() });
   
   for (const [toolName, entry] of Object.entries(registry)) {
-    // Must use .extend().shape pattern for MCP SDK to properly pass arguments
-    // This works with all Zod schema types (object, omit, pick, etc.)
+    // Handle all Zod schema types (object, omit, pick, etc.)
+    // .extend() only works on z.object(), so we use .and() which works universally
+    let extendedSchema: any;
+    if (typeof entry.schema.extend === 'function') {
+      // Standard z.object() - use .extend() for best performance
+      extendedSchema = entry.schema.extend({ sessionId: z.string().optional() });
+    } else if (typeof entry.schema.and === 'function') {
+      // .omit(), .pick(), or other transformed schemas - use .and()
+      extendedSchema = entry.schema.and(sessionIdSchema);
+    } else {
+      // Fallback: wrap in intersection
+      extendedSchema = z.intersection(entry.schema, sessionIdSchema);
+    }
+    
     server.tool(
       toolName,
       entry.metadata.description,
-      entry.schema.extend({ sessionId: z.string().optional() }).shape,
+      extendedSchema.shape || extendedSchema._def?.schema?.shape || {},
       auditLogger.wrapHandler(
         toolName,
         withSession(entry.schema, entry.handler as any)

@@ -30,6 +30,7 @@ import { ImprovisationTools, handleResolveImprovisedStunt, handleApplyCustomEffe
 import { SpatialTools, handleLookAtSurroundings, handleGenerateRoomNode, handleGetRoomExits, handleMoveCharacterToRoom } from './spatial-tools.js';
 import { BatchTools, handleBatchCreateCharacters, handleBatchCreateNpcs, handleBatchDistributeItems } from './batch-tools.js';
 import { WorkflowTools, handleExecuteWorkflow, handleListTemplates, handleGetTemplate } from './workflow-tools.js';
+import { EventInboxTools, handlePollEvents, handlePushEvent, handleGetEventHistory, handleGetPendingCount } from './event-inbox-tools.js';
 
 // Helper to create metadata
 // deferLoading defaults to true (most tools should be deferred)
@@ -1266,6 +1267,36 @@ export function buildToolRegistry(): ToolRegistry {
         ['Template details'], false, 'low'),
       schema: WorkflowTools.GET_TEMPLATE.inputSchema,
       handler: handleGetTemplate
+    },
+
+    // === EVENT INBOX TOOLS ===
+    [EventInboxTools.POLL_EVENTS.name]: {
+      metadata: meta(EventInboxTools.POLL_EVENTS.name, EventInboxTools.POLL_EVENTS.description, 'meta',
+        ['event', 'poll', 'inbox', 'npc', 'autonomous', 'notification'],
+        ['Event polling', 'NPC autonomy'], false, 'low'),
+      schema: EventInboxTools.POLL_EVENTS.inputSchema,
+      handler: handlePollEvents
+    },
+    [EventInboxTools.PUSH_EVENT.name]: {
+      metadata: meta(EventInboxTools.PUSH_EVENT.name, EventInboxTools.PUSH_EVENT.description, 'meta',
+        ['event', 'push', 'queue', 'npc', 'action', 'notification'],
+        ['Event creation', 'NPC action simulation'], false, 'low'),
+      schema: EventInboxTools.PUSH_EVENT.inputSchema,
+      handler: handlePushEvent
+    },
+    [EventInboxTools.GET_EVENT_HISTORY.name]: {
+      metadata: meta(EventInboxTools.GET_EVENT_HISTORY.name, EventInboxTools.GET_EVENT_HISTORY.description, 'meta',
+        ['event', 'history', 'log', 'recent'],
+        ['Event history'], false, 'low'),
+      schema: EventInboxTools.GET_EVENT_HISTORY.inputSchema,
+      handler: handleGetEventHistory
+    },
+    [EventInboxTools.GET_PENDING_COUNT.name]: {
+      metadata: meta(EventInboxTools.GET_PENDING_COUNT.name, EventInboxTools.GET_PENDING_COUNT.description, 'meta',
+        ['event', 'count', 'pending', 'unread'],
+        ['Pending event count'], false, 'low'),
+      schema: EventInboxTools.GET_PENDING_COUNT.inputSchema,
+      handler: handleGetPendingCount
     }
     // Note: search_tools and load_tool_schema are registered separately in index.ts with full handlers
   };

@@ -199,15 +199,20 @@ export async function handleLoadToolSchema(args: LoadToolSchemaArgs): Promise<{
     };
   }
   
-  // Get the full schema with sessionId extension
-  const fullSchema = tool.schema.extend({ 
-    sessionId: z.string().optional().describe('Optional session ID for request tracking')
-  });
+  // Get the full schema with sessionId extension (handle all Zod types)
+  let fullSchema: any;
+  const sessionIdExt = { sessionId: z.string().optional().describe('Optional session ID for request tracking') };
+  if (typeof tool.schema.extend === 'function') {
+    fullSchema = tool.schema.extend(sessionIdExt);
+  } else {
+    // Fallback for .omit()/.pick() schemas
+    fullSchema = tool.schema.and(z.object(sessionIdExt));
+  }
   
   return {
     toolName: args.toolName,
     description: tool.metadata.description,
-    inputSchema: fullSchema.shape,
+    inputSchema: fullSchema.shape || {},
     metadata: tool.metadata,
     note: `Schema loaded successfully. You can now call ${args.toolName} with these parameters.`
   };

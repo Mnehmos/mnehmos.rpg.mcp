@@ -12,9 +12,34 @@ import { WorkflowSchema, Workflow } from '../workflow/schema.js';
 import { WorkflowExecutor } from '../workflow/executor.js';
 import { SessionContext } from './types.js';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const TEMPLATES_DIR = join(__dirname, '../../templates/workflows');
+// ESM-compatible __dirname (works in both dev and bundled)
+let __dirnameCompat: string;
+try {
+  // This works in normal ESM but throws in pkg binary
+  __dirnameCompat = dirname(fileURLToPath(import.meta.url));
+} catch {
+  // In pkg binary, fall back to process.cwd()
+  __dirnameCompat = process.cwd();
+}
+
+// Templates directory resolution
+function getTemplatesDir(): string {
+  const candidates = [
+    join(process.cwd(), 'templates', 'workflows'),
+    join(__dirnameCompat, '..', '..', 'templates', 'workflows'),
+    join(__dirnameCompat, 'templates', 'workflows'),
+  ];
+  
+  for (const dir of candidates) {
+    if (existsSync(dir)) {
+      return dir;
+    }
+  }
+  
+  return candidates[0]; // Graceful fallback
+}
+
+const TEMPLATES_DIR = getTemplatesDir();
 
 // Tool definitions
 export const WorkflowTools = {
