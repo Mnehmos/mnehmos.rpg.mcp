@@ -31,17 +31,11 @@ export async function handleGetNarrativeContext(args: unknown, _ctx: SessionCont
   const parsed = ContextTools.GET_NARRATIVE_CONTEXT.inputSchema.parse(args);
   const db = getDb(process.env.RPG_DATA_DIR ? `${process.env.RPG_DATA_DIR}/rpg.db` : 'rpg.db');
   
-  // Repositories (assuming standard access patterns from other tools)
-  // We'll read directly from valid tables or use existing repository logic if available.
-  // For now, we'll try to use raw DB access for speed or re-instantiate repos as needed.
-  // Ideally, we reuse the repo logic.
-  
   const sections: NarrativeSection[] = [];
 
   // 1. World & Environment (Baseline)
   try {
-    // Assuming 'worlds' table
-    const world = db.query('SELECT * FROM worlds WHERE id = ?').get(parsed.worldId) as any;
+    const world = db.prepare('SELECT * FROM worlds WHERE id = ?').get(parsed.worldId) as any;
     if (world) {
       let envContext = `Active World: ${world.name}`;
       
@@ -72,7 +66,7 @@ export async function handleGetNarrativeContext(args: unknown, _ctx: SessionCont
   // 2. Character State (If active)
   if (parsed.characterId) {
     try {
-      const char = db.query('SELECT * FROM characters WHERE id = ?').get(parsed.characterId) as any;
+      const char = db.prepare('SELECT * FROM characters WHERE id = ?').get(parsed.characterId) as any;
       if (char) {
         const hp = typeof char.hp === 'string' ? JSON.parse(char.hp) : char.hp;
         const stats = typeof char.stats === 'string' ? JSON.parse(char.stats) : char.stats;
@@ -97,7 +91,7 @@ export async function handleGetNarrativeContext(args: unknown, _ctx: SessionCont
   // 3. Combat State (High Priority)
   if (parsed.encounterId) {
     try {
-        const encounter = db.query('SELECT * FROM encounters WHERE id = ?').get(parsed.encounterId) as any;
+        const encounter = db.prepare('SELECT * FROM encounters WHERE id = ?').get(parsed.encounterId) as any;
         if (encounter && encounter.status === 'active') {
             const state = typeof encounter.state === 'string' ? JSON.parse(encounter.state) : encounter.state;
             

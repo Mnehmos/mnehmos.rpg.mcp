@@ -51741,6 +51741,17 @@ function placeStructures(options) {
         score += 10;
       else if (maxSlope > 20)
         score -= 20;
+      let coastalNeighbors = 0;
+      for (const { nx, ny } of neighbors) {
+        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+          const nIdx = toIndex7(nx, ny, width);
+          if (elevation[nIdx] < 20) {
+            coastalNeighbors++;
+          }
+        }
+      }
+      if (coastalNeighbors > 0)
+        score += 15;
       habitability[idx] = Math.max(0, score);
     }
   }
@@ -60413,12 +60424,25 @@ Example (custom class/race):
   },
   UPDATE_CHARACTER: {
     name: "update_character",
-    description: "Update character properties like HP, level, or type.",
+    description: "Update character properties. All fields except id are optional.",
     inputSchema: external_exports.object({
       id: external_exports.string(),
+      name: external_exports.string().min(1).optional(),
+      race: external_exports.string().optional(),
+      class: external_exports.string().optional(),
       hp: external_exports.number().int().min(0).optional(),
+      maxHp: external_exports.number().int().min(1).optional(),
+      ac: external_exports.number().int().min(0).optional(),
       level: external_exports.number().int().min(1).optional(),
-      characterType: CharacterTypeSchema.optional()
+      characterType: CharacterTypeSchema.optional(),
+      stats: external_exports.object({
+        str: external_exports.number().int().min(0).optional(),
+        dex: external_exports.number().int().min(0).optional(),
+        con: external_exports.number().int().min(0).optional(),
+        int: external_exports.number().int().min(0).optional(),
+        wis: external_exports.number().int().min(0).optional(),
+        cha: external_exports.number().int().min(0).optional()
+      }).optional()
     })
   },
   LIST_CHARACTERS: {
@@ -60553,11 +60577,26 @@ async function handleGetCharacter(args, _ctx) {
 async function handleUpdateCharacter(args, _ctx) {
   const { charRepo } = ensureDb();
   const parsed = CRUDTools.UPDATE_CHARACTER.inputSchema.parse(args);
-  const updated = charRepo.update(parsed.id, {
-    ...parsed.hp !== void 0 && { hp: parsed.hp },
-    ...parsed.level !== void 0 && { level: parsed.level },
-    ...parsed.characterType !== void 0 && { characterType: parsed.characterType }
-  });
+  const updateData = {};
+  if (parsed.name !== void 0)
+    updateData.name = parsed.name;
+  if (parsed.race !== void 0)
+    updateData.race = parsed.race;
+  if (parsed.class !== void 0)
+    updateData.characterClass = parsed.class;
+  if (parsed.hp !== void 0)
+    updateData.hp = parsed.hp;
+  if (parsed.maxHp !== void 0)
+    updateData.maxHp = parsed.maxHp;
+  if (parsed.ac !== void 0)
+    updateData.ac = parsed.ac;
+  if (parsed.level !== void 0)
+    updateData.level = parsed.level;
+  if (parsed.characterType !== void 0)
+    updateData.characterType = parsed.characterType;
+  if (parsed.stats !== void 0)
+    updateData.stats = parsed.stats;
+  const updated = charRepo.update(parsed.id, updateData);
   if (!updated) {
     throw new Error(`Failed to update character: ${parsed.id}`);
   }
@@ -73339,6 +73378,123 @@ async function handleGetPendingCount(_args, _ctx) {
   };
 }
 
+// dist/server/context-tools.js
+init_zod();
+var GetNarrativeContextSchema = external_exports.object({
+  worldId: external_exports.string().describe("Active world ID"),
+  characterId: external_exports.string().optional().describe("Active character ID (if any)"),
+  encounterId: external_exports.string().optional().describe("Active encounter ID (if any)"),
+  maxEvents: external_exports.number().default(5).describe("Number of recent history events to include")
+});
+var ContextTools = {
+  GET_NARRATIVE_CONTEXT: {
+    name: "get_narrative_context",
+    description: "Aggregates comprehensive narrative context (Character, World, Combat, Secrets) for the LLM system prompt.",
+    inputSchema: GetNarrativeContextSchema
+  }
+};
+async function handleGetNarrativeContext(args, _ctx) {
+  const parsed = ContextTools.GET_NARRATIVE_CONTEXT.inputSchema.parse(args);
+  const db = getDb(process.env.RPG_DATA_DIR ? `${process.env.RPG_DATA_DIR}/rpg.db` : "rpg.db");
+  const sections = [];
+  try {
+    const world = db.prepare("SELECT * FROM worlds WHERE id = ?").get(parsed.worldId);
+    if (world) {
+      let envContext = `Active World: ${world.name}`;
+      const env = typeof world.environment === "string" ? JSON.parse(world.environment) : world.environment;
+      if (env) {
+        const parts = [
+          env.date ? `Date: ${env.date.full_date || env.date}` : null,
+          env.time_of_day ? `Time: ${env.time_of_day}` : null,
+          env.weather ? `Weather: ${env.weather.condition || env.weather}` : null,
+          env.location ? `Location: ${env.location}` : null
+        ].filter(Boolean);
+        if (parts.length > 0) {
+          envContext += `
+${parts.join(" | ")}`;
+        }
+      }
+      sections.push({
+        title: "\u{1F30D} WORLD & ENVIRONMENT",
+        content: envContext,
+        priority: 10
+      });
+    }
+  } catch (e) {
+    console.warn("Failed to load world context", e);
+  }
+  if (parsed.characterId) {
+    try {
+      const char = db.prepare("SELECT * FROM characters WHERE id = ?").get(parsed.characterId);
+      if (char) {
+        const hp = typeof char.hp === "string" ? JSON.parse(char.hp) : char.hp;
+        const stats = typeof char.stats === "string" ? JSON.parse(char.stats) : char.stats;
+        let charSummaries = ` Active Character: ${char.name} (Lvl ${char.level} ${char.race} ${char.class})`;
+        charSummaries += `
+HP: ${hp.current}/${hp.max} | AC: ${char.ac || 10}`;
+        if (stats) {
+          charSummaries += `
+STR:${stats.str} DEX:${stats.dex} CON:${stats.con} INT:${stats.int} WIS:${stats.wis} CHA:${stats.cha}`;
+        }
+        sections.push({
+          title: "\u{1F464} ACTIVE CHARACTER",
+          content: charSummaries,
+          priority: 20
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to load character context", e);
+    }
+  }
+  if (parsed.encounterId) {
+    try {
+      const encounter = db.prepare("SELECT * FROM encounters WHERE id = ?").get(parsed.encounterId);
+      if (encounter && encounter.status === "active") {
+        const state = typeof encounter.state === "string" ? JSON.parse(encounter.state) : encounter.state;
+        let combatSummary = `\u26A0\uFE0F COMBAT ACTIVE (Round ${state.round})`;
+        const participants = state.participants || [];
+        const activeCount = participants.filter((p) => p.hp > 0).length;
+        combatSummary += `
+${activeCount} active combatants.`;
+        if (state.currentTurn !== void 0 && participants[state.currentTurn]) {
+          combatSummary += `
+Current Turn: ${participants[state.currentTurn].name}`;
+        }
+        sections.push({
+          title: "\u2694\uFE0F COMBAT SITUATION",
+          content: combatSummary,
+          priority: 100
+          // Highest priority
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to load combat context", e);
+    }
+  }
+  try {
+    const secretRepo = new SecretRepository(db);
+    const secretParams = secretRepo.formatForLLM(parsed.worldId);
+    if (secretParams && secretParams.length > 50) {
+      sections.push({
+        title: "\u{1F512} GM SECRETS (HIDDEN)",
+        content: secretParams,
+        priority: 90
+      });
+    }
+  } catch (e) {
+    console.warn("Failed to load secret context", e);
+  }
+  sections.sort((a, b) => b.priority - a.priority);
+  const finalContext = sections.map((s) => `--- ${s.title} ---
+${s.content}`).join("\n\n");
+  return {
+    content: [{
+      type: "text",
+      text: finalContext
+    }]
+  };
+}
+
 // dist/server/tool-registry.js
 function meta(name, description, category, keywords, capabilities, contextAware = false, estimatedTokenCost = "medium", deferLoading = true) {
   return {
@@ -74230,6 +74386,12 @@ function buildToolRegistry() {
       metadata: meta(EventInboxTools.GET_PENDING_COUNT.name, EventInboxTools.GET_PENDING_COUNT.description, "meta", ["event", "count", "pending", "unread"], ["Pending event count"], false, "low"),
       schema: EventInboxTools.GET_PENDING_COUNT.inputSchema,
       handler: handleGetPendingCount
+    },
+    // === CONTEXT TOOLS ===
+    [ContextTools.GET_NARRATIVE_CONTEXT.name]: {
+      metadata: meta(ContextTools.GET_NARRATIVE_CONTEXT.name, ContextTools.GET_NARRATIVE_CONTEXT.description, "context", ["context", "narrative", "story", "prompt", "llm"], ["Narrative context aggregation"], true, "high"),
+      schema: ContextTools.GET_NARRATIVE_CONTEXT.inputSchema,
+      handler: handleGetNarrativeContext
     }
     // Note: search_tools and load_tool_schema are registered separately in index.ts with full handlers
   };
