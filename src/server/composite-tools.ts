@@ -27,6 +27,10 @@ import {
     scaleEncounter,
     EncounterPreset
 } from '../data/encounter-presets.js';
+import {
+    getLocationPreset,
+    listLocationPresets
+} from '../data/location-presets.js';
 import { getItemPreset, getArmorPreset } from '../data/items/index.js';
 import { getCombatManager } from './state/combat-manager.js';
 import { CombatEngine, CombatParticipant } from '../engine/combat/engine.js';
@@ -61,6 +65,7 @@ function buildCharacter(data: {
     vulnerabilities?: string[];
     immunities?: string[];
     position?: { x: number; y: number };
+    currentRoomId?: string;
     createdAt: string;
     updatedAt: string;
 }): Character {
@@ -93,6 +98,7 @@ function buildCharacter(data: {
         expertise: [],
         hasLairActions: false,
         position: data.position,
+        currentRoomId: data.currentRoomId,
         createdAt: data.createdAt,
         updatedAt: data.updatedAt
     };
@@ -656,6 +662,49 @@ Example - Travel with discovery bypass:
                 .describe('If true, skip perception check for undiscovered POIs'),
             discoveringCharacterId: z.string().uuid().optional()
                 .describe('Character making discovery check (defaults to party leader)')
+        })
+    },
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // SPAWN_PRESET_LOCATION
+    // ─────────────────────────────────────────────────────────────────────────
+    SPAWN_PRESET_LOCATION: {
+        name: 'spawn_preset_location',
+        description: `Spawn a complete location from a preset. Creates POI, room network, and optionally NPCs.
+
+TOKEN SAVINGS: ~85% vs manual specification
+
+WHAT THIS TOOL DOES:
+1. Creates a POI at specified world coordinates
+2. Creates a room network with all preset rooms
+3. Links the POI to the network
+4. Optionally spawns preset NPCs
+
+Example - Spawn a tavern:
+{ "preset": "generic_tavern", "worldId": "world-1", "x": 50, "y": 75 }
+
+Example - Spawn dungeon entrance with NPCs:
+{ "preset": "dungeon_entrance", "worldId": "world-1", "x": 100, "y": 200, "spawnNpcs": true }
+
+Example - Custom name:
+{ "preset": "forest_clearing", "worldId": "world-1", "x": 25, "y": 30, "customName": "Whispering Glade" }
+
+Available presets:
+- Taverns: generic_tavern, rough_tavern
+- Dungeons: dungeon_entrance, cave_entrance
+- Urban: town_square
+- Wilderness: forest_clearing, roadside_camp`,
+        inputSchema: z.object({
+            preset: z.string().describe('Location preset ID (e.g., "generic_tavern")'),
+            worldId: z.string().describe('World ID to spawn in'),
+            x: z.number().int().min(0).describe('X coordinate on world map'),
+            y: z.number().int().min(0).describe('Y coordinate on world map'),
+            customName: z.string().optional().describe('Override default location name'),
+            spawnNpcs: z.boolean().optional().default(false)
+                .describe('If true, spawn preset NPCs in their rooms'),
+            discoveryState: z.enum(['unknown', 'rumored', 'discovered', 'explored', 'mapped'])
+                .optional().default('discovered')
+                .describe('Initial discovery state')
         })
     }
 } as const;
@@ -2265,6 +2314,190 @@ export async function handleTravelToLocation(args: unknown, _ctx: SessionContext
         content: [{
             type: 'text' as const,
             text: JSON.stringify(result, null, 2)
+        }]
+    };
+}
+
+/**
+ * Handle spawn_preset_location
+ * Creates a complete location from a preset including POI, room network, and NPCs
+ */
+export async function handleSpawnPresetLocation(args: unknown, _ctx: SessionContext) {
+    const parsed = CompositeTools.SPAWN_PRESET_LOCATION.inputSchema.parse(args);
+    const db = getDb();
+    const poiRepo = new POIRepository(db);
+    const spatialRepo = new SpatialRepository(db);
+    const charRepo = new CharacterRepository(db);
+
+    // Get the preset
+    const preset = getLocationPreset(parsed.preset);
+    if (!preset) {
+        // List available presets
+        const available = listLocationPresets();
+        throw new Error(`Unknown location preset: ${parsed.preset}. Available: ${available.map(p => p.id).join(', ')}`);
+    }
+
+    const now = new Date().toISOString();
+    const locationName = parsed.customName || preset.name;
+
+    // Create the room network
+    const networkId = randomUUID();
+    spatialRepo.createNetwork({
+        id: networkId,
+        name: locationName,
+        type: preset.networkType,
+        worldId: parsed.worldId,
+        centerX: parsed.x,
+        centerY: parsed.y,
+        createdAt: now,
+        updatedAt: now
+    });
+
+    // Create rooms and track ID mappings
+    const roomIdMap: Record<string, string> = {};
+    const createdRooms: Array<{ id: string; name: string; presetId: string }> = [];
+
+    for (const presetRoom of preset.rooms) {
+        const roomId = randomUUID();
+        roomIdMap[presetRoom.id] = roomId;
+
+        spatialRepo.create({
+            id: roomId,
+            networkId: networkId,
+            name: presetRoom.name,
+            baseDescription: presetRoom.description,
+            biomeContext: presetRoom.biome,
+            atmospherics: [],
+            localX: presetRoom.localX ?? 0,
+            localY: presetRoom.localY ?? 0,
+            exits: [], // Will be connected after all rooms created
+            entityIds: [],
+            createdAt: now,
+            updatedAt: now,
+            visitedCount: 0
+        });
+
+        createdRooms.push({
+            id: roomId,
+            name: presetRoom.name,
+            presetId: presetRoom.id
+        });
+    }
+
+    // Connect rooms with exits
+    for (const presetRoom of preset.rooms) {
+        const roomId = roomIdMap[presetRoom.id];
+        const exits = presetRoom.exits.map(exit => ({
+            direction: exit.direction,
+            targetNodeId: roomIdMap[exit.targetRoomId],
+            type: exit.exitType || 'OPEN' as const,
+            dc: exit.lockDC
+        }));
+
+        spatialRepo.update(roomId, { exits });
+    }
+
+    // Find entrance room (first room or one named "entrance")
+    const entrancePresetRoom = preset.rooms.find(r =>
+        r.name.toLowerCase().includes('entrance') ||
+        r.name.toLowerCase().includes('entry') ||
+        r.id === 'entrance'
+    ) || preset.rooms[0];
+    const entranceRoomId = roomIdMap[entrancePresetRoom.id];
+
+    // Create POI
+    const poiId = randomUUID();
+    poiRepo.create({
+        id: poiId,
+        worldId: parsed.worldId,
+        x: parsed.x,
+        y: parsed.y,
+        name: locationName,
+        description: preset.description,
+        category: preset.category,
+        icon: preset.icon,
+        discoveryState: parsed.discoveryState as 'unknown' | 'rumored' | 'discovered' | 'explored' | 'mapped',
+        discoveredBy: [],
+        childPOIIds: [],
+        population: 0,
+        networkId: networkId,
+        entranceRoomId: entranceRoomId,
+        tags: preset.tags,
+        createdAt: now,
+        updatedAt: now
+    });
+
+    // Spawn NPCs if requested
+    const createdNpcs: Array<{ id: string; name: string; room: string; role?: string }> = [];
+
+    if (parsed.spawnNpcs && preset.npcs) {
+        for (const presetNpc of preset.npcs) {
+            const npcTemplate = expandCreatureTemplate(presetNpc.template, presetNpc.name);
+            if (!npcTemplate) {
+                continue; // Skip unknown templates
+            }
+
+            const npcId = randomUUID();
+            const roomId = roomIdMap[presetNpc.roomId];
+
+            const npc = buildCharacter({
+                id: npcId,
+                name: presetNpc.name || npcTemplate.name,
+                stats: npcTemplate.stats,
+                hp: npcTemplate.hp,
+                maxHp: npcTemplate.maxHp,
+                ac: npcTemplate.ac,
+                level: npcTemplate.level,
+                characterType: 'npc',
+                race: npcTemplate.race || 'Human',
+                characterClass: npcTemplate.characterClass || 'commoner',
+                currentRoomId: roomId,
+                createdAt: now,
+                updatedAt: now
+            });
+            // Note: behavior field is stored in NPC-specific extended data, not base Character
+
+            charRepo.create(npc);
+
+            // Add to room's entity list
+            const room = spatialRepo.findById(roomId);
+            if (room) {
+                spatialRepo.update(roomId, {
+                    entityIds: [...room.entityIds, npcId]
+                });
+            }
+
+            createdNpcs.push({
+                id: npcId,
+                name: npc.name,
+                room: presetNpc.roomId,
+                role: presetNpc.role
+            });
+        }
+    }
+
+    return {
+        content: [{
+            type: 'text' as const,
+            text: JSON.stringify({
+                preset: preset.id,
+                locationName,
+                poiId,
+                networkId,
+                entranceRoomId,
+                position: { x: parsed.x, y: parsed.y },
+                discoveryState: parsed.discoveryState,
+                rooms: {
+                    count: createdRooms.length,
+                    list: createdRooms
+                },
+                npcs: parsed.spawnNpcs ? {
+                    count: createdNpcs.length,
+                    list: createdNpcs
+                } : undefined,
+                narrativeHook: preset.narrativeHook,
+                message: `Spawned "${locationName}" at (${parsed.x}, ${parsed.y}) with ${createdRooms.length} rooms${parsed.spawnNpcs ? ` and ${createdNpcs.length} NPCs` : ''}`
+            }, null, 2)
         }]
     };
 }
