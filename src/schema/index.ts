@@ -1,4 +1,5 @@
 // Schema exports
+export * from './base-schemas.js';
 export * from './world.js';
 export * from './region.js';
 export * from './tile.js';
