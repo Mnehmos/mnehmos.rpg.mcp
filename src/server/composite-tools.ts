@@ -22,8 +22,12 @@ import { CombatEngine, CombatParticipant } from '../engine/combat/engine.js';
 import { getPatternGenerator } from './terrain-patterns.js';
 import { Character } from '../schema/character.js';
 import { Item } from '../schema/inventory.js';
+import { parsePosition as parsePos } from '../utils/schema-shorthand.js';
 
 type TerrainPatternName = 'river_valley' | 'canyon' | 'arena' | 'mountain_pass' | 'maze' | 'maze_rooms';
+
+// Re-export parsePosition from schema-shorthand for backwards compatibility
+export { parsePosition } from '../utils/schema-shorthand.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPER: Build a complete Character object with defaults
@@ -110,25 +114,11 @@ function buildItem(data: {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// HELPER: Parse position shorthand
+// HELPER: Local alias for position parsing
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * Parse a position from various formats:
- * - String: "10,5" or "10,5,0"
- * - Object: { x: 10, y: 5 } or { x: 10, y: 5, z: 0 }
- */
-export function parsePosition(input: string | { x: number; y: number; z?: number }): { x: number; y: number; z: number } {
-    if (typeof input === 'string') {
-        const parts = input.split(',').map(s => parseInt(s.trim(), 10));
-        return {
-            x: parts[0] || 0,
-            y: parts[1] || 0,
-            z: parts[2] || 0
-        };
-    }
-    return { x: input.x, y: input.y, z: input.z ?? 0 };
-}
+// Use parsePos from schema-shorthand utilities (imported above)
+const parsePosition = parsePos;
 
 /**
  * Parse a list of positions from shorthand
