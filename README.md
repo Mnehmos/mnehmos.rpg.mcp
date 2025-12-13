@@ -246,7 +246,7 @@ To use with an MCP-compatible client (Claude Desktop, etc.), add to your client'
   "mcpServers": {
     "rpg-mcp": {
       "command": "node",
-      "args": ["tsx", "path/to/rpg-mcp/src/dist/index.js"]
+      "args": [ "path/to/rpg-mcp/src/dist/index.js"]
     }
   }
 }
