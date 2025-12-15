@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { CombatEngine, CombatParticipant, CombatState, CombatActionResult } from '../engine/combat/engine.js';
 import { SpatialEngine } from '../engine/spatial/engine.js';
 
@@ -33,13 +34,14 @@ export function setCombatPubSub(instance: PubSub) {
 /**
  * Build a machine-readable state object for frontend sync
  */
-function buildStateJson(state: CombatState, encounterId: string) {
+function buildStateJson(state: CombatState, encounterId: string, sessionId?: string) {
     const currentParticipant = state.participants.find(
         (p) => p.id === state.turnOrder[state.currentTurnIndex]
     );
 
     return {
         encounterId,
+        sessionId, // Include sessionId in response
         round: state.round,
         currentTurnIndex: state.currentTurnIndex,
         currentTurn: currentParticipant ? {
@@ -113,7 +115,8 @@ function formatCombatStateText(state: CombatState): string {
         const marker = isCurrent ? '▶' : ' ';
         const status = p.hp <= 0 ? '💀 DEFEATED' : '';
         
-        output += `${marker} ${icon} ${p.name.padEnd(18)} ${hpBar} ${p.hp}/${p.maxHp} HP  [Init: ${p.initiative}] ${status}\n`;
+        // Include ID for LLM targeting
+        output += `${marker} ${icon} ${p.name.padEnd(18)} ${hpBar} ${p.hp}/${p.maxHp} HP  [Init: ${p.initiative}] ID: ${p.id} ${status}\n`;
     });
     
     output += `\n`;
@@ -481,10 +484,15 @@ export const CombatTools = {
         name: 'create_encounter',
         description: `Create a combat encounter with positioned combatants and terrain.
 
+⚠️ CRITICAL - PARTICIPANT IDs:
+- For PLAYER CHARACTERS: Use the exact UUID from the ACTIVE CHARACTER REFERENCE in context
+- For ENEMIES: Use descriptive slugs like "goblin-1", "orc-2" (will be auto-generated)
+- NEVER use "pc-1", "hero-1" for player characters - always use real UUID
+
 📋 WORKFLOW:
 1. Generate terrain (obstacles, water, difficult)
 2. Add props (buildings, trees, cover)
-3. Place party (safe starting positions)
+3. Place party (safe starting positions) - USE REAL UUIDs for PCs!
 4. Place enemies (tactical positions)
 
 ⚠️ CRITICAL VERTICALITY RULES:
@@ -513,7 +521,7 @@ CANYON (two parallel walls):
 obstacles: ["0,5","1,5","2,5",...,"9,5"] (north wall),
            ["0,15","1,15","2,15",...,"9,15"] (south wall)
 
-Example:
+Example (use real UUID from context for player character!):
 {
   "seed": "battle-1",
   "terrain": {
@@ -521,8 +529,8 @@ Example:
     "water": ["5,10", "5,11", "6,11"]
   },
   "participants": [
-    {"id": "hero-1", "name": "Valeros", "hp": 20, "maxHp": 20, "initiativeBonus": 2, 
-     "position": {"x": 15, "y": 15, "z": 0}},
+    {"id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890", "name": "Pyrus", "hp": 40, "maxHp": 40, "initiativeBonus": 2, 
+     "position": {"x": 15, "y": 15, "z": 0}, "isEnemy": false},
     {"id": "goblin-1", "name": "Goblin Archer", "hp": 7, "maxHp": 7, "initiativeBonus": 1,
      "position": {"x": 10, "y": 5, "z": 0}, "isEnemy": true}
   ]
@@ -1045,7 +1053,8 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
         }
 
         const participant = {
-            id: p.id,
+            // CRITICAL FIX: Auto-generate ID if not provided to prevent React key collisions
+            id: p.id || randomUUID(),
             name: preset ? preset.name : p.name,
             hp: p.hp,
             maxHp: p.maxHp,
@@ -1106,7 +1115,8 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
     });
 
     // Build response with BOTH text and JSON
-    const stateJson = buildStateJson(state, encounterId);
+    // Include sessionId in state JSON so frontend knows which session to query
+    const stateJson = buildStateJson(state, encounterId, ctx.sessionId);
     const formattedText = formatCombatStateText(state);
     
     let output = `⚔️ COMBAT STARTED\n`;
@@ -1146,17 +1156,31 @@ export async function handleGetEncounterState(args: unknown, ctx: SessionContext
         getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
     }
 
+    // Get current state from engine
     const state = engine.getState();
     if (!state) {
         throw new Error('No active encounter');
     }
 
-    // CRITICAL FIX: Return JSON for frontend sync, wrapped in content
-    // The frontend expects to parse this as JSON
-    const stateJson = buildStateJson(state, parsed.encounterId);
+    // CRITICAL: Match create_encounter's format exactly
+    // Frontend uses extractEmbeddedStateJson which looks for <!-- STATE_JSON ... STATE_JSON -->
+    // Include sessionId in state JSON so frontend knows which session to query
+    const stateJson = buildStateJson(state, parsed.encounterId, ctx.sessionId);
+    const formattedText = formatCombatStateText(state);
     
-    // Return the JSON directly - the server will stringify it
-    return stateJson;
+    let output = `📋 ENCOUNTER STATE\n`;
+    output += `Encounter ID: ${parsed.encounterId}\n`;
+    output += formattedText;
+    
+    // Append JSON for frontend parsing (same format as create_encounter)
+    output += `\n\n<!-- STATE_JSON\n${JSON.stringify(stateJson)}\nSTATE_JSON -->`;
+    
+    return {
+        content: [{
+            type: 'text' as const,
+            text: output
+        }]
+    };
 }
 
 export async function handleExecuteCombatAction(args: unknown, ctx: SessionContext) {
@@ -1566,9 +1590,28 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
         // If logic throws, we don't save state. 
         // So better to commit at end of block.
 
+        // Get target AC for spell attack resolution
+        // For single target spells, use the specific target's AC
+        // For AoE spells, we'll resolve per-target later, but need a representative AC for initial resolution
+        let targetAC = 10; // Default fallback
+        
+        // First check if we have a specific targetId
+        if (validationTarget?.ac !== undefined) {
+            targetAC = validationTarget.ac;
+        } else if (parsed.targetIds && parsed.targetIds.length > 0) {
+            // For AoE, use first target's AC as representative
+            const firstTarget = currentState.participants.find(p => p.id === parsed.targetIds![0]);
+            if (firstTarget?.ac !== undefined) {
+                targetAC = firstTarget.ac;
+            } else {
+                // Default monster AC if not specified
+                targetAC = 12; // Reasonable default for monsters
+            }
+        }
+
         // Resolve spell effects (damage calculation)
         const resolution = resolveSpell(spell, casterChar, effectiveSlotLevel, {
-            targetAC: 10 // Default AC for spell resolution
+            targetAC
         });
 
         // Collect all targets (support both single targetId and multiple targetIds for AoE)
@@ -1586,8 +1629,25 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
         }
 
         // Track results for each target
-        const damageResults: { id: string; name: string; hpBefore: number; hpAfter: number; defeated: boolean }[] = [];
+        const damageResults: { 
+            id: string; 
+            name: string; 
+            hpBefore: number; 
+            hpAfter: number; 
+            defeated: boolean;
+            saveRoll?: number;
+            saveTotal?: number;
+            saved?: boolean;
+            damageDealt?: number;
+        }[] = [];
         const damageType = resolution.damageType || 'force';
+
+        // Get spell's save info
+        const damageEffect = spell.effects.find(e => e.type === 'damage');
+        const saveType = damageEffect?.saveType;
+        const saveEffect = damageEffect?.saveEffect;
+        const requiresSave = saveType && saveType !== 'none';
+        const spellSaveDC = casterChar.spellSaveDC || (8 + 2 + Math.floor((casterChar.stats?.int ?? 10) - 10) / 2);
 
         // Apply damage/healing to ALL targets
         if (resolution.damage && resolution.damage > 0 && allTargetIds.length > 0) {
@@ -1599,19 +1659,48 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
                 if (!targetParticipant) continue;
 
                 const hpBefore = targetParticipant.hp;
+                let damageDealt = resolution.damage;
+                let saveRoll: number | undefined;
+                let saveTotal: number | undefined;
+                let saved = false;
 
-                // Use engine to apply damage (handles resistances/immunities)
-                engine.executeAttack(
-                    parsed.actorId,
-                    tid,
-                    100, // Auto-hit for spell damage
-                    0,   // DC doesn't matter for auto-hit
-                    resolution.damage,
-                    damageType
-                );
+                // Roll saving throw if spell requires it
+                if (requiresSave) {
+                    saveRoll = Math.floor(Math.random() * 20) + 1;
+                    
+                    // Get save modifier from target's ability scores
+                    const abilityMap: Record<string, string> = {
+                        'dexterity': 'dex', 'dex': 'dex',
+                        'constitution': 'con', 'con': 'con',
+                        'wisdom': 'wis', 'wis': 'wis',
+                        'intelligence': 'int', 'int': 'int',
+                        'strength': 'str', 'str': 'str',
+                        'charisma': 'cha', 'cha': 'cha'
+                    };
+                    const abilityKey = abilityMap[saveType!.toLowerCase()] || 'dex';
+                    const abilityScore = targetParticipant.abilityScores?.[abilityKey as keyof typeof targetParticipant.abilityScores] ?? 10;
+                    const saveMod = Math.floor((abilityScore - 10) / 2);
+                    
+                    saveTotal = saveRoll + saveMod;
+                    saved = saveTotal >= spellSaveDC;
 
-                // Refresh target from state after damage
-                const updatedTarget = currentState.participants.find(p => p.id === tid);
+                    if (saved) {
+                        if (saveEffect === 'half') {
+                            damageDealt = Math.floor(resolution.damage / 2);
+                        } else {
+                            damageDealt = 0; // No damage on successful save (saveEffect: 'none')
+                        }
+                    }
+                }
+
+                // Apply damage via engine's applyDamage (direct HP reduction)
+                if (damageDealt > 0) {
+                    engine.applyDamage(tid, damageDealt);
+                }
+
+                // CRITICAL FIX: Get fresh state AFTER damage was applied
+                const freshState = engine.getState();
+                const updatedTarget = freshState?.participants.find(p => p.id === tid);
                 const hpAfter = updatedTarget?.hp ?? 0;
                 const defeated = hpAfter <= 0;
 
@@ -1620,16 +1709,20 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
                     name: targetParticipant.name,
                     hpBefore,
                     hpAfter,
-                    defeated
+                    defeated,
+                    saveRoll,
+                    saveTotal,
+                    saved,
+                    damageDealt
                 });
 
                 // Check concentration if target is concentrating
                 const targetChar = charRepo.findById(tid);
-                if (targetChar && concentrationRepo.isConcentrating(tid)) {
-                    const concentrationCheck = checkConcentration(targetChar, resolution.damage, concentrationRepo);
+                if (targetChar && concentrationRepo.isConcentrating(tid) && damageDealt > 0) {
+                    const concentrationCheck = checkConcentration(targetChar, damageDealt, concentrationRepo);
                     if (concentrationCheck.broken) {
                         breakConcentration(
-                            { characterId: tid, reason: 'damage', damageAmount: resolution.damage },
+                            { characterId: tid, reason: 'damage', damageAmount: damageDealt },
                             concentrationRepo,
                             charRepo
                         );
@@ -1702,11 +1795,20 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
             output += `│ ✨ ${spell.name.toUpperCase()} (AoE)\n`;
             output += `└─────────────────────────────────────────┘\n\n`;
             output += `${actor.name} casts ${spell.name}!\n\n`;
-            output += `💥 Damage: ${resolution.damage} ${damageType}\n\n`;
-            output += `📍 TARGETS HIT (${damageResults.length}):\n`;
+            output += `💥 Base Damage: ${resolution.damage} ${damageType}\n`;
+            if (requiresSave) {
+                output += `🎯 Save: ${saveType!.toUpperCase()} DC ${spellSaveDC}\n`;
+            }
+            output += `\n📍 TARGETS (${damageResults.length}):\n`;
             for (const dr of damageResults) {
                 const defeatIcon = dr.defeated ? ' 💀 DEFEATED' : '';
-                output += `  • ${dr.name}: ${dr.hpBefore} → ${dr.hpAfter} HP${defeatIcon}\n`;
+                if (dr.saveRoll !== undefined) {
+                    const saveResult = dr.saved ? '✓ PASS' : '✗ FAIL';
+                    output += `  • ${dr.name}: d20(${dr.saveRoll}) + ${(dr.saveTotal || 0) - dr.saveRoll} = ${dr.saveTotal} [${saveResult}]\n`;
+                    output += `    → ${dr.damageDealt} dmg | ${dr.hpBefore} → ${dr.hpAfter} HP${defeatIcon}\n`;
+                } else {
+                    output += `  • ${dr.name}: ${dr.hpBefore} → ${dr.hpAfter} HP${defeatIcon}\n`;
+                }
             }
         } else if (damageResults.length === 1) {
             output = formatSpellCastResult(actor.name, resolution, primaryTarget, targetHpBefore);
@@ -1865,6 +1967,15 @@ export async function handleEndEncounter(args: unknown, ctx: SessionContext) {
     // Now delete the encounter from memory
     getCombatManager().delete(namespacedId);
 
+    // STALE COMBAT FIX: Also clear any other encounters containing these participants
+    // This handles cases where multiple test encounters left stale state
+    let staleCleared = 0;
+    if (finalState) {
+        for (const participant of finalState.participants) {
+            staleCleared += getCombatManager().deleteEncountersForCharacter(participant.id);
+        }
+    }
+
     // Build response with sync information
     let output = `\n🏁 COMBAT ENDED\nEncounter ID: ${parsed.encounterId}\n\n`;
 
@@ -1874,6 +1985,10 @@ export async function handleEndEncounter(args: unknown, ctx: SessionContext) {
         for (const char of syncedChars) {
             output += `   • ${char.name}: ${char.hp} HP\n`;
         }
+    }
+
+    if (staleCleared > 0) {
+        output += `\n🧹 Cleared ${staleCleared} stale encounter(s) for participants.\n`;
     }
 
     output += `\nAll combatants have been removed from the battlefield.`;

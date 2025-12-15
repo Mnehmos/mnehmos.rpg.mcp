@@ -54,6 +54,27 @@ export class CombatManager {
         }
         return encounterIds;
     }
+
+    /**
+     * Delete ALL encounters that contain a specific character
+     * Used to clean up stale combat state after end_encounter
+     * @returns Number of encounters deleted
+     */
+    deleteEncountersForCharacter(characterId: string): number {
+        const toDelete: string[] = [];
+        for (const [id, engine] of this.encounters.entries()) {
+            const state = engine.getState();
+            if (state?.participants.some(p => p.id === characterId)) {
+                toDelete.push(id);
+            }
+        }
+        
+        for (const id of toDelete) {
+            this.encounters.delete(id);
+        }
+        
+        return toDelete.length;
+    }
 }
 
 // Singleton for server lifetime
