@@ -27,7 +27,7 @@ import { NpcMemoryTools, handleGetNpcRelationship, handleUpdateNpcRelationship, 
 import { TheftTools, handleStealItem, handleCheckItemStolen, handleCheckStolenItemsOnCharacter, handleCheckItemRecognition, handleSellToFence, handleRegisterFence, handleReportTheft, handleAdvanceHeatDecay, handleGetFence, handleListFences } from './theft-tools.js';
 import { CorpseTools, handleGetCorpse, handleGetCorpseByCharacter, handleListCorpsesInEncounter, handleListCorpsesNearby, handleLootCorpse, handleHarvestCorpse, handleCreateCorpse, handleGenerateLoot, handleGetCorpseInventory, handleCreateLootTable, handleGetLootTable, handleListLootTables, handleAdvanceCorpseDecay, handleCleanupCorpses } from './corpse-tools.js';
 import { ImprovisationTools, handleResolveImprovisedStunt, handleApplyCustomEffect, handleGetCustomEffects, handleRemoveCustomEffect, handleProcessEffectTriggers, handleAdvanceEffectDurations, handleAttemptArcaneSynthesis, handleGetSynthesizedSpells } from './improvisation-tools.js';
-import { SpatialTools, handleLookAtSurroundings, handleGenerateRoomNode, handleGetRoomExits, handleMoveCharacterToRoom } from './spatial-tools.js';
+import { SpatialTools, handleLookAtSurroundings, handleGenerateRoomNode, handleGetRoomExits, handleMoveCharacterToRoom, handleListRooms } from './spatial-tools.js';
 import { BatchTools, handleBatchCreateCharacters, handleBatchCreateNpcs, handleBatchDistributeItems } from './batch-tools.js';
 import { WorkflowTools, handleExecuteWorkflow, handleListTemplates, handleGetTemplate } from './workflow-tools.js';
 import { EventInboxTools, handlePollEvents, handlePushEvent, handleGetEventHistory, handleGetPendingCount } from './event-inbox-tools.js';
@@ -1063,6 +1063,13 @@ export function buildToolRegistry(): ToolRegistry {
         ['Character positioning', 'Location tracking'], false, 'low'),
       schema: SpatialTools.MOVE_CHARACTER_TO_ROOM.inputSchema,
       handler: handleMoveCharacterToRoom
+    },
+    [SpatialTools.LIST_ROOMS.name]: {
+      metadata: meta(SpatialTools.LIST_ROOMS.name, SpatialTools.LIST_ROOMS.description, 'spatial',
+        ['spatial', 'room', 'list', 'all', 'query', 'biome'],
+        ['Room listing', 'Biome filtering'], true, 'medium'),
+      schema: SpatialTools.LIST_ROOMS.inputSchema,
+      handler: handleListRooms
     },
 
     // === THEFT TOOLS ===
