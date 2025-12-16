@@ -8,8 +8,13 @@ build/
 
 # SQLite databases
 *.db
+*.db-shm
+*.db-wal
 *.sqlite
 *.sqlite3
+
+# Build output
+dist-bundle/
 
 # Test coverage
 coverage/

@@ -1185,6 +1185,21 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
                     );
                 }
             }
+
+            // D&D 5e Rule: Dropping to 0 HP automatically breaks concentration
+            if (result.defeated && parsed.targetId) {
+                const concentrationRepo = new ConcentrationRepository(db);
+                if (concentrationRepo.isConcentrating(parsed.targetId)) {
+                    const targetChar = charRepo.findById(parsed.targetId);
+                    if (targetChar) {
+                        breakConcentration(
+                            { characterId: parsed.targetId, reason: 'death' },
+                            concentrationRepo,
+                            charRepo
+                        );
+                    }
+                }
+            }
         }
 
         output = formatAttackResult(result);
@@ -1506,6 +1521,15 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
                             charRepo
                         );
                     }
+                }
+
+                // D&D 5e Rule: Dropping to 0 HP automatically breaks concentration
+                if (target.hp <= 0 && concentrationRepo.isConcentrating(parsed.targetId!)) {
+                    breakConcentration(
+                        { characterId: parsed.targetId!, reason: 'death' },
+                        concentrationRepo,
+                        charRepo
+                    );
                 }
             }
         }

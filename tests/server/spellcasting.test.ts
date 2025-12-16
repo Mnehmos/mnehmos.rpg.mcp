@@ -1254,7 +1254,11 @@ describe('Category 10: Spell Save DC & Attack Rolls', () => {
     });
 
     // 10.4 - Successful save halves damage
-    test('10.4 - successful save against fireball halves damage', async () => {
+    // Probabilistic test - retry up to 5 times if RNG doesn't cooperate
+    // With 2 casts per attempt × 5 retries = 10 chances, failure probability < 0.0001%
+    test('10.4 - successful save against fireball halves damage', { retry: 5 }, async () => {
+        // Level 5 wizard has 2 third-level slots per SRD - we work within that constraint
+        // Target has +5 Dex save vs DC 11, needs 6+ to pass (75% chance per attempt)
         const wizard = await createWizard(5, {
             stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }, // DC = 8+3+0 = 11
             knownSpells: ['Fireball'],
@@ -1266,10 +1270,9 @@ describe('Category 10: Spell Save DC & Attack Rolls', () => {
         });
 
         const encounterResponse = await handleCreateEncounter({
-            seed: 'test-encounter-10.4',
+            seed: `test-encounter-10.4-${Date.now()}`, // Unique seed per retry for different RNG
             participants: [
-                // Give wizard plenty of slots for repeated testing
-                { id: wizard.id!, name: 'Wizard', hp: 20, maxHp: 20, initiativeBonus: 0, position: { x: 0, y: 0 }, spellSlots: { '3': 10 } },
+                { id: wizard.id!, name: 'Wizard', hp: 20, maxHp: 20, initiativeBonus: 0, position: { x: 0, y: 0 } },
                 { id: target.id, name: 'Target', hp: 100, maxHp: 100, initiativeBonus: 0, position: { x: 5, y: 5 } }
             ]
         }, getTestContext() as any);
@@ -1277,10 +1280,10 @@ describe('Category 10: Spell Save DC & Attack Rolls', () => {
         const match = text.match(/Encounter ID: (encounter-[^\n]+)/);
         const encounterId = match ? match[1] : 'unknown';
 
-        // Repeatedly cast until we see a "passed" save (highly likely with +5 vs DC 11)
+        // Cast up to 2 Fireballs (SRD limit for level 5 wizard's 3rd-level slots)
         let foundPassed = false;
         let passedSaveResult: any;
-        for (let i = 0; i < 5; i++) {
+        for (let i = 0; i < 2; i++) {
             const result = await castSpell(wizard.id!, 'Fireball', {
                 targetPoint: { x: 5, y: 5 },
                 encounterId
@@ -1288,8 +1291,6 @@ describe('Category 10: Spell Save DC & Attack Rolls', () => {
             await handleAdvanceTurn({ encounterId }, getTestContext() as any);
             await handleAdvanceTurn({ encounterId }, getTestContext() as any);
             
-            // Check output for save result
-            // Output format: "(Save DC 11: ✓ PASSED)"
             if (result.rawText.includes('✓ PASSED')) {
                 foundPassed = true;
                 passedSaveResult = result;
@@ -1297,14 +1298,11 @@ describe('Category 10: Spell Save DC & Attack Rolls', () => {
             }
         }
         
-        if (foundPassed) {
-             // In Fireball (8d6), damage is halved. Since we don't know the exact roll, we can check the logs
-             // or check if damage was applied (it should be > 0)
-             expect(passedSaveResult.damage).toBeGreaterThan(0);
-        } else {
-             // If we never passed, we can't verify the halving logic, but we should warn
-             console.warn('Test 10.4: Could not trigger a successful save in 5 attempts');
-        }
+        // Fail if no pass seen - retry mechanism will re-run the test
+        expect(foundPassed, 'Expected at least one successful save (will retry)').toBe(true);
+        
+        // Verify half damage was applied (damage > 0 means it wasn't negated entirely)
+        expect(passedSaveResult.damage).toBeGreaterThan(0);
     });
 });
 

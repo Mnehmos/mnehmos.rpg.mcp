@@ -4,6 +4,7 @@ import {
     handleExecuteCombatAction,
     handleEndEncounter,
     handleGetEncounterState,
+    handleAdvanceTurn,
     clearCombatState
 } from '../../src/server/combat-tools';
 import {
@@ -178,6 +179,7 @@ describe('CRIT-001: HP Persistence After Combat', () => {
         const encounterId = encounterIdMatch![1];
 
         // Damage both heroes (use high bonus to guarantee hits)
+        // Attack hero1
         await handleExecuteCombatAction({
             encounterId,
             action: 'attack',
@@ -188,6 +190,12 @@ describe('CRIT-001: HP Persistence After Combat', () => {
             damage: 15
         }, mockCtx);
 
+        // Advance turn to reset action economy for the orc
+        await handleAdvanceTurn({ encounterId }, mockCtx);
+        await handleAdvanceTurn({ encounterId }, mockCtx);
+        await handleAdvanceTurn({ encounterId }, mockCtx);
+
+        // Attack hero2
         await handleExecuteCombatAction({
             encounterId,
             action: 'attack',

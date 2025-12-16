@@ -83,7 +83,7 @@ export function generateRivers(options: RiverGenerationOptions): RiverSystem {
     elevation,
     seaLevel = 20,
     precipitation,
-    minFlux = 300, // Increased threshold - fewer river branches, reduces lake seed points
+    minFlux = 800, // Higher threshold - fewer rivers
   } = options;
 
   const size = width * height;
@@ -109,15 +109,16 @@ export function generateRivers(options: RiverGenerationOptions): RiverSystem {
     precipFlat.fill(100);
   }
 
-  // Step 1: Calculate flow directions (steepest descent, distance-aware)
+  // Step 1: Calculate flow directions (steepest descent, distance-aware, with meander)
   // Stores index of target cell, or -1 if none
-  const flowDirection = calculateFlowDirection(workingElevation, oceanDistance, seaLevel, width, height);
+  const flowDirection = calculateFlowDirection(workingElevation, oceanDistance, seaLevel, width, height, rng);
 
   // Step 2: Calculate flow accumulation following flow directions
   const flowMapFlat = calculateFlowAccumulation(workingElevation, oceanDistance, precipFlat, seaLevel, flowDirection, width, height);
 
-  // Step 3: Identify sources
-  const sources = findRiverSources(flowMapFlat, workingElevation, seaLevel, minFlux, rng, width, height);
+  // Step 3: Identify sources (with higher threshold for fewer rivers)
+  const minFluxThreshold = minFlux;
+  const sources = findRiverSources(flowMapFlat, workingElevation, seaLevel, minFluxThreshold, rng, width, height);
 
   // Step 4: Trace rivers
   const incomingCounts = calculateIncomingCounts(flowDirection, size);
@@ -148,7 +149,7 @@ export function generateRivers(options: RiverGenerationOptions): RiverSystem {
       height
     );
 
-    if (river && river.path.length > 10) {  // Increased from 5 - skip short river fragments
+    if (river && river.path.length > 25) {  // Increased from 10 - skip short river fragments
       river.id = `river_${rivers.length + 1}`;
       rivers.push(river);
     }
@@ -173,7 +174,8 @@ function calculateFlowDirection(
   oceanDistance: Int32Array,
   seaLevel: number,
   width: number,
-  height: number
+  height: number,
+  rng: seedrandom.PRNG
 ): Int32Array {
   const size = width * height;
   const dir = new Int32Array(size).fill(-1);
@@ -224,14 +226,27 @@ function calculateFlowDirection(
           const isValid = drop > 0 || (drop === 0 && nDist < currentDist);
 
           if (isValid) {
-            // Pick steepest drop
-            // Tie-break with distance to ocean
-            if (drop > maxDrop) {
-              maxDrop = drop;
+            // Scale meander based on world size - smaller worlds need MORE meander
+            // to avoid perfectly straight rivers over short distances
+            const worldSizeFactor = Math.max(1, 200 / Math.min(width, height)); // 1.0 for 200+, 2.0 for 100, 4.0 for 50
+            
+            // Add random meander factor to break up straight lines
+            // ESPECIALLY on flat terrain (drop === 0) which creates straight paths
+            const flatTerrainBonus = drop === 0 ? (rng() * 4 * worldSizeFactor) : 0;
+            const slopeBonus = drop > 0 ? (rng() * 2 * worldSizeFactor) : 0;
+            const diagonalBonus = (dx !== 0 && dy !== 0) ? (rng() * 1.0 * worldSizeFactor) : 0;
+            const effectiveDrop = drop + slopeBonus + flatTerrainBonus + diagonalBonus;
+            
+            // Pick steepest drop (with meander)
+            // Tie-break with distance to ocean (more relaxed for small worlds)
+            const tolerance = 0.5 * worldSizeFactor;
+            if (effectiveDrop > maxDrop + 0.01) {
+              maxDrop = effectiveDrop;
               bestDist = nDist;
               bestIdx = nIdx;
-            } else if (drop === maxDrop) {
-              if (nDist < bestDist) {
+            } else if (Math.abs(effectiveDrop - maxDrop) < tolerance) {
+              // Close enough - pick randomly between options for natural meander
+              if (rng() > 0.4 && nDist <= bestDist + 3 * worldSizeFactor) {
                 bestDist = nDist;
                 bestIdx = nIdx;
               }

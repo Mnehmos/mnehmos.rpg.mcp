@@ -1,6 +1,7 @@
 import Database from 'better-sqlite3';
-import { join, dirname, isAbsolute } from 'path';
-import { existsSync } from 'fs';
+import { join, isAbsolute } from 'path';
+import { existsSync, mkdirSync } from 'fs';
+import { homedir } from 'os';
 import { initDB } from './db.js';
 import { migrate } from './migrations.js';
 
@@ -8,12 +9,45 @@ let dbInstance: Database.Database | null = null;
 let configuredDbPath: string | null = null;
 
 /**
+ * Get the platform-specific app data directory for rpg-mcp.
+ * - Windows: %APPDATA%/rpg-mcp
+ * - macOS: ~/Library/Application Support/rpg-mcp
+ * - Linux: ~/.local/share/rpg-mcp
+ */
+function getAppDataDir(): string {
+    const platform = process.platform;
+    let appDataDir: string;
+
+    if (platform === 'win32') {
+        // Windows: %APPDATA% (typically C:\Users\<user>\AppData\Roaming)
+        appDataDir = process.env.APPDATA || join(homedir(), 'AppData', 'Roaming');
+    } else if (platform === 'darwin') {
+        // macOS: ~/Library/Application Support
+        appDataDir = join(homedir(), 'Library', 'Application Support');
+    } else {
+        // Linux/Unix: ~/.local/share (XDG Base Directory spec)
+        appDataDir = process.env.XDG_DATA_HOME || join(homedir(), '.local', 'share');
+    }
+
+    const rpgMcpDir = join(appDataDir, 'rpg-mcp');
+    
+    // Ensure the directory exists
+    if (!existsSync(rpgMcpDir)) {
+        mkdirSync(rpgMcpDir, { recursive: true });
+        console.error(`[Database] Created app data directory: ${rpgMcpDir}`);
+    }
+
+    return rpgMcpDir;
+}
+
+/**
  * Get the default database path.
- * Uses environment variable, CLI argument, or falls back to user data directory.
+ * Uses environment variable, CLI argument, or falls back to app data directory.
  *
- * For Tauri sidecar usage:
- * - Production: rpg.db is bundled alongside the executable
- * - Dev mode: rpg.db is in src-tauri/binaries/ (need to search up from target/debug/)
+ * Priority:
+ * 1. RPG_MCP_DB_PATH environment variable
+ * 2. --db-path CLI argument
+ * 3. Platform-specific app data directory (%APPDATA%/rpg-mcp on Windows)
  */
 function getDefaultDbPath(): string {
     // Check for environment variable first
@@ -28,49 +62,8 @@ function getDefaultDbPath(): string {
         return args[dbPathIndex + 1];
     }
 
-    // Fall back to executable directory or current working directory
-    // For bundled executables, use the directory containing the executable
-    const exePath = process.execPath;
-    const exeDir = dirname(exePath);
-
-    // Check if we're running as a bundled executable (pkg/esbuild bundle)
-    // The bundled executable will have a snapshot filesystem
-    // Use type assertion since 'pkg' is added by the pkg bundler at runtime
-    if ((process as unknown as { pkg?: unknown }).pkg || exePath.includes('rpg-mcp-server')) {
-        // First, check if rpg.db exists next to the executable (production mode)
-        const prodPath = join(exeDir, 'rpg.db');
-        if (existsSync(prodPath)) {
-            return prodPath;
-        }
-
-        // Tauri dev mode: executable is in target/debug/ or target/release/
-        // but the database is in src-tauri/binaries/
-        // Search up the directory tree for src-tauri/binaries/rpg.db
-        let searchDir = exeDir;
-        for (let i = 0; i < 5; i++) {
-            const tauriDevPath = join(searchDir, 'binaries', 'rpg.db');
-            if (existsSync(tauriDevPath)) {
-                console.error(`[Database] Found database at Tauri dev path: ${tauriDevPath}`);
-                return tauriDevPath;
-            }
-
-            // Also check for src-tauri/binaries pattern
-            const srcTauriPath = join(searchDir, 'src-tauri', 'binaries', 'rpg.db');
-            if (existsSync(srcTauriPath)) {
-                console.error(`[Database] Found database at src-tauri path: ${srcTauriPath}`);
-                return srcTauriPath;
-            }
-
-            searchDir = dirname(searchDir);
-        }
-
-        // Fall back to executable directory (will create new DB if not found)
-        console.error(`[Database] No existing database found, will create at: ${prodPath}`);
-        return prodPath;
-    }
-
-    // For development, use current working directory
-    return join(process.cwd(), 'rpg.db');
+    // Use platform-specific app data directory
+    return join(getAppDataDir(), 'rpg.db');
 }
 
 /**

@@ -102,14 +102,14 @@ This engine implements the **Event-Driven Agentic AI Architecture**:
 
 ### The Embodiment Model
 
-| Biological System | RPG-MCP Component | Role |
-|-------------------|-------------------|------|
-| **Brain** | LLM Agent (external) | Strategic reasoning, planning, interpretation |
+| Biological System  | RPG-MCP Component     | Role                                                   |
+| ------------------ | --------------------- | ------------------------------------------------------ |
+| **Brain**          | LLM Agent (external)  | Strategic reasoning, planning, interpretation          |
 | **Nervous System** | Engine + Orchestrator | Validates intent, enforces constraints, routes actions |
-| **Reflex Arc** | Constraint Validator | Blocks impossible actions before execution |
-| **Sensory Organs** | Observation Tools | `getObservation`, `queryEntities`, `getWorldSnapshot` |
-| **Muscles** | Action Tools | `proposeAction`, `moveEntity`, `attack`, `interact` |
-| **Environment** | World State + Physics | SQLite-persisted, deterministic, forkable reality |
+| **Reflex Arc**     | Constraint Validator  | Blocks impossible actions before execution             |
+| **Sensory Organs** | Observation Tools     | `getObservation`, `queryEntities`, `getWorldSnapshot`  |
+| **Muscles**        | Action Tools          | `proposeAction`, `moveEntity`, `attack`, `interact`    |
+| **Environment**    | World State + Physics | SQLite-persisted, deterministic, forkable reality      |
 
 **Key invariant**: LLMs propose intentions. The engine validates and executes. LLMs never directly mutate world state.
 
@@ -120,20 +120,24 @@ This engine implements the **Event-Driven Agentic AI Architecture**:
 ### Core Systems
 
 **Multi-tenant & Multi-world**
+
 - Isolated projects (`projectId`) and parallel worlds (`worldId`)
 - Fork worlds for branching timelines or "what-if" simulations
 
 **Embodied Entities**
+
 - Position, velocity, orientation in 3D space
 - Stats, inventories, status effects, controller links
 - Sensory radius, line-of-sight, perception limits
 
 **Intent-Based Actions**
+
 - Agents submit intentions: `MOVE_TO`, `ATTACK`, `CAST_SPELL`, `INTERACT`
 - Engine validates against physics, rules, and constraints
 - Invalid actions rejected with structured feedback
 
 **Deterministic Physics**
+
 - Collision detection, projectile trajectories, movement costs
 - Reproducible world steps—same inputs always yield same outputs
 - Full audit trail: snapshots, event logs, action history
@@ -221,8 +225,8 @@ src/
 │   └── schema-shorthand.ts   # TIER 2: Token-efficient parsing
 └── api/              # MCP server entry point
 
-tests/                # 800+ tests mirroring src/ structure
-Agents/               # Development docs, playtest logs, discovery log
+tests/                # 746 tests mirroring src/ structure
+docs/                 # White paper and LLM spatial guide
 ```
 
 ---
@@ -234,6 +238,7 @@ Agents/               # Development docs, playtest logs, discovery log
 Download the pre-built binary for your platform from the [Releases](https://github.com/Mnehmos/rpg-mcp/releases) page:
 
 **Windows:**
+
 ```bash
 # Download rpg-mcp-win.exe
 # No Node.js installation required!
@@ -241,6 +246,7 @@ Download the pre-built binary for your platform from the [Releases](https://gith
 ```
 
 **macOS:**
+
 ```bash
 # Download rpg-mcp-macos
 chmod +x rpg-mcp-macos
@@ -248,6 +254,7 @@ chmod +x rpg-mcp-macos
 ```
 
 **Linux:**
+
 ```bash
 # Download rpg-mcp-linux
 chmod +x rpg-mcp-linux
@@ -267,6 +274,7 @@ npm test  # 800+ tests should pass
 ```
 
 To build binaries yourself:
+
 ```bash
 npm run build:binaries
 # Output: dist-bundle/rpg-mcp-win.exe, rpg-mcp-macos, rpg-mcp-linux
@@ -277,6 +285,7 @@ npm run build:binaries
 To use with an MCP-compatible client (Claude Desktop, etc.), add to your client's configuration:
 
 **Using Binary:**
+
 ```json
 {
   "mcpServers": {
@@ -288,12 +297,13 @@ To use with an MCP-compatible client (Claude Desktop, etc.), add to your client'
 ```
 
 **Using Source:**
+
 ```json
 {
   "mcpServers": {
     "rpg-mcp": {
-      "command": "npx",
-      "args": ["tsx", "path/to/rpg-mcp/src/server/index.js"]
+      "command": "node",
+      "args": [ "path/to/rpg-mcp/src/dist/index.js"]
     }
   }
 }
@@ -301,268 +311,229 @@ To use with an MCP-compatible client (Claude Desktop, etc.), add to your client'
 
 ---
 
-## MCP Tools Reference (145+ Tools)
-
-### 🚀 Composite Tools - TIER 1 (NEW)
-*Reduce token overhead by 80-95% for common workflows*
-
-| Tool | Description |
-|------|-------------|
-| `spawn_preset_encounter` | Spawn balanced combat with enemies, terrain, initiative |
-| `spawn_populated_location` | Create location with NPCs, items, terrain in one call |
-| `spawn_preset_location` | Create from preset (tavern, dungeon, temple, etc.) |
-| `loot_encounter` | Handle all encounter loot distribution |
-| `rest_party` | Party-wide short/long rest with HP/slot recovery |
-| `travel_to_location` | Move party to location with travel events |
+## MCP Tools Reference (135 Tools)
 
 ### World Management (12 tools)
-| Tool | Description |
-|------|-------------|
-| `create_world` | Create a new world |
-| `get_world` | Retrieve world by ID |
-| `list_worlds` | List all worlds |
-| `delete_world` | Delete world (cascades) |
-| `generate_world` | Procedural generation with Perlin noise |
-| `get_world_state` | Full world state dump |
-| `get_world_map_overview` | Summary stats & biome distribution |
-| `get_world_tiles` | Full tile grid |
-| `get_region_map` | Single region details |
-| `apply_map_patch` | DSL for map modifications |
-| `preview_map_patch` | Dry-run of patch |
-| `update_world_environment` | Time, weather, season |
+
+| Tool                       | Description                             |
+| -------------------------- | --------------------------------------- |
+| `create_world`             | Create a new world                      |
+| `get_world`                | Retrieve world by ID                    |
+| `list_worlds`              | List all worlds                         |
+| `delete_world`             | Delete world (cascades)                 |
+| `generate_world`           | Procedural generation with Perlin noise |
+| `get_world_state`          | Full world state dump                   |
+| `get_world_map_overview`   | Summary stats & biome distribution      |
+| `get_world_tiles`          | Full tile grid                          |
+| `get_region_map`           | Single region details                   |
+| `apply_map_patch`          | DSL for map modifications               |
+| `preview_map_patch`        | Dry-run of patch                        |
+| `update_world_environment` | Time, weather, season                   |
 
 ### POI Location Tools (2 tools)
-| Tool | Description |
-|------|-------------|
+
+| Tool                      | Description                                    |
+| ------------------------- | ---------------------------------------------- |
 | `find_valid_poi_location` | Terrain-aware placement for points of interest |
-| `suggest_poi_locations` | Suggest multiple valid POI locations |
+| `suggest_poi_locations`   | Suggest multiple valid POI locations           |
 
 ### Character Management (5 tools)
-| Tool | Description |
-|------|-------------|
+
+| Tool               | Description                 |
+| ------------------ | --------------------------- |
 | `create_character` | Full D&D stat block support |
-| `get_character` | Retrieve by ID |
-| `update_character` | Update any field |
-| `list_characters` | List all characters |
-| `delete_character` | Remove from DB |
+| `get_character`    | Retrieve by ID              |
+| `update_character` | Update any field            |
+| `list_characters`  | List all characters         |
+| `delete_character` | Remove from DB              |
 
 ### Inventory & Items (15 tools)
-| Tool | Description |
-|------|-------------|
-| `create_item_template` | Define item types |
-| `get_item` | Get template by ID |
-| `list_items` | All templates |
-| `search_items` | Query by name/type/value |
-| `update_item` | Modify template |
-| `delete_item` | Remove template |
-| `give_item` | Add to character inventory |
-| `remove_item` | Take from inventory |
-| `transfer_item` | Move between characters |
-| `use_item` | Consume items |
-| `equip_item` | Assign to equipment slot |
-| `unequip_item` | Return to inventory |
-| `get_inventory` | Basic inventory list |
-| `get_inventory_detailed` | Full item info, sorted |
-| `transfer_currency` | Transfer gold/silver/copper with auto-conversion |
 
-### Combat & Encounters (8 tools)
-| Tool | Description |
-|------|-------------|
-| `create_encounter` | Initialize combat with participants |
-| `get_encounter_state` | Current combat status |
-| `load_encounter` | Resume saved encounter |
-| `end_encounter` | End combat, sync HP |
-| `execute_combat_action` | Attack/heal/move/cast spell |
-| `advance_turn` | Move to next in initiative |
-| `roll_death_save` | D&D 5e death saving throws |
-| `execute_lair_action` | Legendary creature lair actions |
+| Tool                     | Description                                      |
+| ------------------------ | ------------------------------------------------ |
+| `create_item_template`   | Define item types                                |
+| `get_item`               | Get template by ID                               |
+| `list_items`             | All templates                                    |
+| `search_items`           | Query by name/type/value                         |
+| `update_item`            | Modify template                                  |
+| `delete_item`            | Remove template                                  |
+| `give_item`              | Add to character inventory                       |
+| `remove_item`            | Take from inventory                              |
+| `transfer_item`          | Move between characters                          |
+| `use_item`               | Consume items                                    |
+| `equip_item`             | Assign to equipment slot                         |
+| `unequip_item`           | Return to inventory                              |
+| `get_inventory`          | Basic inventory list                             |
+| `get_inventory_detailed` | Full item info, sorted                           |
+| `transfer_currency`      | Transfer gold/silver/copper with auto-conversion |
+
+### Combat & Encounters (7 tools)
+
+| Tool                    | Description                         |
+| ----------------------- | ----------------------------------- |
+| `create_encounter`      | Initialize combat with participants |
+| `get_encounter_state`   | Current combat status               |
+| `load_encounter`        | Resume saved encounter              |
+| `end_encounter`         | End combat, sync HP                 |
+| `execute_combat_action` | Attack/heal/move/cast spell         |
+| `advance_turn`          | Move to next in initiative          |
+| `roll_death_save`       | D&D 5e death saving throws          |
+| `execute_lair_action`   | Legendary creature lair actions     |
 
 ### Spellcasting (integrated with combat)
-| Action | Description |
-|--------|-------------|
+
+| Action       | Description                            |
+| ------------ | -------------------------------------- |
 | `cast_spell` | Cast known spell with slot consumption |
 
 ### Rest System (2 tools)
-| Tool | Description |
-|------|-------------|
-| `take_long_rest` | Restore all HP and spell slots |
+
+| Tool              | Description                          |
+| ----------------- | ------------------------------------ |
+| `take_long_rest`  | Restore all HP and spell slots       |
 | `take_short_rest` | Hit dice healing, Warlock pact slots |
 
 ### Theft & Fence System (10 tools)
-| Tool | Description |
-|------|-------------|
-| `steal_item` | Record theft with heat tracking |
-| `check_item_stolen` | Check if item is stolen |
-| `check_stolen_items_on_character` | List all stolen items held |
-| `check_item_recognition` | NPC recognition check |
-| `sell_to_fence` | Sell stolen goods |
-| `register_fence` | Register NPC as fence |
-| `report_theft` | Report to guards (adds bounty) |
-| `advance_heat_decay` | Process heat decay |
-| `get_fence` | Get fence details |
-| `list_fences` | List all fences |
+
+| Tool                              | Description                     |
+| --------------------------------- | ------------------------------- |
+| `steal_item`                      | Record theft with heat tracking |
+| `check_item_stolen`               | Check if item is stolen         |
+| `check_stolen_items_on_character` | List all stolen items held      |
+| `check_item_recognition`          | NPC recognition check           |
+| `sell_to_fence`                   | Sell stolen goods               |
+| `register_fence`                  | Register NPC as fence           |
+| `report_theft`                    | Report to guards (adds bounty)  |
+| `advance_heat_decay`              | Process heat decay              |
+| `get_fence`                       | Get fence details               |
+| `list_fences`                     | List all fences                 |
 
 ### Corpse & Loot System (14 tools)
-| Tool | Description |
-|------|-------------|
-| `create_corpse` | Create corpse from dead character |
-| `get_corpse` | Get corpse by ID |
-| `get_corpse_by_character` | Get by original character |
-| `get_corpse_inventory` | Items on corpse |
-| `list_corpses_in_encounter` | Corpses in combat |
-| `list_corpses_nearby` | Corpses near position |
-| `loot_corpse` | Loot single item |
-| `harvest_corpse` | Harvest resources |
-| `generate_loot` | Generate from loot table |
-| `create_loot_table` | Custom loot tables |
-| `get_loot_table` | Get table by ID |
-| `list_loot_tables` | List all tables |
-| `advance_corpse_decay` | Process decay |
-| `cleanup_corpses` | Remove decayed corpses |
+
+| Tool                        | Description                       |
+| --------------------------- | --------------------------------- |
+| `create_corpse`             | Create corpse from dead character |
+| `get_corpse`                | Get corpse by ID                  |
+| `get_corpse_by_character`   | Get by original character         |
+| `get_corpse_inventory`      | Items on corpse                   |
+| `list_corpses_in_encounter` | Corpses in combat                 |
+| `list_corpses_nearby`       | Corpses near position             |
+| `loot_corpse`               | Loot single item                  |
+| `harvest_corpse`            | Harvest resources                 |
+| `generate_loot`             | Generate from loot table          |
+| `create_loot_table`         | Custom loot tables                |
+| `get_loot_table`            | Get table by ID                   |
+| `list_loot_tables`          | List all tables                   |
+| `advance_corpse_decay`      | Process decay                     |
+| `cleanup_corpses`           | Remove decayed corpses            |
 
 ### NPC Memory System (7 tools)
-| Tool | Description |
-|------|-------------|
-| `get_npc_relationship` | Get relationship status |
-| `update_npc_relationship` | Create/update relationship |
-| `record_conversation_memory` | Store conversation summary |
-| `get_conversation_history` | Get memories with NPC |
-| `get_recent_interactions` | Recent memories across NPCs |
-| `get_npc_context` | Full context for LLM injection |
-| `interact_socially` | Spatial-aware conversations |
 
-### Narrative Memory System (8 tools)
-| Tool | Description |
-|------|-------------|
-| `create_narrative_note` | Create plot threads, NPC voices, canonical moments |
-| `get_narrative_note` | Get single note |
-| `update_narrative_note` | Update note content/status |
-| `delete_narrative_note` | Remove note |
-| `search_narrative_notes` | Query by type/tags/status |
-| `get_narrative_context_notes` | Get notes for LLM context |
-| `archive_narrative_note` | Archive completed threads |
-| `get_narrative_context` | Full narrative context bundle |
+| Tool                         | Description                          |
+| ---------------------------- | ------------------------------------ |
+| `get_npc_relationship`       | Get relationship status              |
+| `update_npc_relationship`    | Create/update relationship           |
+| `record_conversation_memory` | Store conversation summary           |
+| `get_conversation_history`   | Get memories with NPC                |
+| `get_recent_interactions`    | Recent memories across NPCs          |
+| `get_npc_context`            | Full context for LLM injection       |
+| `interact_socially`          | PHASE-2: Spatial-aware conversations |
 
 ### Improvisation System (8 tools)
-| Tool | Description |
-|------|-------------|
-| `resolve_improvised_stunt` | Rule of Cool resolution |
-| `apply_custom_effect` | Apply boons/curses/transformations |
-| `get_custom_effects` | Get active effects |
-| `remove_custom_effect` | Remove effect |
-| `process_effect_triggers` | Fire effect triggers |
-| `advance_effect_durations` | Tick effect durations |
-| `attempt_arcane_synthesis` | Dynamic spell creation |
-| `get_synthesized_spells` | Get mastered spells |
+
+| Tool                       | Description                        |
+| -------------------------- | ---------------------------------- |
+| `resolve_improvised_stunt` | Rule of Cool resolution            |
+| `apply_custom_effect`      | Apply boons/curses/transformations |
+| `get_custom_effects`       | Get active effects                 |
+| `remove_custom_effect`     | Remove effect                      |
+| `process_effect_triggers`  | Fire effect triggers               |
+| `advance_effect_durations` | Tick effect durations              |
+| `attempt_arcane_synthesis` | Dynamic spell creation             |
+| `get_synthesized_spells`   | Get mastered spells                |
 
 ### Quest System (8 tools)
-| Tool | Description |
-|------|-------------|
-| `create_quest` | Define quest with objectives |
-| `get_quest` | Single quest details |
-| `list_quests` | All quests |
-| `assign_quest` | Give quest to character |
-| `update_objective` | Increment progress |
-| `complete_objective` | Mark objective done |
-| `complete_quest` | Complete entire quest |
-| `get_quest_log` | Full quest objects |
+
+| Tool                 | Description                  |
+| -------------------- | ---------------------------- |
+| `create_quest`       | Define quest with objectives |
+| `get_quest`          | Single quest details         |
+| `list_quests`        | All quests                   |
+| `assign_quest`       | Give quest to character      |
+| `update_objective`   | Increment progress           |
+| `complete_objective` | Mark objective done          |
+| `complete_quest`     | Complete entire quest        |
+| `get_quest_log`      | Full quest objects           |
 
 ### Secrets System (9 tools)
-| Tool | Description |
-|------|-------------|
-| `create_secret` | Hidden info with reveal conditions |
-| `get_secret` | DM-only view |
-| `list_secrets` | All secrets for world |
-| `update_secret` | Modify properties |
-| `delete_secret` | Remove secret |
-| `reveal_secret` | Show to player |
-| `check_reveal_conditions` | Test if conditions met |
-| `get_secrets_for_context` | Format for LLM injection |
-| `check_for_leaks` | Scan text for accidental reveals |
+
+| Tool                      | Description                        |
+| ------------------------- | ---------------------------------- |
+| `create_secret`           | Hidden info with reveal conditions |
+| `get_secret`              | DM-only view                       |
+| `list_secrets`            | All secrets for world              |
+| `update_secret`           | Modify properties                  |
+| `delete_secret`           | Remove secret                      |
+| `reveal_secret`           | Show to player                     |
+| `check_reveal_conditions` | Test if conditions met             |
+| `get_secrets_for_context` | Format for LLM injection           |
+| `check_for_leaks`         | Scan text for accidental reveals   |
 
 ### Party System (17 tools)
-| Tool | Description |
-|------|-------------|
-| `create_party` | Create adventuring party |
-| `get_party` | Get party details |
-| `list_parties` | All parties |
-| `update_party` | Modify party properties |
-| `delete_party` | Remove party |
-| `add_party_member` | Add character to party |
-| `remove_party_member` | Remove from party |
-| `update_party_member` | Modify party member role |
-| `set_party_leader` | Change leadership |
-| `set_active_character` | Set active PC |
-| `get_party_members` | Get members with details |
-| `get_party_context` | Party summary for LLM |
-| `get_unassigned_characters` | Characters not in a party |
-| `move_party` | Move entire party on world map |
-| `get_party_position` | Party location |
-| `get_parties_in_region` | Parties in specific region |
+
+| Tool                        | Description                    |
+| --------------------------- | ------------------------------ |
+| `create_party`              | Create adventuring party       |
+| `get_party`                 | Get party details              |
+| `list_parties`              | All parties                    |
+| `update_party`              | Modify party properties        |
+| `delete_party`              | Remove party                   |
+| `add_party_member`          | Add character to party         |
+| `remove_party_member`       | Remove from party              |
+| `update_party_member`       | Modify party member role       |
+| `set_party_leader`          | Change leadership              |
+| `set_active_character`      | Set active PC                  |
+| `get_party_members`         | Get members with details       |
+| `get_party_context`         | Party summary for LLM          |
+| `get_unassigned_characters` | Characters not in a party      |
+| `move_party`                | Move entire party on world map |
+| `get_party_position`        | Party location                 |
+| `get_parties_in_region`     | Parties in specific region     |
 
 ### Spatial Navigation (4 tools)
-| Tool | Description |
-|------|-------------|
-| `look_at_surroundings` | Observe current location details |
-| `generate_room_node` | Create room in dungeon network |
-| `get_room_exits` | List exits from current room |
-| `move_character_to_room` | Move character between rooms |
+
+| Tool                     | Description                      |
+| ------------------------ | -------------------------------- |
+| `look_at_surroundings`   | Observe current location details |
+| `generate_room_node`     | Create room in dungeon network   |
+| `get_room_exits`         | List exits from current room     |
+| `move_character_to_room` | Move character between rooms     |
 
 ### Math & Dice (5 tools)
-| Tool | Description |
-|------|-------------|
-| `dice_roll` | Full D&D notation (2d6+3, 4d6dl1, adv/dis) |
-| `probability_calculate` | Calculate odds |
-| `algebra_solve` | Solve equations |
-| `algebra_simplify` | Simplify expressions |
-| `physics_projectile` | Trajectory calculations |
+
+| Tool                    | Description                                |
+| ----------------------- | ------------------------------------------ |
+| `dice_roll`             | Full D&D notation (2d6+3, 4d6dl1, adv/dis) |
+| `probability_calculate` | Calculate odds                             |
+| `algebra_solve`         | Solve equations                            |
+| `algebra_simplify`      | Simplify expressions                       |
+| `physics_projectile`    | Trajectory calculations                    |
 
 ### Grand Strategy (11 tools)
-| Tool | Description |
-|------|-------------|
-| `create_nation` | Create nation with resources |
-| `get_nation_state` | Private nation state |
-| `get_strategy_state` | World with fog of war |
-| `propose_alliance` | Diplomatic action |
-| `claim_region` | Territorial claims |
-| `init_turn_state` | Initialize turn management |
-| `get_turn_status` | Check nation readiness |
-| `submit_turn_actions` | Batch action submission |
-| `mark_ready` | Signal turn complete |
-| `resolve_turn` | Process all actions |
-| `poll_turn_results` | Get resolution results |
 
----
-
-## Preset Systems
-
-### Creature Presets (1100+ templates)
-```typescript
-// Quick spawn with preset
-const goblin = expandCreatureTemplate('goblin');
-const dragon = expandCreatureTemplate('adult_red_dragon');
-```
-
-Categories: Humanoids, Undead, Beasts, Dragons, Demons, Elementals, and more.
-
-### Encounter Presets (50+ balanced encounters)
-```typescript
-// Get encounters for party level
-const encounters = getEncountersForLevel(3); // Level 3 party
-// Returns: goblin_ambush, kobold_den, bandit_highway, etc.
-
-// Scale encounter to party size
-const scaled = scaleEncounter('goblin_ambush', 5); // 5 players
-```
-
-### Location Presets (30+ templates)
-```typescript
-// Create populated tavern
-const result = await spawnPresetLocation('rustic_tavern', worldId, x, y);
-// Returns: NPCs, items, terrain, description
-```
-
-Types: Taverns, Temples, Dungeons, Markets, Camps, Ruins, Lairs.
+| Tool                  | Description                  |
+| --------------------- | ---------------------------- |
+| `create_nation`       | Create nation with resources |
+| `get_nation_state`    | Private nation state         |
+| `get_strategy_state`  | World with fog of war        |
+| `propose_alliance`    | Diplomatic action            |
+| `claim_region`        | Territorial claims           |
+| `init_turn_state`     | Initialize turn management   |
+| `get_turn_status`     | Check nation readiness       |
+| `submit_turn_actions` | Batch action submission      |
+| `mark_ready`          | Signal turn complete         |
+| `resolve_turn`        | Process all actions          |
+| `poll_turn_results`   | Get resolution results       |
 
 ---
 
@@ -623,6 +594,7 @@ npm test
 ```
 
 Key test areas:
+
 - Combat encounters and HP persistence
 - Spellcasting validation (anti-hallucination)
 - Inventory integrity and exploit prevention
@@ -682,10 +654,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for detailed guidelines.
 
 ## Documentation
 
-- **[CLAUDE.md](CLAUDE.md)** - Claude Code development instructions
-- **[Agents/TOOL_CATALOG.md](Agents/TOOL_CATALOG.md)** - Complete tool reference with examples
-- **[Agents/EMERGENT_DISCOVERY_LOG.md](Agents/EMERGENT_DISCOVERY_LOG.md)** - Bug tracking and playtest findings
-- **[Agents/PROJECT_CONTEXT.md](Agents/PROJECT_CONTEXT.md)** - Architecture and frontend integration
+- **[CLAUDE.md](CLAUDE.md)** - Development instructions
+- **[docs/WHITE_PAPER.md](docs/WHITE_PAPER.md)** - Design philosophy and architecture
+- **[docs/LLMSpatialGuide.md](docs/LLMSpatialGuide.md)** - LLM spatial navigation guide
 
 ---
 
