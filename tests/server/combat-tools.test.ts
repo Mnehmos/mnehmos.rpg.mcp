@@ -6,6 +6,7 @@ import {
     handleAdvanceTurn,
     handleEndEncounter,
     handleLoadEncounter,
+    handleGenerateTerrainPattern,
     clearCombatState
 } from '../../src/server/combat-tools';
 import { getCombatManager } from '../../src/server/state/combat-manager';
@@ -122,8 +123,9 @@ describe('Combat MCP Tools', () => {
             }, mockCtx);
             const encounterId = extractStateJson(createResult.content[0].text).encounterId;
 
-            // handleGetEncounterState returns state directly (not wrapped in content)
-            const state = await handleGetEncounterState({ encounterId }, mockCtx);
+            // handleGetEncounterState returns tool result
+            const result = await handleGetEncounterState({ encounterId }, mockCtx);
+            const state = extractStateJson(result.content[0].text);
 
             expect(state.participants).toBeDefined();
             expect(state.turnOrder).toBeDefined();
@@ -323,8 +325,9 @@ describe('Combat MCP Tools', () => {
             await handleAdvanceTurn({ encounterId }, mockCtx);
 
             // 3. Verify state changed (round might be 1, but turn index changed)
-            // handleGetEncounterState returns state directly (not wrapped in content)
-            const stateBefore = await handleGetEncounterState({ encounterId }, mockCtx);
+            // handleGetEncounterState returns tool result
+            const resultBefore = await handleGetEncounterState({ encounterId }, mockCtx);
+            const stateBefore = extractStateJson(resultBefore.content[0].text);
 
             // 4. "Forget" encounter from memory
             // Note: In the new implementation, we need to delete using the namespaced ID
@@ -338,12 +341,108 @@ describe('Combat MCP Tools', () => {
             expect(loadResult.content[0].text).toContain('ENCOUNTER LOADED');
 
             // 6. Verify state is restored
-            // handleGetEncounterState returns state directly (not wrapped in content)
-            const stateAfter = await handleGetEncounterState({ encounterId }, mockCtx);
+            // handleGetEncounterState returns tool result
+            const resultAfter = await handleGetEncounterState({ encounterId }, mockCtx);
+            const stateAfter = extractStateJson(resultAfter.content[0].text);
 
             expect(stateAfter.currentTurn).toEqual(stateBefore.currentTurn);
             expect(stateAfter.round).toBe(stateBefore.round);
             expect(stateAfter.participants).toEqual(stateBefore.participants);
+        });
+    });
+
+    describe('[CRIT-004] terrain rendering in get_encounter_state', () => {
+        it('should return terrain data after generate_terrain_pattern is called', async () => {
+            // 1. Create an encounter
+            const createResult = await handleCreateEncounter({
+                seed: 'terrain-test',
+                participants: [{
+                    id: 'hero',
+                    name: 'Hero',
+                    initiativeBonus: 1,
+                    hp: 30,
+                    maxHp: 30,
+                    conditions: [],
+                    position: { x: 5, y: 5, z: 0 }
+                }]
+            }, mockCtx);
+            const encounterId = extractStateJson(createResult.content[0].text).encounterId;
+
+            // 2. Generate terrain using maze pattern
+            const terrainResult = await handleGenerateTerrainPattern({
+                encounterId,
+                pattern: 'maze',
+                width: 20,
+                height: 20,
+                origin: { x: 0, y: 0 },
+                seed: 'test-maze'
+            }, mockCtx);
+
+            // Extract obstacle count from terrain generation response
+            const terrainResponse = extractStateJson(terrainResult.content[0].text);
+            const generatedObstacleCount = terrainResponse.terrain?.obstacles?.length || 0;
+
+            // 3. Call get_encounter_state and verify terrain is included
+            const stateResult = await handleGetEncounterState({ encounterId }, mockCtx);
+            const state = extractStateJson(stateResult.content[0].text);
+
+            // CRITICAL: Terrain must be present and match what was generated
+            expect(state.terrain).toBeDefined();
+            expect(state.terrain.obstacles).toBeDefined();
+            expect(state.terrain.obstacles.length).toBe(generatedObstacleCount);
+            expect(state.terrain.obstacles.length).toBeGreaterThan(0);
+
+            // Verify obstacle format
+            if (state.terrain.obstacles.length > 0) {
+                const firstObstacle = state.terrain.obstacles[0];
+                expect(typeof firstObstacle).toBe('string');
+                expect(firstObstacle).toMatch(/^\d+,\d+$/); // Format: "x,y"
+            }
+        });
+
+        it('should persist terrain data across database reload', async () => {
+            // 1. Create encounter
+            const createResult = await handleCreateEncounter({
+                seed: 'terrain-persist-test',
+                participants: [{
+                    id: 'hero',
+                    name: 'Hero',
+                    initiativeBonus: 1,
+                    hp: 30,
+                    maxHp: 30,
+                    conditions: [],
+                    position: { x: 5, y: 5, z: 0 }
+                }]
+            }, mockCtx);
+            const encounterId = extractStateJson(createResult.content[0].text).encounterId;
+
+            // 2. Generate terrain
+            await handleGenerateTerrainPattern({
+                encounterId,
+                pattern: 'arena',
+                width: 15,
+                height: 15,
+                origin: { x: 0, y: 0 },
+                seed: 'test-arena'
+            }, mockCtx);
+
+            // 3. Get terrain count before clearing memory
+            const beforeResult = await handleGetEncounterState({ encounterId }, mockCtx);
+            const beforeState = extractStateJson(beforeResult.content[0].text);
+            const obstacleCount = beforeState.terrain?.obstacles?.length || 0;
+
+            // 4. Clear from memory (simulating app restart)
+            getCombatManager().delete(`${mockCtx.sessionId}:${encounterId}`);
+            expect(getCombatManager().get(`${mockCtx.sessionId}:${encounterId}`)).toBeNull();
+
+            // 5. Reload and verify terrain is still present
+            const afterResult = await handleGetEncounterState({ encounterId }, mockCtx);
+            const afterState = extractStateJson(afterResult.content[0].text);
+
+            expect(afterState.terrain).toBeDefined();
+            expect(afterState.terrain.obstacles).toBeDefined();
+            expect(afterState.terrain.obstacles.length).toBe(obstacleCount);
+            expect(afterState.terrain.obstacles.length).toBeGreaterThan(0);
         });
     });
 });
