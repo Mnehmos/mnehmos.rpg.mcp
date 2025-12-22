@@ -17,6 +17,7 @@ import { InventoryRepository } from '../storage/repos/inventory.repo.js';
 import { PartyRepository } from '../storage/repos/party.repo.js';
 import { POIRepository } from '../storage/repos/poi.repo.js';
 import { SpatialRepository } from '../storage/repos/spatial.repo.js';
+import { EncounterRepository } from '../storage/repos/encounter.repo.js';
 import { POICategory, POIIcon } from '../schema/poi.js';
 import { BiomeType } from '../schema/spatial.js';
 import { expandCreatureTemplate } from '../data/creature-presets.js';
@@ -171,7 +172,8 @@ function ensureDb() {
         inventoryRepo: new InventoryRepository(db),
         partyRepo: new PartyRepository(db),
         poiRepo: new POIRepository(db),
-        spatialRepo: new SpatialRepository(db)
+        spatialRepo: new SpatialRepository(db),
+        encounterRepo: new EncounterRepository(db)
     };
 }
 
@@ -851,6 +853,10 @@ export async function handleSetupTacticalEncounter(args: unknown, ctx: SessionCo
     (encounterState as any).terrain = terrain;
     combatManager.create(namespacedId, engine);
 
+    // Get grid dimensions for database and ASCII map
+    const width = parsed.gridSize?.width || 20;
+    const height = parsed.gridSize?.height || 20;
+
     // CRIT-005: Save encounter to database for persistence
     const { encounterRepo } = ensureDb();
     encounterRepo.create({
@@ -870,18 +876,16 @@ export async function handleSetupTacticalEncounter(args: unknown, ctx: SessionCo
             size: p.size ?? 'medium'
         })),
         round: encounterState.round,
-        active_token_id: encounterState.turnOrder[encounterState.currentTurnIndex],
+        activeTokenId: encounterState.turnOrder[encounterState.currentTurnIndex],
         status: 'active',
-        terrain: JSON.stringify(terrain),
-        props: JSON.stringify([]),
-        grid_bounds: JSON.stringify({ minX: 0, maxX: width, minY: 0, maxY: height }),
-        created_at: Date.now(),
-        updated_at: Date.now()
+        terrain: terrain,
+        props: [],
+        gridBounds: { minX: 0, maxX: width, minY: 0, maxY: height },
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
     });
 
     // Generate ASCII map
-    const width = parsed.gridSize?.width || 20;
-    const height = parsed.gridSize?.height || 20;
     const asciiMap = generateEncounterMap({ state: encounterState }, width, height);
 
     // Build state JSON for frontend parsing (same structure as create_encounter)
