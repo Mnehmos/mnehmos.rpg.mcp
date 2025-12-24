@@ -2,8 +2,8 @@
 node_modules/
 
 # Build outputs
-dist/
-build/
+/dist/
+/build/
 *.tsbuildinfo
 
 # SQLite databases
