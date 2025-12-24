@@ -261,6 +261,8 @@ chmod +x rpg-mcp-macos-arm64
 ./rpg-mcp-macos-arm64
 ```
 
+> **Note:** To check which Mac you have, run `uname -m` in Terminal. Output `arm64` means Apple Silicon (M-series), `x86_64` means Intel.
+
 **Linux:**
 
 ```bash
