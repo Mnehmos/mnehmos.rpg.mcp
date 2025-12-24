@@ -1060,7 +1060,7 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
             maxHp: p.maxHp,
             initiative: 0, // Will be rolled
             initiativeBonus: p.initiativeBonus ?? 0,
-            isEnemy: p.isEnemy ?? true,
+            isEnemy: p.isEnemy ?? false,
             conditions: p.conditions || [],
             position: p.position,
             resistances: p.resistances,

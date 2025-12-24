@@ -1168,7 +1168,7 @@ describe('Category 10: Spell Save DC & Attack Rolls', () => {
             seed: 'test-encounter-10.1',
             participants: [
                 { id: wizard.id!, name: 'Wizard', hp: 20, maxHp: 20, initiativeBonus: 0, position: { x: 0, y: 0 } },
-                { id: target.id, name: 'Target', hp: 20, maxHp: 20, initiativeBonus: 0, position: { x: 5, y: 5 } }
+                { id: target.id, name: 'Target', isEnemy: true, hp: 20, maxHp: 20, initiativeBonus: 0, position: { x: 5, y: 5 } }
             ]
         }, getTestContext() as any);
         const text = (encounterResponse as any).content[0].text;
@@ -1200,7 +1200,7 @@ describe('Category 10: Spell Save DC & Attack Rolls', () => {
             seed: 'test-encounter-10.2',
             participants: [
                 { id: cleric.id!, name: 'Cleric', hp: 20, maxHp: 20, initiativeBonus: 0, position: { x: 0, y: 0 } },
-                 { id: target.id, name: 'Target', hp: 20, maxHp: 20, initiativeBonus: 0, position: { x: 1, y: 0 } }
+                 { id: target.id, name: 'Target', isEnemy: true, hp: 20, maxHp: 20, initiativeBonus: 0, position: { x: 1, y: 0 } }
             ]
         }, getTestContext() as any);
         const text = (encounterResponse as any).content[0].text;
@@ -1233,7 +1233,7 @@ describe('Category 10: Spell Save DC & Attack Rolls', () => {
             seed: 'test-encounter-10.3',
             participants: [
                 { id: wizard.id!, name: 'Wizard', hp: 20, maxHp: 20, initiativeBonus: 0, position: { x: 0, y: 0 } },
-                 { id: target.id, name: 'Target', hp: 50, maxHp: 50, initiativeBonus: 0, position: { x: 1, y: 0 } }
+                 { id: target.id, name: 'Target', isEnemy: true, hp: 50, maxHp: 50, initiativeBonus: 0, position: { x: 1, y: 0 } }
             ]
         }, getTestContext() as any);
         const text = (encounterResponse as any).content[0].text;
@@ -1272,7 +1272,7 @@ describe('Category 10: Spell Save DC & Attack Rolls', () => {
             seed: `test-encounter-10.4-${Date.now()}`, // Unique seed per retry for different RNG
             participants: [
                 { id: wizard.id!, name: 'Wizard', hp: 20, maxHp: 20, initiativeBonus: 0, position: { x: 0, y: 0 } },
-                { id: target.id, name: 'Target', hp: 100, maxHp: 100, initiativeBonus: 0, position: { x: 5, y: 5 } }
+                { id: target.id, name: 'Target', isEnemy: true, hp: 100, maxHp: 100, initiativeBonus: 0, position: { x: 5, y: 5 } }
             ]
         }, getTestContext() as any);
         const text = (encounterResponse as any).content[0].text;
