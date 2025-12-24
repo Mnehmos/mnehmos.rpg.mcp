@@ -16,7 +16,7 @@ import { closeDb, getDb } from '../../src/storage';
 
 // Helper to extract embedded JSON from formatted responses
 function extractEmbeddedJson(responseText: string, tag: string = "DATA"): any {
-    const regex = new RegExp(`<!-- ${tag}_JSON\n([\s\S]*?)\n${tag}_JSON -->`);
+    const regex = new RegExp(`<!--\\s*${tag}_JSON\\s*\n([\\s\\S]*?)\n${tag}_JSON\\s*-->`);
     const match = responseText.match(regex);
     if (match) {
         return JSON.parse(match[1]);
@@ -64,9 +64,10 @@ describe('CRIT-001: HP Persistence After Combat', () => {
             hp: 50,
             maxHp: 50,
             ac: 16,
-            level: 3
+            level: 3,
+            provisionEquipment: false
         }, mockCtx);
-        const character = JSON.parse(charResult.content[0].text);
+        const character = extractEmbeddedJson(charResult.content[0].text, "CHARACTER");
         expect(character.hp).toBe(50);
 
         // 2. Create an encounter with this character and an enemy
@@ -132,7 +133,7 @@ describe('CRIT-001: HP Persistence After Combat', () => {
 
         // 6. CRITICAL TEST: Check if HP persisted back to character record
         const reloadedResult = await handleGetCharacter({ id: character.id }, mockCtx);
-        const reloadedCharacter = JSON.parse(reloadedResult.content[0].text);
+        const reloadedCharacter = extractEmbeddedJson(reloadedResult.content[0].text, "CHARACTER");
 
         // HP in character record should match the HP at end of combat
         expect(reloadedCharacter.hp).toBe(hpAfterCombat);
@@ -146,9 +147,10 @@ describe('CRIT-001: HP Persistence After Combat', () => {
             hp: 40,
             maxHp: 40,
             ac: 18,
-            level: 3
+            level: 3,
+            provisionEquipment: false
         }, mockCtx);
-        const hero1 = JSON.parse(hero1Result.content[0].text);
+        const hero1 = extractEmbeddedJson(hero1Result.content[0].text, "CHARACTER");
 
         const hero2Result = await handleCreateCharacter({
             name: 'Wizard',
@@ -156,9 +158,10 @@ describe('CRIT-001: HP Persistence After Combat', () => {
             hp: 25,
             maxHp: 25,
             ac: 12,
-            level: 3
+            level: 3,
+            provisionEquipment: false
         }, mockCtx);
-        const hero2 = JSON.parse(hero2Result.content[0].text);
+        const hero2 = extractEmbeddedJson(hero2Result.content[0].text, "CHARACTER");
 
         // Create encounter
         const encounterResult = await handleCreateEncounter({
@@ -240,11 +243,13 @@ describe('CRIT-001: HP Persistence After Combat', () => {
         await handleEndEncounter({ encounterId }, mockCtx);
 
         // Verify both characters have updated HP that matches combat state
-        const reloaded1 = JSON.parse(
-            (await handleGetCharacter({ id: hero1.id }, mockCtx)).content[0].text
+        const reloaded1 = extractEmbeddedJson(
+            (await handleGetCharacter({ id: hero1.id }, mockCtx)).content[0].text,
+            "CHARACTER"
         );
-        const reloaded2 = JSON.parse(
-            (await handleGetCharacter({ id: hero2.id }, mockCtx)).content[0].text
+        const reloaded2 = extractEmbeddedJson(
+            (await handleGetCharacter({ id: hero2.id }, mockCtx)).content[0].text,
+            "CHARACTER"
         );
 
         expect(reloaded1.hp).toBe(hp1AfterCombat);
@@ -259,9 +264,10 @@ describe('CRIT-001: HP Persistence After Combat', () => {
             hp: 30,
             maxHp: 30,
             ac: 15,
-            level: 2
+            level: 2,
+            provisionEquipment: false
         }, mockCtx);
-        const hero = JSON.parse(heroResult.content[0].text);
+        const hero = extractEmbeddedJson(heroResult.content[0].text, "CHARACTER");
 
         // Create encounter with ad-hoc enemy (not in character table)
         const encounterResult = await handleCreateEncounter({
@@ -313,8 +319,9 @@ describe('CRIT-001: HP Persistence After Combat', () => {
         await handleEndEncounter({ encounterId }, mockCtx);
 
         // Hero HP should be synced to match combat state
-        const reloadedHero = JSON.parse(
-            (await handleGetCharacter({ id: hero.id }, mockCtx)).content[0].text
+        const reloadedHero = extractEmbeddedJson(
+            (await handleGetCharacter({ id: hero.id }, mockCtx)).content[0].text,
+            "CHARACTER"
         );
         expect(reloadedHero.hp).toBe(hpAfterCombat);
 

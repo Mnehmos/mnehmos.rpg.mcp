@@ -5,7 +5,7 @@ import { closeTestDb } from '../../src/server/crud-tools';
 
 // Helper to extract embedded JSON from formatted responses
 function extractEmbeddedJson(responseText: string, tag: string = "DATA"): any {
-    const regex = new RegExp(`<!-- ${tag}_JSON\n([\s\S]*?)\n${tag}_JSON -->`);
+    const regex = new RegExp(`<!--\\s*${tag}_JSON\\s*\n([\\s\\S]*?)\n${tag}_JSON\\s*-->`);
     const match = responseText.match(regex);
     if (match) {
         return JSON.parse(match[1]);
@@ -38,7 +38,7 @@ describe('Inventory System', () => {
             level: 1,
             stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }
         }, mockCtx);
-        return JSON.parse(charResult.content[0].text).id;
+        return extractEmbeddedJson(charResult.content[0].text, "CHARACTER").id;
     }
 
     // Helper to create a test item
@@ -50,7 +50,7 @@ describe('Inventory System', () => {
             value: 10,
             properties: props
         }, mockCtx);
-        return JSON.parse(result.content[0].text).id;
+        return extractEmbeddedJson(result.content[0].text, "ITEM").id;
     }
 
     it('should create item templates', async () => {
@@ -62,7 +62,7 @@ describe('Inventory System', () => {
             properties: { damage: '1d8' }
         }, mockCtx);
 
-        const item = JSON.parse(result.content[0].text);
+        const item = extractEmbeddedJson(result.content[0].text, "ITEM");
         expect(item.name).toBe('Iron Sword');
         expect(item.id).toBeDefined();
 
@@ -73,7 +73,7 @@ describe('Inventory System', () => {
             weight: 3,
             value: 5
         }, mockCtx);
-        const shield = JSON.parse(shieldResult.content[0].text);
+        const shield = extractEmbeddedJson(shieldResult.content[0].text, "ITEM");
         expect(shield.name).toBe('Wooden Shield');
         expect(shield.id).toBeDefined();
     });
@@ -92,7 +92,7 @@ describe('Inventory System', () => {
 
         // Verify inventory
         const invResult = await handleGetInventory({ characterId }, mockCtx);
-        const inventory = JSON.parse(invResult.content[0].text);
+        const inventory = extractEmbeddedJson(invResult.content[0].text, "INVENTORY");
 
         expect(inventory.items).toHaveLength(1);
         expect(inventory.items[0].itemId).toBe(swordId);
@@ -119,7 +119,7 @@ describe('Inventory System', () => {
         }, mockCtx);
 
         let invResult = await handleGetInventory({ characterId }, mockCtx);
-        let inventory = JSON.parse(invResult.content[0].text);
+        let inventory = extractEmbeddedJson(invResult.content[0].text, "INVENTORY");
         expect(inventory.items[0].equipped).toBe(true);
         expect(inventory.items[0].slot).toBe('mainhand');
 
@@ -130,7 +130,7 @@ describe('Inventory System', () => {
         }, mockCtx);
 
         invResult = await handleGetInventory({ characterId }, mockCtx);
-        inventory = JSON.parse(invResult.content[0].text);
+        inventory = extractEmbeddedJson(invResult.content[0].text, "INVENTORY");
         expect(inventory.items[0].equipped).toBe(false);
         expect(inventory.items[0].slot).toBeUndefined();
     });
@@ -155,7 +155,7 @@ describe('Inventory System', () => {
         }, mockCtx);
 
         const invResult = await handleGetInventory({ characterId }, mockCtx);
-        const inventory = JSON.parse(invResult.content[0].text);
+        const inventory = extractEmbeddedJson(invResult.content[0].text, "INVENTORY");
         expect(inventory.items).toHaveLength(0);
     });
 
@@ -170,7 +170,7 @@ describe('Inventory System', () => {
             weight: 0.5,
             value: 5
         }, mockCtx);
-        const potionId = JSON.parse(potionResult.content[0].text).id;
+        const potionId = extractEmbeddedJson(potionResult.content[0].text, "ITEM").id;
 
         // Give 5 potions
         await handleGiveItem({ characterId, itemId: potionId, quantity: 5 }, mockCtx);
@@ -179,7 +179,7 @@ describe('Inventory System', () => {
         await handleGiveItem({ characterId, itemId: potionId, quantity: 3 }, mockCtx);
 
         const invResult = await handleGetInventory({ characterId }, mockCtx);
-        const inventory = JSON.parse(invResult.content[0].text);
+        const inventory = extractEmbeddedJson(invResult.content[0].text, "INVENTORY");
 
         expect(inventory.items[0].quantity).toBe(8);
     });

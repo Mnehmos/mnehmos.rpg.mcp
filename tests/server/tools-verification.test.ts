@@ -4,7 +4,7 @@ import { handleCreateWorld, handleDeleteWorld, getTestDb, closeTestDb } from '..
 
 // Helper to extract embedded JSON from formatted responses
 function extractEmbeddedJson(responseText: string, tag: string = "DATA"): any {
-    const regex = new RegExp(`<!-- ${tag}_JSON\n([\s\S]*?)\n${tag}_JSON -->`);
+    const regex = new RegExp(`<!--\\s*${tag}_JSON\\s*\n([\\s\\S]*?)\n${tag}_JSON\\s*-->`);
     const match = responseText.match(regex);
     if (match) {
         return JSON.parse(match[1]);
@@ -50,13 +50,13 @@ describe('Registered Tools Verification', () => {
                 width: 50,
                 height: 50
             }, { sessionId: 'test-session' });
-            const created = JSON.parse(createResult.content[0].text);
+            const created = extractEmbeddedJson(createResult.content[0].text, "WORLD");
             expect(created.id).toBeDefined();
 
             // Delete
             const deleteResult = await handleDeleteWorld({ id: created.id }, { sessionId: 'test-session' });
-            const deleted = JSON.parse(deleteResult.content[0].text);
-            expect(deleted.message).toBe('World deleted');
+            // Delete operations return success message, not embedded JSON
+            expect(deleteResult.content[0].text).toContain('deleted');
 
             // Cleanup
             closeTestDb();

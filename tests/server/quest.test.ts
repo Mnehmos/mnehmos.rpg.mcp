@@ -8,7 +8,7 @@ import { Quest } from '../../src/schema/quest';
 
 // Helper to extract embedded JSON from formatted responses
 function extractEmbeddedJson(responseText: string, tag: string = "DATA"): any {
-    const regex = new RegExp(`<!-- ${tag}_JSON\n([\s\S]*?)\n${tag}_JSON -->`);
+    const regex = new RegExp(`<!--\\s*${tag}_JSON\\s*\n([\\s\\S]*?)\n${tag}_JSON\\s*-->`);
     const match = responseText.match(regex);
     if (match) {
         return JSON.parse(match[1]);
@@ -32,7 +32,7 @@ describe('Quest System', () => {
             width: 10,
             height: 10
         }, { sessionId: 'test' });
-        const worldData = JSON.parse(worldResult.content[0].text);
+        const worldData = extractEmbeddedJson(worldResult.content[0].text, "WORLD");
         worldId = worldData.id;
 
         // Create Character
@@ -44,7 +44,7 @@ describe('Quest System', () => {
             ac: 10,
             level: 1
         }, { sessionId: 'test' });
-        const charData = JSON.parse(charResult.content[0].text);
+        const charData = extractEmbeddedJson(charResult.content[0].text, "CHARACTER");
         characterId = charData.id;
 
         // Create Item Template (for reward)
@@ -54,7 +54,7 @@ describe('Quest System', () => {
             weight: 1,
             value: 10
         }, { sessionId: 'test' });
-        const itemData = JSON.parse(itemResult.content[0].text);
+        const itemData = extractEmbeddedJson(itemResult.content[0].text, "ITEM");
         itemId = itemData.id;
     });
 
@@ -83,7 +83,7 @@ describe('Quest System', () => {
                 items: [itemId]
             }
         }, { sessionId: 'test' });
-        const quest = JSON.parse(questResult.content[0].text) as Quest;
+        const quest = extractEmbeddedJson(questResult.content[0].text, "QUEST") as Quest;
         expect(quest.name).toBe('Kill Rats');
 
         // 2. Assign Quest
@@ -94,7 +94,7 @@ describe('Quest System', () => {
 
         // Verify Log - now returns full quest objects in 'quests' array
         let logResult = await handleGetQuestLog({ characterId }, { sessionId: 'test' });
-        let log = JSON.parse(logResult.content[0].text);
+        let log = extractEmbeddedJson(logResult.content[0].text, "QUESTLOG");
         // Check if quest is in the quests array (full objects now)
         expect(log.quests.some((q: any) => q.id === quest.id)).toBe(true);
 
@@ -122,7 +122,7 @@ describe('Quest System', () => {
 
         // Verify Log - quest should now have 'completed' status
         logResult = await handleGetQuestLog({ characterId }, { sessionId: 'test' });
-        log = JSON.parse(logResult.content[0].text);
+        log = extractEmbeddedJson(logResult.content[0].text, "QUESTLOG");
         // Check quest is no longer active (status should be 'completed')
         const completedQuest = log.quests.find((q: any) => q.id === quest.id);
         expect(completedQuest).toBeDefined();
@@ -130,7 +130,7 @@ describe('Quest System', () => {
 
         // Verify Reward (Item)
         const invResult = await handleGetInventory({ characterId }, { sessionId: 'test' });
-        const inv = JSON.parse(invResult.content[0].text);
+        const inv = extractEmbeddedJson(invResult.content[0].text, "INVENTORY");
         expect(inv.items).toHaveLength(1);
         expect(inv.items[0].itemId).toBe(itemId);
     });

@@ -4,7 +4,7 @@ import { handleListWorlds, handleDeleteWorld, closeTestDb } from '../../src/serv
 
 // Helper to extract embedded JSON from formatted responses
 function extractEmbeddedJson(responseText: string, tag: string = "DATA"): any {
-    const regex = new RegExp(`<!-- ${tag}_JSON\n([\s\S]*?)\n${tag}_JSON -->`);
+    const regex = new RegExp(`<!--\\s*${tag}_JSON\\s*\n([\\s\\S]*?)\n${tag}_JSON\\s*-->`);
     const match = responseText.match(regex);
     if (match) {
         return JSON.parse(match[1]);
@@ -26,14 +26,17 @@ describe('World Repository Integration', () => {
             height: 30
         }, { sessionId: 'test-session' });
 
-        const response = JSON.parse(genResult.content[0].text);
-        expect(response.worldId).toBeDefined();
-        expect(response.message).toBe('World generated successfully');
-        const worldId = response.worldId;
+        // The generate_world tool returns a simple message with worldId, not embedded JSON
+        const responseText = genResult.content[0].text;
+        expect(responseText).toContain('worldId');
+        expect(responseText).toContain('World generated successfully');
+        const worldIdMatch = responseText.match(/"worldId":\s*"([^"]+)"/);
+        expect(worldIdMatch).toBeTruthy();
+        const worldId = worldIdMatch![1];
 
         // Verify it appears in list_worlds
         const listResult = await handleListWorlds({}, { sessionId: 'test-session' });
-        const listData = JSON.parse(listResult.content[0].text);
+        const listData = extractEmbeddedJson(listResult.content[0].text, "WORLDS");
 
         const foundWorld = listData.worlds.find((w: any) => w.id === worldId);
         expect(foundWorld).toBeDefined();
@@ -43,13 +46,12 @@ describe('World Repository Integration', () => {
 
         // Verify we can delete it
         const deleteResult = await handleDeleteWorld({ id: worldId }, { sessionId: 'test-session' });
-        const deleteData = JSON.parse(deleteResult.content[0].text);
-
-        expect(deleteData.message).toBe('World deleted');
+        // Delete returns a success message, not embedded JSON
+        expect(deleteResult.content[0].text).toContain('deleted');
 
         // Verify it's gone from list
         const listAfterDelete = await handleListWorlds({}, { sessionId: 'test-session' });
-        const listAfterData = JSON.parse(listAfterDelete.content[0].text);
+        const listAfterData = extractEmbeddedJson(listAfterDelete.content[0].text, "WORLDS");
         expect(listAfterData.worlds.find((w: any) => w.id === worldId)).toBeUndefined();
     });
 });
