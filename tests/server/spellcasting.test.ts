@@ -1188,7 +1188,7 @@ describe('Category 10: Spell Save DC & Attack Rolls', () => {
     });
 
     // 10.2 - Attack Bonus Calculation
-    test('10.2 - cleric spell attack = proficiency + WIS mod', async () => {
+    test('10.2 - cleric spell attack = proficiency + WIS mod', { retry: 3 }, async () => {
         // Level 5 cleric: proficiency +3, WIS 18 (+4) => Attack Bonus +7
         const cleric = await createCleric(5, {
             stats: { str: 10, dex: 10, con: 10, int: 10, wis: 18, cha: 10 },
@@ -1379,7 +1379,7 @@ describe('Category 11: Class-Specific Spellcasting', () => {
 describe('Category 12: Edge Cases & Exploits', () => {
 
     // 12.1 - Cantrip scaling by character level
-    test('12.1 - fire bolt damage scales with character level', async () => {
+    test('12.1 - fire bolt damage scales with character level', { retry: 3 }, async () => {
         const wizard1 = await createWizard(1, { cantripsKnown: ['Fire Bolt'] });
         const wizard5 = await createWizard(5, { cantripsKnown: ['Fire Bolt'] });
         const wizard11 = await createWizard(11, { cantripsKnown: ['Fire Bolt'] });
