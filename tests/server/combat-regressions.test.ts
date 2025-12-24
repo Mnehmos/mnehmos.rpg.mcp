@@ -52,7 +52,7 @@ describe('Combat Regressions', () => {
         expect(goblin?.name).toBe('Goblin'); // Should adopt preset name
     });
 
-    it('should ignore "damage" parameter in cast_spell without error', async () => {
+    it('should block "damage" parameter in cast_spell (CRIT-006 anti-hallucination)', async () => {
         // Setup encounter first
         const initResult = await handleCreateEncounter({
             seed: 'test-seed-2',
@@ -61,11 +61,11 @@ describe('Combat Regressions', () => {
                 { id: 'target', name: 'Target', hp: 20, maxHp: 20, isEnemy: true, initiativeBonus: 0, conditions: [] }
             ]
         }, mockCtx);
-        
+
         const encounterId = initResult.content[0].text.match(/Encounter ID: (encounter-[\w-]+)/)?.[1];
 
         // Try casting spell with forbidden "damage" parameter
-        // This fails currently
+        // CRIT-006: Should throw error to prevent LLM hallucination attacks
         try {
             await handleExecuteCombatAction({
                 encounterId,
@@ -74,13 +74,14 @@ describe('Combat Regressions', () => {
                 targetId: 'target',
                 spellName: 'Firebolt',
                 slotLevel: 1,
-                damage: 5, // This usually throws error, but should be ignored now
-                damageType: 'fire' 
+                damage: 5, // SECURITY: This should be blocked
+                damageType: 'fire'
             }, mockCtx);
+            // If we reach here, the validation failed
+            expect.fail('Expected damage parameter validation to throw error');
         } catch (e: any) {
-            // It should fail because Character doesn't exist in DB, NOT because of damage param
-            expect(e.message).toContain('Character wizard not found');
-            expect(e.message).not.toContain('damage parameter not allowed');
+            // CRIT-006: Should fail because of damage parameter validation
+            expect(e.message).toContain('damage parameter not allowed');
         }
     });
 });
