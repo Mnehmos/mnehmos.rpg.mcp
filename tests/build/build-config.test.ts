@@ -81,10 +81,10 @@ describe('Build Configuration', () => {
         expect(expectedOutputs).toHaveLength(4);
 
         // Verify Apple Silicon specific outputs
-        const applesSilicon = expectedOutputs.find(o => o.platform === 'darwin-arm64');
-        expect(applesSilicon).toBeDefined();
-        expect(applesSilicon?.binary).toBe('rpg-mcp-macos-arm64');
-        expect(applesSilicon?.nativeModule).toBe('better_sqlite3-macos-arm64.node');
+        const appleSilicon = expectedOutputs.find(o => o.platform === 'darwin-arm64');
+        expect(appleSilicon).toBeDefined();
+        expect(appleSilicon?.binary).toBe('rpg-mcp-macos-arm64');
+        expect(appleSilicon?.nativeModule).toBe('better_sqlite3-macos-arm64.node');
 
         // Verify Intel Mac outputs
         const intelMac = expectedOutputs.find(o => o.platform === 'darwin-x64');
