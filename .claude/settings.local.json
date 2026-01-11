@@ -27,7 +27,8 @@
       "Bash(npx tsc:*)",
       "mcp__mnehmos_ooda_mcp__str_replace",
       "mcp__mnehmos_ooda_mcp__read_file_lines",
-      "Bash(node:*)"
+      "Bash(node:*)",
+      "Read(//f/**)"
     ]
   }
 }
