@@ -28,7 +28,9 @@
       "mcp__mnehmos_ooda_mcp__str_replace",
       "mcp__mnehmos_ooda_mcp__read_file_lines",
       "Bash(node:*)",
-      "Read(//f/**)"
+      "Read(//f/**)",
+      "mcp__mnehmos_ooda_mcp__batch_str_replace",
+      "mcp__mnehmos_ooda_mcp__apply_diff"
     ]
   }
 }

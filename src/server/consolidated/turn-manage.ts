@@ -466,7 +466,7 @@ POLL_RESULTS: Check if turn resolved and get events`,
 };
 
 export async function handleTurnManage(args: unknown, _ctx: SessionContext): Promise<McpResponse> {
-    const result = await router(args);
+    const result = await router(args as Record<string, unknown>);
     const parsed = JSON.parse(result.content[0].text);
 
     let output = '';

@@ -24,7 +24,7 @@ import {
     getAurasAtPosition,
 } from '../../engine/magic/aura.js';
 import { startConcentration, breakConcentration } from '../../engine/magic/concentration.js';
-import { AuraTriggerSchema, AuraState, AuraEffectResult } from '../../schema/aura.js';
+import { AuraTriggerSchema } from '../../schema/aura.js';
 import { Token } from '../../schema/encounter.js';
 
 // ═══════════════════════════════════════════════════════════════════════════

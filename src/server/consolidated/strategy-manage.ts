@@ -102,18 +102,14 @@ async function handleCreateNation(args: z.infer<typeof CreateNationSchema>): Pro
     const { nationRepo } = getRepos();
     const nationManager = new NationManager(nationRepo);
 
-    const { startingResources, ...params } = args;
-    const now = new Date().toISOString();
+    const { startingResources, action: _action, ...params } = args;
 
     const nation = nationManager.createNation({
-        id: randomUUID(),
         ...params,
         gdp: 1000,
         resources: startingResources || { food: 100, metal: 50, oil: 10 },
         privateMemory: {},
-        publicIntent: 'Survival',
-        createdAt: now,
-        updatedAt: now
+        publicIntent: 'Survival'
     });
 
     return {
@@ -396,7 +392,7 @@ LIST_NATIONS: List all nations in a world`,
 };
 
 export async function handleStrategyManage(args: unknown, _ctx: SessionContext): Promise<McpResponse> {
-    const result = await router(args);
+    const result = await router(args as Record<string, unknown>);
     const parsed = JSON.parse(result.content[0].text);
 
     let output = '';

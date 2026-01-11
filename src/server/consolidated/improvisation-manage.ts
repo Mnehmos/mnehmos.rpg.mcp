@@ -319,7 +319,9 @@ async function handleApplyEffect(args: z.infer<typeof ApplyEffectSchema>): Promi
         mechanics: args.mechanics as any,
         duration: { type: args.durationType as any, value: args.durationValue },
         triggers: args.triggers?.map(t => ({ event: t.event as any, condition: t.condition })) || [],
-        removal_conditions: [{ type: 'duration_expires' as const }]
+        removal_conditions: [{ type: 'duration_expires' as const }],
+        stackable: false,
+        max_stacks: 1
     });
 
     return {
