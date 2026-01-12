@@ -34,7 +34,9 @@
       "Bash(xargs basename:*)",
       "Bash(npm pack:*)",
       "Bash(timeout 3 node:*)",
-      "Bash(git branch:*)"
+      "Bash(git branch:*)",
+      "Bash(git tag:*)",
+      "Bash(npm version:*)"
     ]
   }
 }
