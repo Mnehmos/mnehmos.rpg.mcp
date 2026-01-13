@@ -297,18 +297,21 @@ export const MathManageTool = {
     name: 'math_manage',
     description: `Mathematical operations for RPG mechanics.
 
-⚠️ COMBAT REDIRECT - DO NOT USE FOR:
-- Attack rolls → Use combat_action { action: "attack" } instead
-- Spell damage → Use combat_action { action: "cast_spell" } instead
-- Saving throws in combat → combat_action handles these automatically
-The combat_action tool rolls dice, calculates damage, and applies HP changes in one call.
+⚠️ REDIRECT - DO NOT USE FOR:
+- Attack rolls → Use combat_action { action: "attack" }
+- Spell damage → Use combat_action { action: "cast_spell" }
+- Skill checks → Use roll_skill_check (auto-applies proficiency)
+- Ability checks → Use roll_ability_check (auto-applies modifier)
+- Saving throws → Use roll_saving_throw (auto-applies save proficiency)
 
-🎲 DICE ROLLING (roll) - For NON-COMBAT situations:
-- Skill checks outside combat
+These specialized tools look up character stats and apply bonuses automatically!
+
+🎲 DICE ROLLING (roll) - Use ONLY for:
 - Stat generation (4d6dl1)
 - Random tables/loot
-- NPC behavior rolls
-- Exploration/navigation
+- NPC behavior/morale rolls
+- Weather/random encounters
+- Anything without character stat bonuses
 
 Standard notation plus special modifiers:
 - 2d6+3: Basic roll with modifier

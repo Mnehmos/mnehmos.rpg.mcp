@@ -94,8 +94,17 @@ function getAbilityModifier(abilityScore: number): number {
 export const SkillCheckTools = {
     ROLL_SKILL_CHECK: {
         name: 'roll_skill_check',
-        description: `Roll a skill check using character stats. Automatically applies ability modifier and proficiency bonus if proficient.
-Example: roll_skill_check with characterId and skill="perception" for active character's Perception check.`,
+        description: `Roll a skill check using character stats. PREFERRED over math_manage for skill rolls!
+
+🎯 AUTO-CALCULATES:
+- Ability modifier from character stats
+- Proficiency bonus if character is proficient
+- Expertise (double proficiency) if applicable
+- Armor stealth disadvantage (automatically detected)
+
+Skills: perception, stealth, athletics, acrobatics, arcana, history, investigation, nature, religion, animal_handling, insight, medicine, survival, deception, intimidation, performance, persuasion, sleight_of_hand
+
+Example: { characterId: "abc123", skill: "perception", dc: 15 }`,
         inputSchema: z.object({
             characterId: z.string().describe('ID of the character making the check'),
             skill: SkillEnum.describe('Skill to roll (e.g., perception, stealth, athletics)'),
@@ -108,7 +117,14 @@ Example: roll_skill_check with characterId and skill="perception" for active cha
 
     ROLL_ABILITY_CHECK: {
         name: 'roll_ability_check',
-        description: 'Roll a raw ability check (no skill proficiency). Uses only the ability modifier.',
+        description: `Roll a raw ability check (no skill proficiency). PREFERRED over math_manage!
+
+🎯 AUTO-CALCULATES:
+- Ability modifier from character stats
+
+Use for: Initiative, grapple contests, raw strength/dex tests
+
+Example: { characterId: "abc123", ability: "str", dc: 12 }`,
         inputSchema: z.object({
             characterId: z.string().describe('ID of the character making the check'),
             ability: AbilityEnum.describe('Ability score to use (str, dex, con, int, wis, cha)'),
@@ -121,7 +137,16 @@ Example: roll_skill_check with characterId and skill="perception" for active cha
 
     ROLL_SAVING_THROW: {
         name: 'roll_saving_throw',
-        description: 'Roll a saving throw. Applies proficiency bonus if character has save proficiency.',
+        description: `Roll a saving throw. PREFERRED over math_manage for saves!
+
+🎯 AUTO-CALCULATES:
+- Ability modifier from character stats
+- Proficiency bonus if character has save proficiency
+
+Use for: Trap saves, environmental hazards, out-of-combat saves.
+Note: In-combat spell saves are handled automatically by combat_action cast_spell.
+
+Example: { characterId: "abc123", ability: "dex", dc: 14 }`,
         inputSchema: z.object({
             characterId: z.string().describe('ID of the character making the save'),
             ability: AbilityEnum.describe('Saving throw type (str, dex, con, int, wis, cha)'),
