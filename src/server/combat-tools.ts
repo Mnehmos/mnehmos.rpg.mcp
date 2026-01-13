@@ -1775,6 +1775,14 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
                 const hpAfter = updatedTarget?.hp ?? 0;
                 const defeated = hpAfter <= 0;
 
+                // Sync HP to character database after spell damage
+                if (damageDealt > 0 && updatedTarget) {
+                    const targetCharForSync = charRepo.findById(tid);
+                    if (targetCharForSync) {
+                        charRepo.update(tid, { hp: hpAfter });
+                    }
+                }
+
                 damageResults.push({
                     id: tid,
                     name: targetParticipant.name,
