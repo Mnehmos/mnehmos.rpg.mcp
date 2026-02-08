@@ -1,25 +1,25 @@
 import { z } from 'zod';
 import { randomUUID } from 'crypto';
-import { CombatEngine, CombatParticipant, CombatState, CombatActionResult } from '../engine/combat/engine.js';
-import { SpatialEngine } from '../engine/spatial/engine.js';
+import { CombatEngine, CombatParticipant, CombatState, CombatActionResult } from '../../engine/combat/engine.js';
+import { SpatialEngine } from '../../engine/spatial/engine.js';
 
-import { PubSub } from '../engine/pubsub.js';
+import { PubSub } from '../../engine/pubsub.js';
 
-import { getCombatManager } from './state/combat-manager.js';
-import { getDb } from '../storage/index.js';
-import { EncounterRepository } from '../storage/repos/encounter.repo.js';
-import { SessionContext } from './types.js';
+import { getCombatManager } from '../state/combat-manager.js';
+import { getDb } from '../../storage/index.js';
+import { EncounterRepository } from '../../storage/repos/encounter.repo.js';
+import { SessionContext } from '../types.js';
 
 // CRIT-006: Import spellcasting validation and resolution
-import { validateSpellCast, consumeSpellSlot } from '../engine/magic/spell-validator.js';
-import { resolveSpell } from '../engine/magic/spell-resolver.js';
-import { CharacterRepository } from '../storage/repos/character.repo.js';
-import { ConcentrationRepository } from '../storage/repos/concentration.repo.js';
-import { CombatActionLogRepository } from '../storage/repos/combat-action-log.repo.js';
-import { startConcentration, checkConcentration, breakConcentration } from '../engine/magic/concentration.js';
-import type { Character } from '../schema/character.js';
-import { getPatternGenerator, PATTERN_DESCRIPTIONS } from './terrain-patterns.js';
-import { CREATURE_PRESETS } from '../data/creature-presets.js';
+import { validateSpellCast, consumeSpellSlot } from '../../engine/magic/spell-validator.js';
+import { resolveSpell } from '../../engine/magic/spell-resolver.js';
+import { CharacterRepository } from '../../storage/repos/character.repo.js';
+import { ConcentrationRepository } from '../../storage/repos/concentration.repo.js';
+import { CombatActionLogRepository } from '../../storage/repos/combat-action-log.repo.js';
+import { startConcentration, checkConcentration, breakConcentration } from '../../engine/magic/concentration.js';
+import type { Character } from '../../schema/character.js';
+import { getPatternGenerator, PATTERN_DESCRIPTIONS } from '../terrain-patterns.js';
+import { CREATURE_PRESETS } from '../../data/creature-presets.js';
 
 // Global combat state (in-memory for MVP)
 let pubsub: PubSub | null = null;
@@ -511,8 +511,8 @@ function calculateAoE(
     return { tiles, affectedParticipants };
 }
 
-// Tool definitions
-export const CombatTools = {
+// Tool definitions (internal schemas, not exported)
+const CombatTools = {
     CREATE_ENCOUNTER: {
         name: 'create_encounter',
         description: `Create a combat encounter with positioned combatants and terrain.
@@ -2111,7 +2111,7 @@ export async function handleEndEncounter(args: unknown, ctx: SessionContext) {
 
     if (finalState) {
         const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
-        const { CharacterRepository } = await import('../storage/repos/character.repo.js');
+        const { CharacterRepository } = await import('../../storage/repos/character.repo.js');
         const charRepo = new CharacterRepository(db);
 
         for (const participant of finalState.participants) {
@@ -3412,7 +3412,7 @@ export async function handleGenerateTerrainPattern(args: unknown, ctx: SessionCo
     let result: PatternResult;
     if (parsed.pattern === 'maze') {
         // Import maze generator with corridor width support
-        const { generateMaze } = await import('./terrain-patterns.js');
+        const { generateMaze } = await import('../terrain-patterns.js');
         result = generateMaze(
             parsed.origin.x,
             parsed.origin.y,
@@ -3422,7 +3422,7 @@ export async function handleGenerateTerrainPattern(args: unknown, ctx: SessionCo
             parsed.corridorWidth ?? 1
         );
     } else if (parsed.pattern === 'maze_rooms') {
-        const { generateMazeWithRooms } = await import('./terrain-patterns.js');
+        const { generateMazeWithRooms } = await import('../terrain-patterns.js');
         result = generateMazeWithRooms(
             parsed.origin.x,
             parsed.origin.y,

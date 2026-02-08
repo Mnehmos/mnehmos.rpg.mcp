@@ -3,7 +3,7 @@ import {
     handleExecuteCombatAction,
     handleGetEncounterState,
     clearCombatState
-} from '../../src/server/combat-tools';
+} from '../../src/server/handlers/combat-handlers';
 
 const mockCtx = { sessionId: 'test-session-autocalc' };
 

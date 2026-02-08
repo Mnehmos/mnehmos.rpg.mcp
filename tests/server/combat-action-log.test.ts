@@ -3,7 +3,7 @@ import {
     handleExecuteCombatAction,
     handleEndEncounter,
     clearCombatState
-} from '../../src/server/combat-tools';
+} from '../../src/server/handlers/combat-handlers';
 import {
     handleCreateCharacter,
     closeTestDb

@@ -1,5 +1,5 @@
 
-import { handleCreateEncounter, handleExecuteCombatAction } from '../../src/server/combat-tools.js';
+import { handleCreateEncounter, handleExecuteCombatAction } from '../../src/server/handlers/combat-handlers.js';
 import { getCombatManager } from '../../src/server/state/combat-manager.js';
 
 // Mock DB

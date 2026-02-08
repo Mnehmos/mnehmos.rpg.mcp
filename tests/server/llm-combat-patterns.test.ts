@@ -19,7 +19,7 @@ import {
     handleAdvanceTurn,
     handleEndEncounter,
     clearCombatState
-} from '../../src/server/combat-tools.js';
+} from '../../src/server/handlers/combat-handlers.js';
 import { closeDb, getDb } from '../../src/storage/index.js';
 import { getInitialSpellSlots, getMaxSpellLevel } from '../../src/engine/magic/spell-validator.js';
 import type { CharacterClass } from '../../src/schema/spell.js';

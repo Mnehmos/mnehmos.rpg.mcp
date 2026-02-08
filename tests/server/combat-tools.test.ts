@@ -7,7 +7,7 @@ import {
     handleLoadEncounter,
     handleGenerateTerrainPattern,
     clearCombatState
-} from '../../src/server/combat-tools';
+} from '../../src/server/handlers/combat-handlers';
 import { getCombatManager } from '../../src/server/state/combat-manager';
 
 const mockCtx = { sessionId: 'test-session' };

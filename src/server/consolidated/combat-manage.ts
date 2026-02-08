@@ -18,7 +18,7 @@ import {
     handleAdvanceTurn,
     handleRollDeathSave,
     handleExecuteLairAction
-} from '../combat-tools.js';
+} from '../handlers/combat-handlers.js';
 import { expandCreatureTemplate, listAllTemplates } from '../../data/creature-presets.js';
 import { getDb } from '../../storage/index.js';
 import { CombatActionLogRepository } from '../../storage/repos/combat-action-log.repo.js';

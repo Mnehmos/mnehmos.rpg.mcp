@@ -1,4 +1,4 @@
-import { handleCreateEncounter, handleExecuteCombatAction, clearCombatState } from '../../src/server/combat-tools.js';
+import { handleCreateEncounter, handleExecuteCombatAction, clearCombatState } from '../../src/server/handlers/combat-handlers.js';
 import { closeDb, getDb } from '../../src/storage/index.js';
 
 const mockCtx = { sessionId: 'test-session' };

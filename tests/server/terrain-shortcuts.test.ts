@@ -3,7 +3,7 @@ import {
     handleUpdateTerrain,
     handleGenerateTerrainPattern,
     clearCombatState
-} from '../../src/server/combat-tools';
+} from '../../src/server/handlers/combat-handlers';
 import { generateMaze, generateMazeWithRooms } from '../../src/server/terrain-patterns';
 
 let testCounter = 0;

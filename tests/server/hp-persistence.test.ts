@@ -5,7 +5,7 @@ import {
     handleGetEncounterState,
     handleAdvanceTurn,
     clearCombatState
-} from '../../src/server/combat-tools';
+} from '../../src/server/handlers/combat-handlers';
 import {
     handleCreateCharacter,
     handleGetCharacter,

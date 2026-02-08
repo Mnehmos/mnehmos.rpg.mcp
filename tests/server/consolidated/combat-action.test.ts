@@ -6,7 +6,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { handleCombatAction, CombatActionTool } from '../../../src/server/consolidated/combat-action.js';
 import { handleCombatManage } from '../../../src/server/consolidated/combat-manage.js';
-import { clearCombatState } from '../../../src/server/combat-tools.js';
+import { clearCombatState } from '../../../src/server/handlers/combat-handlers.js';
 import { getDb } from '../../../src/storage/index.js';
 import { randomUUID } from 'crypto';
 

@@ -8,7 +8,7 @@ import { z } from 'zod';
 import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/action-router.js';
 import { SessionContext } from '../types.js';
 import { RichFormatter } from '../utils/formatter.js';
-import { handleExecuteCombatAction } from '../combat-tools.js';
+import { handleExecuteCombatAction } from '../handlers/combat-handlers.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS

@@ -17,7 +17,7 @@ import {
     handleMeasureDistance,
     handleGenerateTerrainPatch,
     handleGenerateTerrainPattern
-} from '../combat-tools.js';
+} from '../handlers/combat-handlers.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
