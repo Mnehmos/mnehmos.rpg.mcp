@@ -10,7 +10,7 @@ import {
     handleCreateCharacter,
     handleGetCharacter,
     closeTestDb
-} from '../../src/server/crud-tools';
+} from '../helpers/legacy-handlers.js';
 import { closeDb, getDb } from '../../src/storage';
 
 

@@ -7,7 +7,7 @@ import {
 import {
     handleCreateCharacter,
     closeTestDb
-} from '../../src/server/crud-tools';
+} from '../helpers/legacy-handlers.js';
 import { closeDb, getDb } from '../../src/storage';
 import { CombatActionLogRepository } from '../../src/storage/repos/combat-action-log.repo';
 

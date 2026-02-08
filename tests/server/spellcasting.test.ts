@@ -14,7 +14,7 @@ import { v4 as uuid } from 'uuid';
 import { CharacterRepository } from '../../src/storage/repos/character.repo.js';
 import { EncounterRepository } from '../../src/storage/repos/encounter.repo.js';
 import { handleExecuteCombatAction, handleCreateEncounter, handleEndEncounter, handleAdvanceTurn, clearCombatState } from '../../src/server/combat-tools.js';
-import { handleTakeLongRest, handleTakeShortRest } from '../../src/server/rest-tools.js';
+import { handleTakeLongRest, handleTakeShortRest } from '../helpers/legacy-handlers.js';
 import { closeDb, getDb } from '../../src/storage/index.js';
 import { getInitialSpellSlots, getMaxSpellLevel } from '../../src/engine/magic/spell-validator.js';
 import type { CharacterClass } from '../../src/schema/spell.js';
