@@ -3,6 +3,12 @@
   "version": "1.0.1",
   "type": "module",
   "main": "dist/index.js",
+  "bin": "dist/cli.js",
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "test": "vitest run",
     "test:ci": "vitest run --reporter=basic",

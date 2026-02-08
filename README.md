@@ -228,11 +228,13 @@ npm test  # 2080+ tests should pass
   "mcpServers": {
     "rpg-mcp": {
       "command": "npx",
-      "args": ["mnehmos.rpg.mcp"]
+      "args": ["-y", "mnehmos.rpg.mcp@1.0.1"]
     }
   }
 }
 ```
+
+Security note: pin an explicit package version in `args` to avoid unintentionally running a newly published release.
 
 **Using Binary:**
 
