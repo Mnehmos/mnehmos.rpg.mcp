@@ -15,7 +15,7 @@ import {
     handleGetRoomExits,
     handleMoveCharacterToRoom,
     handleListRooms
-} from '../spatial-tools.js';
+} from '../handlers/spatial-handlers.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS

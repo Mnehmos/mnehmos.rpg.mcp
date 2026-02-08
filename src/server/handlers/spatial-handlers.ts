@@ -1,9 +1,9 @@
 import { z } from "zod";
-import { getDb } from "../storage/index.js";
-import { SpatialRepository } from "../storage/repos/spatial.repo.js";
-import { CharacterRepository } from "../storage/repos/character.repo.js";
-import { RoomNode, Exit } from "../schema/spatial.js";
-import { SessionContext } from "./types.js";
+import { getDb } from "../../storage/index.js";
+import { SpatialRepository } from "../../storage/repos/spatial.repo.js";
+import { CharacterRepository } from "../../storage/repos/character.repo.js";
+import { RoomNode, Exit } from "../../schema/spatial.js";
+import { SessionContext } from "../types.js";
 
 /**
  * PHASE-1: Spatial Graph System Tools
@@ -14,7 +14,8 @@ import { SessionContext } from "./types.js";
 // TOOL DEFINITIONS
 // ============================================================
 
-export const SpatialTools = {
+// Tool definitions (internal schemas, not exported)
+const SpatialTools = {
   LOOK_AT_SURROUNDINGS: {
     name: "look_at_surroundings",
     description:

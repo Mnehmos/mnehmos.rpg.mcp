@@ -195,7 +195,7 @@ describe('PHASE-1: Spatial Graph System', () => {
         });
 
         it('get_room_exits returns all exits', async () => {
-            const { handleGetRoomExits } = await import('../../src/server/spatial-tools.js');
+            const { handleGetRoomExits } = await import('../../src/server/handlers/spatial-handlers.js');
 
             const room = createTestRoom({
                 exits: [
@@ -254,7 +254,7 @@ describe('PHASE-1: Spatial Graph System', () => {
 
     describe('Perception and Visibility', () => {
         it('DARKNESS blocks vision without darkvision or light', async () => {
-            const { handleLookAtSurroundings, handleMoveCharacterToRoom } = await import('../../src/server/spatial-tools.js');
+            const { handleLookAtSurroundings, handleMoveCharacterToRoom } = await import('../../src/server/handlers/spatial-handlers.js');
 
             const darkRoomId = crypto.randomUUID();
             const observerId = crypto.randomUUID();
@@ -285,7 +285,7 @@ describe('PHASE-1: Spatial Graph System', () => {
         });
 
         it('DARKVISION allows vision in darkness', async () => {
-            const { handleLookAtSurroundings, handleMoveCharacterToRoom } = await import('../../src/server/spatial-tools.js');
+            const { handleLookAtSurroundings, handleMoveCharacterToRoom } = await import('../../src/server/handlers/spatial-handlers.js');
 
             const darkRoomId = crypto.randomUUID();
             const observerId = crypto.randomUUID();
@@ -319,7 +319,7 @@ describe('PHASE-1: Spatial Graph System', () => {
         });
 
         it('LOCKED exits are not visible', async () => {
-            const { handleLookAtSurroundings, handleMoveCharacterToRoom } = await import('../../src/server/spatial-tools.js');
+            const { handleLookAtSurroundings, handleMoveCharacterToRoom } = await import('../../src/server/handlers/spatial-handlers.js');
 
             const roomId = crypto.randomUUID();
             const observerId = crypto.randomUUID();
@@ -349,7 +349,7 @@ describe('PHASE-1: Spatial Graph System', () => {
         });
 
         it('HIDDEN exits require Perception check', async () => {
-            const { handleLookAtSurroundings, handleMoveCharacterToRoom } = await import('../../src/server/spatial-tools.js');
+            const { handleLookAtSurroundings, handleMoveCharacterToRoom } = await import('../../src/server/handlers/spatial-handlers.js');
 
             const roomId = crypto.randomUUID();
             const charId = crypto.randomUUID();
@@ -395,7 +395,7 @@ describe('PHASE-1: Spatial Graph System', () => {
 
     describe('Room Generation', () => {
         it('generate_room_node creates room in database', async () => {
-            const { handleGenerateRoomNode } = await import('../../src/server/spatial-tools.js');
+            const { handleGenerateRoomNode } = await import('../../src/server/handlers/spatial-handlers.js');
 
             const result = await handleGenerateRoomNode({
                 name: 'The Mossy Glade',
@@ -415,7 +415,7 @@ describe('PHASE-1: Spatial Graph System', () => {
         });
 
         it('generate_room_node links to previous room', async () => {
-            const { handleGenerateRoomNode } = await import('../../src/server/spatial-tools.js');
+            const { handleGenerateRoomNode } = await import('../../src/server/handlers/spatial-handlers.js');
 
             const startRoomId = crypto.randomUUID();
             const startRoom = createTestRoom({ id: startRoomId });
@@ -440,7 +440,7 @@ describe('PHASE-1: Spatial Graph System', () => {
         });
 
         it('atmospheric effects vary by specification', async () => {
-            const { handleGenerateRoomNode } = await import('../../src/server/spatial-tools.js');
+            const { handleGenerateRoomNode } = await import('../../src/server/handlers/spatial-handlers.js');
 
             const brightRoom = await handleGenerateRoomNode({
                 name: 'Sunlit Plaza',
@@ -519,7 +519,7 @@ describe('PHASE-1: Spatial Graph System', () => {
 
     describe('Character Movement', () => {
         it('move_character_to_room updates character location', async () => {
-            const { handleMoveCharacterToRoom } = await import('../../src/server/spatial-tools.js');
+            const { handleMoveCharacterToRoom } = await import('../../src/server/handlers/spatial-handlers.js');
 
             const roomId = crypto.randomUUID();
             const charId = crypto.randomUUID();
@@ -560,7 +560,7 @@ describe('PHASE-1: Spatial Graph System', () => {
 
     describe('Integration', () => {
         it('full room traversal workflow', async () => {
-            const { handleGenerateRoomNode, handleLookAtSurroundings, handleMoveCharacterToRoom } = await import('../../src/server/spatial-tools.js');
+            const { handleGenerateRoomNode, handleLookAtSurroundings, handleMoveCharacterToRoom } = await import('../../src/server/handlers/spatial-handlers.js');
 
             // Create starting room
             const tavernResult = await handleGenerateRoomNode({
