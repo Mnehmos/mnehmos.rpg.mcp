@@ -401,7 +401,7 @@ export async function handleWorldManage(args: unknown, _ctx: SessionContext): Pr
             case 'list':
                 output = RichFormatter.header(`Worlds (${parsed.count})`, '🌍');
                 if (parsed.worlds?.length > 0) {
-                    parsed.worlds.forEach((w: any) => {
+                    parsed.worlds.forEach((w: { name: string; id: string }) => {
                         output += `• **${w.name}** (\`${w.id}\`)\n`;
                     });
                 } else {

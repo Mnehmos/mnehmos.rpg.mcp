@@ -88,9 +88,9 @@ async function handleLongRest(args: z.infer<typeof LongRestSchema>): Promise<obj
 
     // Restore spell slots on long rest
     const charClass = character.characterClass || 'fighter';
-    const spellConfig = getSpellcastingConfig(charClass as any);
+    const spellConfig = getSpellcastingConfig(charClass);
 
-    let spellSlotsRestored: any = undefined;
+    let spellSlotsRestored: { type: string; slotsRestored?: number; slotLevel?: number; level1?: number; level2?: number; level3?: number; level4?: number; level5?: number } | undefined = undefined;
     let updatedChar = { ...character, hp: newHp };
 
     if (spellConfig.canCast && character.level >= spellConfig.startLevel) {
@@ -166,10 +166,10 @@ async function handleShortRest(args: z.infer<typeof ShortRestSchema>): Promise<o
 
     // Restore warlock pact slots on short rest
     const charClass = character.characterClass || 'fighter';
-    const spellConfig = getSpellcastingConfig(charClass as any);
+    const spellConfig = getSpellcastingConfig(charClass);
 
-    let pactSlotsRestored: any = undefined;
-    let updatedChar: any = { hp: newHp };
+    let pactSlotsRestored: { slotsRestored: number; slotLevel: number } | undefined = undefined;
+    let updatedChar: Record<string, unknown> = { hp: newHp };
 
     if (spellConfig.pactMagic && spellConfig.canCast && character.level >= spellConfig.startLevel) {
         const restoredChar = restorePactSlots(character);

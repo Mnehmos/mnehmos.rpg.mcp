@@ -327,7 +327,7 @@ export async function handleWorldMap(args: unknown, ctx: SessionContext): Promis
                     output = RichFormatter.header('POI Locations Found', '📌');
                     if (parsed.candidates) {
                         output += `Found ${parsed.candidates.length} candidate locations:\n`;
-                        parsed.candidates.forEach((c: any, i: number) => {
+                        parsed.candidates.forEach((c: { x: number; y: number; biome: string; score: number }, i: number) => {
                             output += `  ${i + 1}. (${c.x}, ${c.y}) - ${c.biome} - Score: ${c.score}\n`;
                         });
                     }

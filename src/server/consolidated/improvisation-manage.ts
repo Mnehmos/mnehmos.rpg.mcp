@@ -257,7 +257,7 @@ async function handleStunt(args: z.infer<typeof StuntSchema>): Promise<object> {
     const criticalFailure = isNat1 || (!beatDC && total <= args.dc - 10);
     const success = isNat20 || (beatDC && !isNat1);
 
-    const result: any = {
+    const result: Record<string, unknown> = {
         success,
         actionType: 'stunt',
         roll: d20Result.roll,
@@ -277,9 +277,9 @@ async function handleStunt(args: z.infer<typeof StuntSchema>): Promise<object> {
         result.damageType = args.damageType || 'bludgeoning';
 
         if (args.targetIds) {
-            result.targets = [];
+            const targets: Array<{ id: string; damage: number; saved: boolean; condition?: string }> = [];
             for (let i = 0; i < args.targetIds.length; i++) {
-                let targetDamage = result.damage;
+                let targetDamage = result.damage as number;
                 let saved = false;
 
                 if (args.savingThrowAbility && args.savingThrowDc) {
@@ -289,13 +289,14 @@ async function handleStunt(args: z.infer<typeof StuntSchema>): Promise<object> {
                     else if (saved) targetDamage = 0;
                 }
 
-                result.targets.push({
+                targets.push({
                     id: args.targetIds[i],
                     damage: targetDamage,
                     saved,
                     condition: !saved && args.applyCondition ? args.applyCondition : undefined
                 });
             }
+            result.targets = targets;
         }
     } else if (!success && criticalFailure && args.failureDamage) {
         const selfDamage = rollDice(args.failureDamage, rng);
@@ -516,7 +517,7 @@ async function handleSynthesize(args: z.infer<typeof SynthesizeSchema>): Promise
     else outcome = 'backfire';
 
     const spellName = args.proposedName || `${casterName}'s ${args.school} ${args.effectType}`;
-    const result: any = {
+    const result: Record<string, unknown> = {
         success: outcome === 'mastery' || outcome === 'success',
         actionType: 'synthesize',
         outcome,
@@ -577,7 +578,7 @@ async function handleGetSpellbook(args: z.infer<typeof GetSpellbookSchema>): Pro
     const { db } = ensureDb();
 
     let query = 'SELECT * FROM synthesized_spells WHERE character_id = ?';
-    const params: any[] = [args.characterId];
+    const params: (string | number)[] = [args.characterId];
 
     if (args.school) {
         query += ' AND school = ?';
@@ -797,11 +798,11 @@ export async function handleImprovisationManage(args: unknown, _ctx: SessionCont
                 output += `Total: ${parsed.count}\n`;
                 if (parsed.boons?.length) {
                     output += '\nBoons:\n';
-                    parsed.boons.forEach((e: any) => output += `  - ${e.name}\n`);
+                    parsed.boons.forEach((e: { name: string }) => output += `  - ${e.name}\n`);
                 }
                 if (parsed.curses?.length) {
                     output += '\nCurses:\n';
-                    parsed.curses.forEach((e: any) => output += `  - ${e.name}\n`);
+                    parsed.curses.forEach((e: { name: string }) => output += `  - ${e.name}\n`);
                 }
                 break;
 
@@ -814,7 +815,7 @@ export async function handleImprovisationManage(args: unknown, _ctx: SessionCont
                 output = RichFormatter.header(`Triggers: ${parsed.event}`, '');
                 output += `${parsed.triggeredCount} effect(s) triggered\n`;
                 if (parsed.effects?.length) {
-                    parsed.effects.forEach((e: any) => output += `  - ${e.name}\n`);
+                    parsed.effects.forEach((e: { name: string }) => output += `  - ${e.name}\n`);
                 }
                 break;
 
@@ -845,9 +846,9 @@ export async function handleImprovisationManage(args: unknown, _ctx: SessionCont
                 output = RichFormatter.header('Synthesized Spellbook', '');
                 output += `Total spells: ${parsed.count}\n`;
                 if (parsed.spellsByLevel) {
-                    for (const [level, spells] of Object.entries(parsed.spellsByLevel as Record<string, any[]>)) {
+                    for (const [level, spells] of Object.entries(parsed.spellsByLevel as Record<string, Array<{ name: string; school: string }>>)) {
                         output += `\nLevel ${level}:\n`;
-                        spells.forEach((s: any) => output += `  - ${s.name} (${s.school})\n`);
+                        spells.forEach((s: { name: string; school: string }) => output += `  - ${s.name} (${s.school})\n`);
                     }
                 }
                 break;

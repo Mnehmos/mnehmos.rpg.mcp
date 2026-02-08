@@ -188,7 +188,7 @@ async function handleList(args: z.infer<typeof ListSchema>): Promise<object> {
         success: true,
         actionType: 'list',
         count: quests.length,
-        quests: quests.map((q: any) => ({
+        quests: quests.map((q: { id: string; name: string; status?: string; objectives?: unknown[]; worldId: string }) => ({
             id: q.id,
             name: q.name,
             status: q.status || 'available',
@@ -578,7 +578,7 @@ export async function handleQuestManage(args: unknown, _ctx: SessionContext): Pr
                     });
                     if (parsed.quest.objectives?.length > 0) {
                         output += '\n**Objectives:**\n';
-                        parsed.quest.objectives.forEach((obj: any) => {
+                        parsed.quest.objectives.forEach((obj: { completed: boolean; description: string; current: number; required: number }) => {
                             const check = obj.completed ? '☑️' : '☐';
                             output += `  ${check} ${obj.description} (${obj.current}/${obj.required})\n`;
                         });
@@ -588,7 +588,7 @@ export async function handleQuestManage(args: unknown, _ctx: SessionContext): Pr
             case 'list':
                 output = RichFormatter.header(`Quests (${parsed.count})`, '📜');
                 if (parsed.quests?.length > 0) {
-                    parsed.quests.forEach((q: any) => {
+                    parsed.quests.forEach((q: { name: string; status: string; objectiveCount: number }) => {
                         output += `• **${q.name}** (${q.status}) - ${q.objectiveCount} objectives\n`;
                     });
                 } else {
@@ -649,7 +649,7 @@ export async function handleQuestManage(args: unknown, _ctx: SessionContext): Pr
                 });
                 if (parsed.quests?.length > 0) {
                     output += '\n';
-                    parsed.quests.forEach((q: any) => {
+                    parsed.quests.forEach((q: { name: string; status: string }) => {
                         const icon = q.status === 'completed' ? '✅' : q.status === 'failed' ? '❌' : '📜';
                         output += `${icon} **${q.name}** (${q.status})\n`;
                     });

@@ -555,7 +555,7 @@ export async function handleNpcManage(args: unknown, _ctx: SessionContext): Prom
             case 'get_history':
                 output = RichFormatter.header(`Conversation History (${parsed.count})`, '');
                 if (parsed.memories?.length > 0) {
-                    parsed.memories.slice(0, 5).forEach((m: any) => {
+                    parsed.memories.slice(0, 5).forEach((m: { importance: string; summary: string }) => {
                         const icon = m.importance === 'critical' ? '' : m.importance === 'high' ? '' : '';
                         output += `${icon} ${m.summary.substring(0, 60)}...\n`;
                     });
@@ -568,7 +568,7 @@ export async function handleNpcManage(args: unknown, _ctx: SessionContext): Prom
             case 'get_recent':
                 output = RichFormatter.header(`Recent Interactions (${parsed.count})`, '');
                 if (parsed.memories?.length > 0) {
-                    parsed.memories.slice(0, 5).forEach((m: any) => {
+                    parsed.memories.slice(0, 5).forEach((m: { summary: string }) => {
                         output += `- ${m.summary.substring(0, 50)}...\n`;
                     });
                 }

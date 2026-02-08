@@ -236,7 +236,7 @@ export async function handleSpatialManage(args: unknown, ctx: SessionContext): P
                     }
                     if (parsed.exits?.length > 0) {
                         output += '**Exits:**\n';
-                        parsed.exits.forEach((e: any) => {
+                        parsed.exits.forEach((e: { direction: string; description?: string; type: string }) => {
                             output += `  • ${e.direction}: ${e.description || e.type}\n`;
                         });
                     }
@@ -256,7 +256,7 @@ export async function handleSpatialManage(args: unknown, ctx: SessionContext): P
                 case 'get_exits':
                     output = RichFormatter.header(`Exits from ${parsed.roomName || 'Room'}`, '🚪');
                     if (parsed.exits?.length > 0) {
-                        parsed.exits.forEach((e: any) => {
+                        parsed.exits.forEach((e: { direction: string; targetNodeId: string; type: string }) => {
                             output += `  • **${e.direction}** → \`${e.targetNodeId}\` (${e.type})\n`;
                         });
                     } else {
@@ -274,7 +274,7 @@ export async function handleSpatialManage(args: unknown, ctx: SessionContext): P
                 case 'list':
                     output = RichFormatter.header(`Rooms (${parsed.count})`, '🏠');
                     if (parsed.rooms?.length > 0) {
-                        parsed.rooms.forEach((r: any) => {
+                        parsed.rooms.forEach((r: { name: string; id: string; biomeContext: string; exitCount: number; entityCount: number; visitedCount: number }) => {
                             output += `• **${r.name}** (\`${r.id}\`) - ${r.biomeContext}\n`;
                             output += `  Exits: ${r.exitCount} | Entities: ${r.entityCount} | Visits: ${r.visitedCount}\n`;
                         });

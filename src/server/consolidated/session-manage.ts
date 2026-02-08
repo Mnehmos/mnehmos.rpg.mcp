@@ -204,12 +204,12 @@ async function handleGetContext(input: SessionManageInput, _ctx: SessionContext)
     // Get active quests
     if (input.includeQuests) {
         const allQuests = questRepo.findAll();
-        const activeQuests = allQuests.filter((q: any) => q.status === 'active' || q.status === 'in_progress');
-        context.quests = activeQuests.map((q: any) => ({
+        const activeQuests = allQuests.filter((q: { status: string }) => q.status === 'active' || q.status === 'in_progress');
+        context.quests = activeQuests.map((q: { id: string; name: string; status: string; objectives?: Array<{ completed: boolean; description?: string }> }) => ({
             id: q.id,
             title: q.name,
             status: q.status,
-            currentObjective: q.objectives?.find((o: any) => !o.completed)?.description
+            currentObjective: q.objectives?.find((o: { completed: boolean; description?: string }) => !o.completed)?.description
         }));
     }
 
@@ -241,8 +241,8 @@ async function handleGetContext(input: SessionManageInput, _ctx: SessionContext)
                 FROM narrative_notes
                 ORDER BY created_at DESC
                 LIMIT ?
-            `).all(input.narrativeLimit || 10) as any[];
-            context.narrative = narratives.map((n: any) => ({
+            `).all(input.narrativeLimit || 10) as Array<{ id: string; type: string; content: string; created_at: string }>;
+            context.narrative = narratives.map((n: { created_at: string; type: string; content: string }) => ({
                 timestamp: n.created_at,
                 type: n.type,
                 content: n.content

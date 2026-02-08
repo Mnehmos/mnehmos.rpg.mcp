@@ -626,7 +626,7 @@ export async function handleTheftManage(args: unknown, _ctx: SessionContext): Pr
             case 'list_fences':
                 output = RichFormatter.header(`Fences (${parsed.count})`, '');
                 if (parsed.fences?.length > 0) {
-                    parsed.fences.forEach((f: any) => {
+                    parsed.fences.forEach((f: { npcId: string; buyRate: number }) => {
                         output += `- **${f.npcId}** (${(f.buyRate * 100).toFixed(0)}%)\n`;
                     });
                 } else {

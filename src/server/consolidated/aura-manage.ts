@@ -471,7 +471,7 @@ export async function handleAuraManage(args: unknown, _ctx: SessionContext): Pro
             case 'list':
                 output = RichFormatter.header(`Active Auras (${parsed.count})`, '');
                 if (parsed.auras?.length > 0) {
-                    parsed.auras.forEach((a: any) => {
+                    parsed.auras.forEach((a: { spellName: string; radius: number; effectCount: number }) => {
                         output += `- **${a.spellName}** (${a.radius}ft) - ${a.effectCount} effects\n`;
                     });
                 } else {
@@ -482,7 +482,7 @@ export async function handleAuraManage(args: unknown, _ctx: SessionContext): Pro
             case 'get_affecting':
                 output = RichFormatter.header(`Auras Affecting ${parsed.characterName}`, '');
                 if (parsed.count > 0) {
-                    parsed.auras.forEach((a: any) => {
+                    parsed.auras.forEach((a: { spellName: string; radius: number }) => {
                         output += `- **${a.spellName}** (${a.radius}ft)\n`;
                     });
                 } else {
@@ -493,7 +493,7 @@ export async function handleAuraManage(args: unknown, _ctx: SessionContext): Pro
             case 'process':
                 output = RichFormatter.header(`Aura Effects (${parsed.trigger})`, '');
                 if (parsed.effectCount > 0) {
-                    parsed.effects.forEach((e: any) => {
+                    parsed.effects.forEach((e: { auraName: string; damageDealt?: number; damageType?: string; healingDone?: number; conditionsApplied?: string[] }) => {
                         output += `- **${e.auraName}**: `;
                         if (e.damageDealt) output += `${e.damageDealt} ${e.damageType} damage`;
                         if (e.healingDone) output += `${e.healingDone} healing`;

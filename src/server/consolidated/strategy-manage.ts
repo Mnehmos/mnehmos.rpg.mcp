@@ -495,7 +495,7 @@ export async function handleStrategyManage(args: unknown, _ctx: SessionContext):
                 output += `World: ${parsed.worldId}\n`;
                 output += `Count: ${parsed.count}\n\n`;
                 if (parsed.nations?.length > 0) {
-                    parsed.nations.forEach((n: any) => {
+                    parsed.nations.forEach((n: { name: string; ideology: string; leader: string }) => {
                         output += `• ${n.name} (${n.ideology}) - ${n.leader}\n`;
                     });
                 } else {

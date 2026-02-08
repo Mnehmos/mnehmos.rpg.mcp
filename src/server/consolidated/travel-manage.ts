@@ -108,9 +108,9 @@ async function handleTravel(input: TravelManageInput, _ctx: SessionContext): Pro
     }
 
     // Get POI
-    let poi: any;
+    let poi: Record<string, unknown> | undefined;
     try {
-        poi = db.prepare('SELECT * FROM pois WHERE id = ?').get(input.poiId);
+        poi = db.prepare('SELECT * FROM pois WHERE id = ?').get(input.poiId) as Record<string, unknown> | undefined;
     } catch {
         // POIs table might not exist
     }
@@ -138,7 +138,7 @@ async function handleTravel(input: TravelManageInput, _ctx: SessionContext): Pro
         if (discoverer) {
             const wisBonus = Math.floor(((discoverer.stats?.wis || 10) - 10) / 2);
             discoveryRoll = Math.floor(Math.random() * 20) + 1 + wisBonus;
-            const dc = poi.discoveryDc || 15;
+            const dc = (poi.discoveryDc as number) || 15;
             discovered = discoveryRoll >= dc;
         }
     } else if (input.autoDiscover) {
@@ -171,12 +171,12 @@ async function handleTravel(input: TravelManageInput, _ctx: SessionContext): Pro
         .run(poi.name, new Date().toISOString(), input.partyId);
 
     // Enter location if requested
-    let enteredRoom: any = null;
+    let enteredRoom: Record<string, unknown> | null = null;
     if (input.enterLocation && poi.networkId) {
         try {
             enteredRoom = db.prepare(`
                 SELECT * FROM rooms WHERE networkId = ? ORDER BY createdAt LIMIT 1
-            `).get(poi.networkId);
+            `).get(poi.networkId) as Record<string, unknown> | null;
         } catch {
             // Rooms table might not exist
         }

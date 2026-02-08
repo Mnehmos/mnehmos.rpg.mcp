@@ -16,6 +16,7 @@ import { CalculationRepository, StoredCalculation } from '../../storage/repos/ca
 import { getDb } from '../../storage/index.js';
 import { ExportFormatSchema } from '../../math/schemas.js';
 import { randomUUID } from 'crypto';
+import type Database from 'better-sqlite3';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -36,7 +37,7 @@ function getRepo() {
     return { repo: new CalculationRepository(db), db };
 }
 
-function logCalculationEvent(db: any, calculationId: string, type: string, sessionId?: string) {
+function logCalculationEvent(db: Database.Database, calculationId: string, type: string, sessionId?: string) {
     db.prepare(`
         INSERT INTO event_logs (type, payload, timestamp)
         VALUES (?, ?, ?)
