@@ -185,7 +185,7 @@ async function handleCreateCharacters(input: BatchManageInput, _ctx: SessionCont
     const { charRepo } = ensureDb();
     const now = new Date().toISOString();
 
-    const createdCharacters: any[] = [];
+    const createdCharacters: Array<{ id: string; name: string; class: string; race: string; characterType: string }> = [];
     const errors: string[] = [];
 
     for (const charData of input.characters) {
@@ -220,8 +220,8 @@ async function handleCreateCharacters(input: BatchManageInput, _ctx: SessionCont
                 race: charData.race,
                 characterType: charData.characterType
             });
-        } catch (err: any) {
-            errors.push(`Failed to create ${charData.name}: ${err.message}`);
+        } catch (err: unknown) {
+            errors.push(`Failed to create ${charData.name}: ${err instanceof Error ? err.message : String(err)}`);
         }
     }
 
@@ -262,7 +262,7 @@ async function handleCreateNpcs(input: BatchManageInput, _ctx: SessionContext): 
     const { charRepo } = ensureDb();
     const now = new Date().toISOString();
 
-    const createdNpcs: any[] = [];
+    const createdNpcs: Array<{ id: string; name: string; role: string; race: string; location?: string }> = [];
     const errors: string[] = [];
 
     for (const npcData of input.npcs) {
@@ -293,8 +293,8 @@ async function handleCreateNpcs(input: BatchManageInput, _ctx: SessionContext): 
                 race: npcData.race,
                 location: input.locationName
             });
-        } catch (err: any) {
-            errors.push(`Failed to create NPC ${npcData.name}: ${err.message}`);
+        } catch (err: unknown) {
+            errors.push(`Failed to create NPC ${npcData.name}: ${err instanceof Error ? err.message : String(err)}`);
         }
     }
 
@@ -340,7 +340,7 @@ async function handleDistributeItems(input: BatchManageInput, _ctx: SessionConte
     const inventoryRepo = new InventoryRepository(db);
     const itemRepo = new ItemRepository(db);
 
-    const distributions: any[] = [];
+    const distributions: Array<{ characterId: string; characterName: string; itemsGiven: string[]; newInventorySize: number }> = [];
     const errors: string[] = [];
 
     for (const dist of input.distributions) {
@@ -382,8 +382,8 @@ async function handleDistributeItems(input: BatchManageInput, _ctx: SessionConte
             if (itemErrors.length > 0) {
                 errors.push(...itemErrors.map(e => `${character.name}: ${e}`));
             }
-        } catch (err: any) {
-            errors.push(`Failed to distribute to ${dist.characterId}: ${err.message}`);
+        } catch (err: unknown) {
+            errors.push(`Failed to distribute to ${dist.characterId}: ${err instanceof Error ? err.message : String(err)}`);
         }
     }
 
@@ -590,10 +590,10 @@ async function handleGetTemplate(input: BatchManageInput, _ctx: SessionContext):
  * Resolve parameter references like {{step1.characterId}} from previous step results
  */
 function resolveStepReferences(
-    args: Record<string, any>,
-    stepResults: Map<string, any>
-): Record<string, any> {
-    const resolved: Record<string, any> = {};
+    args: Record<string, unknown>,
+    stepResults: Map<string, unknown>
+): Record<string, unknown> {
+    const resolved: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(args)) {
         if (typeof value === 'string' && value.startsWith('{{') && value.endsWith('}}')) {
@@ -607,7 +607,7 @@ function resolveStepReferences(
                 const stepResult = stepResults.get(stepId);
                 if (stepResult) {
                     // Navigate the property path
-                    resolved[key] = getNestedValue(stepResult, propertyPath);
+                    resolved[key] = getNestedValue(stepResult as Record<string, unknown>, propertyPath);
                 } else {
                     // Reference not found, keep original
                     resolved[key] = value;
@@ -617,7 +617,7 @@ function resolveStepReferences(
             }
         } else if (typeof value === 'object' && value !== null) {
             // Recursively resolve nested objects
-            resolved[key] = resolveStepReferences(value, stepResults);
+            resolved[key] = resolveStepReferences(value as Record<string, unknown>, stepResults);
         } else {
             resolved[key] = value;
         }
@@ -630,13 +630,13 @@ function resolveStepReferences(
  * Get nested value from object using dot notation (supports array indexing)
  * e.g., "created[0].id" or "character.stats.str"
  */
-function getNestedValue(obj: any, path: string): any {
+function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
     const parts = path.split(/\.|\[|\]/).filter(p => p !== '');
-    let current = obj;
+    let current: unknown = obj;
 
     for (const part of parts) {
         if (current === null || current === undefined) return undefined;
-        current = current[part];
+        current = (current as Record<string, unknown>)[part];
     }
 
     return current;
@@ -656,13 +656,13 @@ async function handleExecuteSequence(input: BatchManageInput, ctx: SessionContex
     const registry = buildConsolidatedRegistry();
     const stopOnError = input.stopOnError ?? true;
 
-    const stepResults = new Map<string, any>();
+    const stepResults = new Map<string, unknown>();
     const executedSteps: Array<{
         stepIndex: number;
         stepId: string;
         tool: string;
         success: boolean;
-        result?: any;
+        result?: unknown;
         error?: string;
     }> = [];
 
@@ -703,7 +703,7 @@ async function handleExecuteSequence(input: BatchManageInput, ctx: SessionContex
             const response = await toolEntry.handler(resolvedArgs, ctx);
 
             // Parse the result from the response
-            let result: any = null;
+            let result: unknown = null;
             if (response.content?.[0]?.text) {
                 // Try to extract JSON from embedded data
                 const text = response.content[0].text;
@@ -723,7 +723,7 @@ async function handleExecuteSequence(input: BatchManageInput, ctx: SessionContex
             // Store result for reference by later steps
             stepResults.set(stepId, result);
 
-            const success = !result?.error;
+            const success = !(result as Record<string, unknown> | null)?.error;
             output += success ? `  ✅ Success\n` : `  ⚠️ Completed with warnings\n`;
 
             executedSteps.push({
@@ -734,8 +734,8 @@ async function handleExecuteSequence(input: BatchManageInput, ctx: SessionContex
                 result
             });
 
-        } catch (err: any) {
-            const error = err.message || 'Unknown error';
+        } catch (err: unknown) {
+            const error = (err instanceof Error ? err.message : String(err)) || 'Unknown error';
             output += `  ❌ Error: ${error}\n`;
 
             executedSteps.push({
