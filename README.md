@@ -4,8 +4,8 @@
 [![License: ISC](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)]()
 [![MCP](https://img.shields.io/badge/MCP-Compatible-green.svg)]()
-[![Tests](https://img.shields.io/badge/tests-2080%2B%20passing-brightgreen.svg)]()
-[![Tools](https://img.shields.io/badge/MCP%20tools-28-blue.svg)]()
+[![Tests](https://img.shields.io/badge/tests-1889%20passing-brightgreen.svg)]()
+[![Tools](https://img.shields.io/badge/MCP%20tools-32-blue.svg)]()
 
 **A rules-enforced RPG backend that turns any LLM into a game master who can't cheat.**
 
@@ -46,9 +46,9 @@ You talk to an AI (Claude, GPT, etc.) in natural language. You say things like "
 
 ## v1.0 Release (January 2026)
 
-### 85% Tool Reduction: 195 → 28 Consolidated Tools
+### 85% Tool Reduction: 195 → 32 Tools (28 Consolidated + 4 Meta/Event)
 
-This release consolidates 195 individual tools into **28 action-based tools** using:
+This release consolidates 195 individual tools into **28 action-based tools** plus 4 standalone meta/event tools using:
 
 - **Action enums** - Each tool handles multiple operations via an `action` parameter
 - **Fuzzy matching** - Typo-tolerant action matching with suggestions
@@ -61,18 +61,20 @@ This release consolidates 195 individual tools into **28 action-based tools** us
 
 | Metric | Before | After | Change |
 |--------|--------|-------|--------|
-| MCP Tools | 195 | 28 | **85.6% reduction** |
-| Tests | 1,242 | 2,080+ | +67% coverage |
+| MCP Tools | 195 | 32 | **83.6% reduction** |
+| Tests | 1,242 | 1,889 | +52% coverage |
 | Token overhead | ~50K | ~6-8K | **85% reduction** |
 
 ### Meta-Tools for Discovery
 
-Two special tools help LLMs discover and use the consolidated tools:
+Four standalone tools support discovery and real-time events:
 
 | Tool | Purpose |
 |------|---------|
 | `search_tools` | Search tools by keyword, category, or capability |
 | `load_tool_schema` | Load full parameter schema before first use |
+| `subscribe_to_events` | Subscribe to PubSub event topics (combat, quest, etc.) |
+| `unsubscribe_from_events` | Unsubscribe from event topics |
 
 ---
 
@@ -216,7 +218,7 @@ git clone https://github.com/Mnehmos/rpg-mcp.git
 cd rpg-mcp
 npm install
 npm run build
-npm test  # 2080+ tests should pass
+npm test  # 1889 tests should pass
 ```
 
 ### MCP Client Configuration
@@ -311,13 +313,15 @@ src/
 │   └── repos/        # Repository pattern for persistence
 ├── server/
 │   ├── consolidated/ # 28 action-based tools
+│   ├── handlers/     # Extracted handler implementations (combat, spatial)
 │   ├── consolidated-registry.ts  # Tool registration
-│   └── meta-tools.ts # search_tools, load_tool_schema
+│   ├── meta-tools.ts # search_tools, load_tool_schema
+│   └── events.ts     # PubSub + MCP notification streaming
 └── utils/
     ├── fuzzy-enum.ts      # Action matching with typo tolerance
     └── schema-shorthand.ts # Token-efficient parsing
 
-tests/                # 2080+ tests mirroring src/ structure
+tests/                # 1889 tests mirroring src/ structure
 docs/                 # White paper and LLM spatial guide
 ```
 
@@ -355,9 +359,9 @@ docs/                 # White paper and LLM spatial guide
 
 ```bash
 npm test
-# 2080+ tests passing
+# 1889 tests passing, 6 skipped
 # 85+ test files
-# Coverage across all 28 consolidated tools
+# Coverage across all 32 tools (28 consolidated + 4 meta/event)
 ```
 
 ---
@@ -381,7 +385,7 @@ Contributions welcome! Please:
 - [x] Corpse and loot mechanics
 - [x] NPC memory and relationships
 - [x] Improvisation engine
-- [x] Tool consolidation (195 → 28)
+- [x] Tool consolidation (195 → 32)
 - [x] Fuzzy action matching
 - [x] Preset systems (creatures, encounters, locations)
 - [ ] WebSocket real-time subscriptions
