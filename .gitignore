@@ -46,6 +46,8 @@ yarn-error.log*
 # Temporary files
 tmp/
 temp/
+tmpclaude-*
+test-write.txt
 
 # Binaries and build artifacts
 bin/
