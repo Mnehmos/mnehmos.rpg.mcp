@@ -102,6 +102,16 @@ describe('quest_manage consolidated tool', () => {
             expect(QuestManageTool.description).toContain('complete');
             expect(QuestManageTool.description).toContain('get_log');
         });
+
+        it('should document objective type enum values in description', () => {
+            for (const type of ['kill', 'collect', 'deliver', 'explore', 'interact', 'custom']) {
+                expect(QuestManageTool.description).toContain(type);
+            }
+        });
+
+        it('should document characterId requirement on update_objective', () => {
+            expect(QuestManageTool.description).toMatch(/update_objective.*characterId/i);
+        });
     });
 
     describe('create action', () => {
