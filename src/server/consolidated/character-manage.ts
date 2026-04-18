@@ -185,7 +185,40 @@ async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<object>
     const maxHp = args.maxHp ?? hp;
     const characterId = randomUUID();
 
-    // Provision starting equipment and spells if enabled
+    // Build the base character record from args. The character row MUST be
+    // inserted before provisioning runs, otherwise inventory_items.character_id
+    // FK fails when the provisioner tries to grant starting equipment.
+    const character: Record<string, unknown> = {
+        id: characterId,
+        name: args.name,
+        race: args.race,
+        background: args.background,
+        alignment: args.alignment,
+        characterClass: className,
+        stats: args.stats || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+        hp,
+        maxHp,
+        ac: args.ac ?? 10,
+        level: args.level ?? 1,
+        characterType: args.characterType ?? 'pc',
+        factionId: args.factionId,
+        behavior: args.behavior,
+        knownSpells: args.knownSpells || [],
+        cantripsKnown: [],
+        preparedSpells: args.preparedSpells || [],
+        resistances: args.resistances || [],
+        vulnerabilities: args.vulnerabilities || [],
+        immunities: args.immunities || [],
+        spellSlots: undefined,
+        pactMagicSlots: undefined,
+        xp: 0,
+        createdAt: now,
+        updatedAt: now
+    };
+
+    characterRepo.create(character as any);
+
+    // Now safe to provision: character row exists, so FK on inventory_items.character_id resolves.
     let provisioningResult = null;
     const shouldProvision = args.provisionEquipment !== false &&
         (args.characterType === 'pc' || args.characterType === undefined);
@@ -202,40 +235,23 @@ async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<object>
                 startingGold: args.startingGold
             }
         );
+
+        // Roll spell-related fields from provisioning into the in-memory record
+        // and persist via update so the character row stays consistent.
+        character.knownSpells = provisioningResult.spellsGranted.length
+            ? [...new Set([...(args.knownSpells || []), ...provisioningResult.spellsGranted])]
+            : args.knownSpells || [];
+        character.cantripsKnown = provisioningResult.cantripsGranted || [];
+        character.spellSlots = convertSpellSlotsToObject(provisioningResult.spellSlots ?? null);
+        character.pactMagicSlots = provisioningResult.pactMagicSlots || undefined;
+
+        characterRepo.update(characterId, {
+            knownSpells: character.knownSpells as string[],
+            cantripsKnown: character.cantripsKnown as string[],
+            spellSlots: character.spellSlots,
+            pactMagicSlots: character.pactMagicSlots
+        } as any);
     }
-
-    // Build character
-    const character = {
-        id: characterId,
-        name: args.name,
-        race: args.race,
-        background: args.background,
-        alignment: args.alignment,
-        characterClass: className,
-        stats: args.stats || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-        hp,
-        maxHp,
-        ac: args.ac ?? 10,
-        level: args.level ?? 1,
-        characterType: args.characterType ?? 'pc',
-        factionId: args.factionId,
-        behavior: args.behavior,
-        knownSpells: provisioningResult?.spellsGranted.length
-            ? [...new Set([...args.knownSpells || [], ...provisioningResult.spellsGranted])]
-            : args.knownSpells || [],
-        cantripsKnown: provisioningResult?.cantripsGranted || [],
-        preparedSpells: args.preparedSpells || [],
-        resistances: args.resistances || [],
-        vulnerabilities: args.vulnerabilities || [],
-        immunities: args.immunities || [],
-        spellSlots: convertSpellSlotsToObject(provisioningResult?.spellSlots ?? null),
-        pactMagicSlots: provisioningResult?.pactMagicSlots || undefined,
-        xp: 0,
-        createdAt: now,
-        updatedAt: now
-    };
-
-    characterRepo.create(character as any);
 
     const response: Record<string, unknown> = { ...character, success: true };
     if (provisioningResult) {

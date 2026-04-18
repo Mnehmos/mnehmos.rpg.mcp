@@ -96,6 +96,25 @@ describe('character_manage consolidated tool', () => {
             expect(parsed._provisioning).toBeDefined();
         });
 
+        // Regression for issue #45: provisioning ran before character row was
+        // inserted, so every starting-item grant failed FOREIGN KEY check on
+        // inventory_items.character_id and characters spawned with empty bags.
+        it('actually grants starting equipment without FK errors', async () => {
+            const classes = ['Paladin', 'Rogue', 'Wizard', 'Cleric', 'Fighter'];
+            for (const klass of classes) {
+                const result = await handleCharacterManage({
+                    action: 'create',
+                    name: `${klass}-Equip`,
+                    class: klass,
+                    level: 4
+                }, ctx);
+                const parsed = extractJson(result.content[0].text);
+                expect(parsed._provisioning, `${klass}: missing _provisioning`).toBeDefined();
+                expect(parsed._provisioning.errors, `${klass}: equipment errors leaked`).toBeUndefined();
+                expect(parsed._provisioning.equipmentGranted.length, `${klass}: nothing granted`).toBeGreaterThan(0);
+            }
+        });
+
         it('should skip provisioning when provisionEquipment is false', async () => {
             const result = await handleCharacterManage({
                 action: 'create',
