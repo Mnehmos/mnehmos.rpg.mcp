@@ -26,25 +26,22 @@ export class CombatRNG {
     }
 
     /**
-     * Parse and execute standard dice notation (NdS+M or NdS-M)
-     * Examples: "1d20", "2d6+3", "1d8-1"
+     * Parse and execute standard dice notation, including multi-term sums.
+     * Examples: "1d20", "2d6+3", "1d8-1", "1d6+4+2d6" (sneak attack), "1d8+3+2d8" (smite)
      */
     roll(notation: string): number {
-        const match = notation.match(/^(\d+)d(\d+)(([+\-])(\d+))?$/i);
-        if (!match) {
-            throw new Error(`Invalid dice notation: ${notation}`);
-        }
-
-        const count = parseInt(match[1], 10);
-        const sides = parseInt(match[2], 10);
-        const modifier = match[3] ? parseInt(match[4] + match[5], 10) : 0;
-
+        const terms = parseDiceTerms(notation);
         let total = 0;
-        for (let i = 0; i < count; i++) {
-            total += this.rollDie(sides);
+        for (const term of terms) {
+            if (term.kind === 'dice') {
+                for (let i = 0; i < term.count; i++) {
+                    total += term.sign * this.rollDie(term.sides);
+                }
+            } else {
+                total += term.sign * term.value;
+            }
         }
-
-        return total + modifier;
+        return total;
     }
 
     /**
@@ -276,34 +273,33 @@ export class CombatRNG {
     }
 
     /**
-     * Roll damage dice with detailed breakdown
+     * Roll damage dice with detailed breakdown.
+     * Supports compound expressions like "1d6+4+2d6" (sneak attack) and "1d8+3+2d8" (smite).
      */
     rollDamageDetailed(notation: string): DamageResult {
-        const match = notation.match(/^(\d+)d(\d+)(([+\-])(\d+))?$/i);
-        if (!match) {
-            throw new Error(`Invalid dice notation: ${notation}`);
-        }
-
-        const count = parseInt(match[1], 10);
-        const sides = parseInt(match[2], 10);
-        const modifierSign = match[4] || '+';
-        const modifierValue = match[5] ? parseInt(match[5], 10) : 0;
-        const modifier = modifierSign === '-' ? -modifierValue : modifierValue;
-
+        const terms = parseDiceTerms(notation);
         const rolls: number[] = [];
-        for (let i = 0; i < count; i++) {
-            rolls.push(this.rollDie(sides));
-        }
+        let diceTotal = 0;
+        let modifier = 0;
 
-        const diceTotal = rolls.reduce((sum, r) => sum + r, 0);
-        const total = diceTotal + modifier;
+        for (const term of terms) {
+            if (term.kind === 'dice') {
+                for (let i = 0; i < term.count; i++) {
+                    const r = this.rollDie(term.sides);
+                    rolls.push(term.sign * r);
+                    diceTotal += term.sign * r;
+                }
+            } else {
+                modifier += term.sign * term.value;
+            }
+        }
 
         return {
             notation,
             rolls,
             diceTotal,
             modifier,
-            total
+            total: diceTotal + modifier
         };
     }
 }
@@ -333,4 +329,50 @@ export interface DamageResult {
     diceTotal: number;      // Sum of dice only
     modifier: number;       // Flat modifier
     total: number;          // Final damage total
+}
+
+type DiceTerm =
+    | { kind: 'dice'; count: number; sides: number; sign: 1 | -1 }
+    | { kind: 'scalar'; value: number; sign: 1 | -1 };
+
+/**
+ * Parse compound dice notation into a list of terms.
+ * Accepts a `+`/`-`-joined chain of dice (`NdS`, `dS`) and integers.
+ * Examples: `1d6+4+2d6`, `1d8+3+2d8`, `2d6+1d4-2`, `d20+5`.
+ */
+export function parseDiceTerms(notation: string): DiceTerm[] {
+    const stripped = notation.replace(/\s+/g, '');
+    if (!stripped) {
+        throw new Error(`Invalid dice notation: ${notation}`);
+    }
+    // Split on +/- while preserving the sign with each term.
+    const tokens = stripped.match(/[+-]?[^+-]+/g);
+    if (!tokens) {
+        throw new Error(`Invalid dice notation: ${notation}`);
+    }
+
+    const terms: DiceTerm[] = [];
+    for (const raw of tokens) {
+        const sign: 1 | -1 = raw.startsWith('-') ? -1 : 1;
+        const body = raw.replace(/^[+-]/, '');
+        if (!body) {
+            throw new Error(`Invalid dice notation: ${notation}`);
+        }
+        const diceMatch = body.match(/^(\d*)d(\d+)$/i);
+        if (diceMatch) {
+            const count = diceMatch[1] === '' ? 1 : parseInt(diceMatch[1], 10);
+            const sides = parseInt(diceMatch[2], 10);
+            if (count <= 0 || sides <= 0) {
+                throw new Error(`Invalid dice notation: ${notation}`);
+            }
+            terms.push({ kind: 'dice', count, sides, sign });
+            continue;
+        }
+        if (/^\d+$/.test(body)) {
+            terms.push({ kind: 'scalar', value: parseInt(body, 10), sign });
+            continue;
+        }
+        throw new Error(`Invalid dice notation: ${notation}`);
+    }
+    return terms;
 }

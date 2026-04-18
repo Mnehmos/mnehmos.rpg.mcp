@@ -54,6 +54,47 @@ describe('CombatRNG', () => {
             expect(() => rng.roll('invalid')).toThrow('Invalid dice notation');
             expect(() => rng.roll('2x6')).toThrow('Invalid dice notation');
         });
+
+        it('should parse compound sneak-attack expression (1d6+4+2d6)', () => {
+            const rng = new CombatRNG('compound-sa');
+            const result = rng.roll('1d6+4+2d6');
+            // min: 1 + 4 + 2 = 7; max: 6 + 4 + 12 = 22
+            expect(result).toBeGreaterThanOrEqual(7);
+            expect(result).toBeLessThanOrEqual(22);
+        });
+
+        it('should parse compound smite expression (1d8+3+2d8)', () => {
+            const rng = new CombatRNG('compound-smite');
+            const result = rng.roll('1d8+3+2d8');
+            // min: 1 + 3 + 2 = 6; max: 8 + 3 + 16 = 27
+            expect(result).toBeGreaterThanOrEqual(6);
+            expect(result).toBeLessThanOrEqual(27);
+        });
+
+        it('should parse mixed dice with subtraction (2d6+1d4-2)', () => {
+            const rng = new CombatRNG('compound-mixed');
+            const result = rng.roll('2d6+1d4-2');
+            // min: 2 + 1 - 2 = 1; max: 12 + 4 - 2 = 14
+            expect(result).toBeGreaterThanOrEqual(1);
+            expect(result).toBeLessThanOrEqual(14);
+        });
+
+        it('should parse shorthand single die (d20)', () => {
+            const rng = new CombatRNG('shorthand-d20');
+            const result = rng.roll('d20');
+            expect(result).toBeGreaterThanOrEqual(1);
+            expect(result).toBeLessThanOrEqual(20);
+        });
+
+        it('rollDamageDetailed returns separate dice and modifier for compound notation', () => {
+            const rng = new CombatRNG('compound-detail');
+            const detail = rng.rollDamageDetailed('1d6+4+2d6');
+            expect(detail.notation).toBe('1d6+4+2d6');
+            // 1 + 2 = 3 dice rolled; modifier = 4
+            expect(detail.rolls).toHaveLength(3);
+            expect(detail.modifier).toBe(4);
+            expect(detail.total).toBe(detail.diceTotal + detail.modifier);
+        });
     });
 
     describe('Advantage/Disadvantage', () => {
