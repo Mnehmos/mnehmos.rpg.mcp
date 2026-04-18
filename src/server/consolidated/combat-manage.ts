@@ -22,6 +22,7 @@ import {
 import { expandCreatureTemplate, listAllTemplates } from '../../data/creature-presets.js';
 import { getDb } from '../../storage/index.js';
 import { CombatActionLogRepository } from '../../storage/repos/combat-action-log.repo.js';
+import { getCombatManager } from '../state/combat-manager.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -269,6 +270,9 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                     initiativeBonus: Math.floor((preset.stats.dex - 10) / 2),
                     hp: preset.hp,
                     maxHp: preset.maxHp,
+                    ac: preset.ac,
+                    attackDamage: preset.defaultAttack?.damage,
+                    attackBonus: preset.defaultAttack?.toHit,
                     isEnemy: true,
                     conditions: [],
                     position: pos,
@@ -276,6 +280,38 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                     vulnerabilities: preset.vulnerabilities || [],
                     immunities: preset.immunities || []
                 });
+            }
+
+            // If encounterId is supplied and refers to an active encounter, append
+            // the new enemies to it instead of creating a fresh encounter.
+            if (params.encounterId) {
+                const engine = getCombatManager().get(`${currentContext.sessionId}:${params.encounterId}`);
+                if (engine) {
+                    const state = engine.addParticipants(participants as unknown as Parameters<typeof engine.addParticipants>[0]);
+                    return {
+                        success: true,
+                        actionType: 'spawn_quick_enemy',
+                        encounterId: params.encounterId,
+                        creature: params.creature,
+                        spawnedCount: count,
+                        appendedToExisting: true,
+                        enemies: participants.map(p => ({
+                            id: p.id,
+                            name: p.name,
+                            hp: p.hp,
+                            maxHp: p.maxHp,
+                            ac: preset.ac,
+                            position: p.position,
+                            attack: preset.defaultAttack
+                        })),
+                        turnOrder: state.turnOrder,
+                        currentTurn: state.participants[state.currentTurnIndex]?.id,
+                        readyForCombat: true,
+                        hint: `Added ${count} ${preset.name}(s) to existing encounter. Initiative re-sorted.`
+                    };
+                }
+                // encounterId given but engine not found — fall through to new-encounter path
+                // with a message noting the fallback.
             }
 
             // Create encounter with these participants

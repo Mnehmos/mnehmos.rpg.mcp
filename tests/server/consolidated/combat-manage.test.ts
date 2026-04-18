@@ -154,6 +154,50 @@ describe('combat_manage consolidated tool', () => {
             expect(p?.isEnemy).toBe(false);
         });
 
+        // Regression for issue #48: spawn_quick_enemy with encounterId was
+        // ignoring the id and creating a fresh encounter, leaving PCs without
+        // opponents in the original.
+        it('spawn_quick_enemy appends to existing encounter when encounterId is set', async () => {
+            // Create encounter with PCs only
+            const createResult = await handleCombatManage({
+                action: 'create',
+                seed: 'spawn-append-test',
+                participants: [
+                    { id: 'pc-hero', name: 'Hero', initiativeBonus: 3, hp: 30, maxHp: 30, isEnemy: false, position: { x: 0, y: 0 } }
+                ]
+            }, ctx);
+            const originalId = parseResult(createResult).encounterId;
+
+            // Spawn goblins into the same encounter
+            const spawnResult = await handleCombatManage({
+                action: 'spawn_quick_enemy',
+                encounterId: originalId,
+                creature: 'goblin',
+                count: 2,
+                position: { x: 10, y: 10 }
+            }, ctx);
+            const spawnData = parseResult(spawnResult);
+
+            expect(spawnData.success).toBe(true);
+            expect(spawnData.appendedToExisting).toBe(true);
+            expect(spawnData.encounterId).toBe(originalId);
+            expect(spawnData.spawnedCount).toBe(2);
+            // Original encounter now has PC + 2 goblins = 3 participants
+            expect(spawnData.turnOrder.length).toBe(3);
+        });
+
+        it('spawn_quick_enemy still creates a new encounter when encounterId is omitted', async () => {
+            const result = await handleCombatManage({
+                action: 'spawn_quick_enemy',
+                creature: 'goblin',
+                count: 1
+            }, ctx);
+            const data = parseResult(result);
+            expect(data.success).toBe(true);
+            expect(data.appendedToExisting).toBeUndefined();
+            expect(data.encounterId).toBeDefined();
+        });
+
         it('should accept "start" alias', async () => {
             const result = await handleCombatManage({
                 action: 'start',

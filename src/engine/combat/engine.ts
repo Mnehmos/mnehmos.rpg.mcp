@@ -191,6 +191,54 @@ export class CombatEngine {
      * 
      * If any participant has hasLairActions=true, adds 'LAIR' to turn order at initiative 20
      */
+    /**
+     * Add new participants to an existing encounter. Rolls initiative for
+     * each, resorts the turn order, and keeps currentTurnIndex pointing at
+     * the same actor (so an insertion ahead of the active turn doesn't skip it).
+     */
+    addParticipants(newParticipants: CombatParticipant[]): CombatState {
+        if (!this.state) throw new Error('No active combat');
+
+        const withInit = newParticipants.map(p => ({
+            ...p,
+            initiative: this.rng.d20(p.initiativeBonus),
+            isEnemy: p.isEnemy ?? this.detectIsEnemy(p.id, p.name),
+            movementRemaining: p.movementSpeed ?? 30,
+            actionUsed: false,
+            bonusActionUsed: false,
+            spellsCast: {},
+            reactionUsed: false,
+            hasDashed: false,
+            hasDisengaged: false
+        }));
+
+        const currentId = this.state.turnOrder[this.state.currentTurnIndex];
+        const merged = [...this.state.participants, ...withInit];
+
+        merged.sort((a, b) => {
+            const ai = a.initiative ?? 0;
+            const bi = b.initiative ?? 0;
+            if (bi !== ai) return bi - ai;
+            return a.id.localeCompare(b.id);
+        });
+
+        // Rebuild turn order, preserving any LAIR slot at its initiative-20 position.
+        const newTurnOrder: string[] = merged.map(p => p.id);
+        if (this.state.hasLairActions) {
+            const lairIndex = merged.findIndex(p => (p.initiative ?? 0) <= 20);
+            if (lairIndex === -1) newTurnOrder.push('LAIR');
+            else newTurnOrder.splice(lairIndex, 0, 'LAIR');
+        }
+
+        // Keep the active participant's turn anchored after the resort.
+        const newIndex = newTurnOrder.indexOf(currentId);
+        this.state.participants = merged;
+        this.state.turnOrder = newTurnOrder;
+        if (newIndex >= 0) this.state.currentTurnIndex = newIndex;
+
+        return this.state;
+    }
+
     startEncounter(participants: CombatParticipant[]): CombatState {
         // Roll initiative for each participant and store the value
         const participantsWithInitiative = participants.map(p => {
