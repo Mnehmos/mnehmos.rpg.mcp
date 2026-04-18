@@ -166,6 +166,28 @@ describe('combat_manage consolidated tool', () => {
             const data = parseResult(result);
             expect(data.success).toBe(true);
         });
+
+        // Regression for issue #47: participant `ac` was being silently dropped
+        // by the consolidated schema and never reached the attack resolver. All
+        // attacks resolved vs AC 10 regardless of the supplied value.
+        it('honors participant `ac` in encounter state', async () => {
+            const result = await handleCombatManage({
+                action: 'create',
+                seed: 'ac-persistence-test',
+                participants: [
+                    { id: 'tanky-pc', name: 'Tank', initiativeBonus: 0, hp: 38, maxHp: 38, ac: 18, isEnemy: false, position: { x: 0, y: 0 } },
+                    { id: 'squishy-enemy', name: 'Bandit', initiativeBonus: 0, hp: 10, maxHp: 10, ac: 11, isEnemy: true, position: { x: 1, y: 0 } }
+                ]
+            }, ctx);
+            const data = parseResult(result);
+            expect(data.success).toBe(true);
+
+            const byId = Object.fromEntries(
+                (data.participants as Array<{ id: string; ac?: number }>).map((p) => [p.id, p.ac])
+            );
+            expect(byId['tanky-pc']).toBe(18);
+            expect(byId['squishy-enemy']).toBe(11);
+        });
     });
 
     describe('get action', () => {

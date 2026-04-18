@@ -579,6 +579,8 @@ Example (use real UUID from context for player character!):
                 isEnemy: z.boolean().optional().describe('Whether this is an enemy (auto-detected if not set)'),
                 hasLairActions: z.boolean().optional()
                     .describe('Adds a LAIR slot at initiative 20 to the turn order'),
+                ac: z.number().int().min(0).optional()
+                    .describe('Armor Class (used by attack resolution; defaults to attacker-side derivation if omitted)'),
                 conditions: z.array(z.string()).default([]),
                 position: z.object({ x: z.number(), y: z.number(), z: z.number().optional() }).optional()
                     .describe('CRIT-003: Spatial position for movement (x, y coordinates)'),
@@ -1102,7 +1104,10 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
             resistances: p.resistances,
             vulnerabilities: p.vulnerabilities,
             immunities: p.immunities,
-            ...extraStats
+            ...extraStats,
+            // Caller-supplied AC wins over the preset's default so explicit
+            // overrides (e.g., a goblin in chain mail) take effect.
+            ...(p.ac !== undefined ? { ac: p.ac } : {})
         } as CombatParticipant;
         
         return participant;

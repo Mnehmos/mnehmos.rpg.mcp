@@ -27,6 +27,11 @@ export interface CombatParticipant {
     isEnemy?: boolean;    // Whether this is an enemy (for turn automation)
     hp: number;
     maxHp: number;
+    /**
+     * Armor Class. Used by attack resolution. If omitted, the engine falls
+     * back to a derived value (10 + initiativeBonus/2) for legacy compatibility.
+     */
+    ac?: number;
     conditions: Condition[];
     position?: { x: number; y: number; z?: number };  // CRIT-003: Spatial position
     // Phase 4: Movement economy
