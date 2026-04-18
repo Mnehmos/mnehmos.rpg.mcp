@@ -996,6 +996,27 @@ export class CombatEngine {
     }
 
     /**
+     * Apply the Dash action for a participant. Adds a fresh movement
+     * allotment on top of whatever they already have left, and flags
+     * hasDashed so the budget-check in move actions sees the doubled
+     * window. Consumes the main action.
+     */
+    applyDash(participantId: string): { ok: true; movementRemaining: number } | { ok: false; error: string } {
+        if (!this.state) return { ok: false, error: 'No active combat' };
+        const participant = this.state.participants.find((p) => p.id === participantId);
+        if (!participant) return { ok: false, error: `Participant ${participantId} not found` };
+        if (participant.hasDashed) return { ok: false, error: 'Already dashed this turn' };
+
+        const baseSpeed = participant.movementSpeed ?? 30;
+        const currentRemaining = participant.movementRemaining ?? baseSpeed;
+        participant.movementRemaining = currentRemaining + baseSpeed;
+        participant.hasDashed = true;
+        participant.actionUsed = true;
+
+        return { ok: true, movementRemaining: participant.movementRemaining };
+    }
+
+    /**
      * Process start-of-turn condition effects
      */
     private processStartOfTurnConditions(participant: CombatParticipant): void {

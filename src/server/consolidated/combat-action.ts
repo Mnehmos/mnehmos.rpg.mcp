@@ -9,6 +9,7 @@ import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/a
 import { SessionContext } from '../types.js';
 import { RichFormatter } from '../utils/formatter.js';
 import { handleExecuteCombatAction } from '../handlers/combat-handlers.js';
+import { getCombatManager } from '../state/combat-manager.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -188,13 +189,30 @@ const definitions: Record<CombatAction, ActionDefinition> = {
         schema: DashSchema,
         handler: async (params: z.infer<typeof DashSchema>) => {
             if (!currentContext) throw new Error('No session context');
-            // Dash doubles movement speed for the turn
+            const engine = getCombatManager().get(`${currentContext.sessionId}:${params.encounterId}`);
+            if (!engine) {
+                return {
+                    error: true,
+                    actionType: 'dash',
+                    message: `Encounter ${params.encounterId} not found.`
+                };
+            }
+            const result = engine.applyDash(params.actorId);
+            if (!result.ok) {
+                return {
+                    error: true,
+                    actionType: 'dash',
+                    actorId: params.actorId,
+                    message: result.error
+                };
+            }
             return {
                 success: true,
                 actionType: 'dash',
                 actorId: params.actorId,
-                effect: 'Movement speed doubled for this turn',
-                message: `${params.actorId} takes the Dash action, doubling movement speed.`
+                movementRemaining: result.movementRemaining,
+                effect: `Movement speed doubled for this turn (budget now ${result.movementRemaining}ft)`,
+                message: `${params.actorId} takes the Dash action. Movement doubled; ${result.movementRemaining}ft remaining.`
             };
         },
         aliases: ['sprint', 'run', 'hustle']

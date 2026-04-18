@@ -282,6 +282,31 @@ describe('combat_action consolidated tool', () => {
             // Alias resolves to dash
             expect(data.actionType).toBe('dash');
         });
+
+        // Regression for issue #50: dash was a stub that returned a success
+        // message without actually extending movementRemaining, so the next
+        // move call still enforced the base 30ft budget.
+        it('dash actually doubles the enforced move budget', async () => {
+            const dashResult = await handleCombatAction({
+                action: 'dash',
+                encounterId: testEncounterId,
+                actorId: 'hero-1'
+            }, ctx);
+            const dashData = parseResult(dashResult);
+            expect(dashData.success).toBe(true);
+            expect(dashData.movementRemaining).toBe(60);
+
+            // Move 9 tiles diagonally (~45ft at 5ft/sq). Without dash this
+            // would exceed the 30ft budget; with dash (60ft) it fits.
+            const moveResult = await handleCombatAction({
+                action: 'move',
+                encounterId: testEncounterId,
+                actorId: 'hero-1',
+                targetPosition: { x: 14, y: 14 }
+            }, ctx);
+            const moveData = parseResult(moveResult);
+            expect(moveData.success).toBe(true);
+        });
     });
 
     describe('dodge action', () => {
