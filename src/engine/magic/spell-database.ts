@@ -11,13 +11,23 @@ export const SPELL_DATABASE: Map<string, Spell> = new Map();
 // Input type for spell registration (ritual defaults to false)
 type SpellInput = Omit<Spell, 'ritual'> & { ritual?: boolean };
 
-// Helper to add spell to database
+/**
+ * Normalize a spell name/id for lookup.
+ * Accepts "Fire Bolt", "fire-bolt", "fire_bolt", "FIREBOLT" — all collapse to "firebolt".
+ */
+function normalizeSpellKey(name: string): string {
+    return name.toLowerCase().replace(/[\s\-_]+/g, '');
+}
+
+// Helper to add spell to database — registers under both the spaced name
+// and the kebab-case id so all reasonable callers can find the spell.
 function registerSpell(input: SpellInput): void {
     const spell: Spell = {
         ...input,
         ritual: input.ritual ?? false
     };
-    SPELL_DATABASE.set(spell.name.toLowerCase(), spell);
+    SPELL_DATABASE.set(normalizeSpellKey(spell.name), spell);
+    SPELL_DATABASE.set(normalizeSpellKey(spell.id), spell);
 }
 
 // ============================================================================
@@ -571,17 +581,17 @@ registerSpell({
 // ============================================================================
 
 /**
- * Get spell by name (case-insensitive)
+ * Get spell by name or id (case-insensitive, ignores spaces/hyphens/underscores)
  */
 export function getSpell(name: string): Spell | undefined {
-    return SPELL_DATABASE.get(name.toLowerCase());
+    return SPELL_DATABASE.get(normalizeSpellKey(name));
 }
 
 /**
  * Check if spell exists in database
  */
 export function spellExists(name: string): boolean {
-    return SPELL_DATABASE.has(name.toLowerCase());
+    return SPELL_DATABASE.has(normalizeSpellKey(name));
 }
 
 /**
@@ -665,5 +675,6 @@ export function calculateUpcastDice(spell: Spell, slotLevel: number): string {
     return `${totalCount}d${diceSize}${modifier}`;
 }
 
-// Export total spell count for tests
-export const SPELL_COUNT = SPELL_DATABASE.size;
+// Export total unique-spell count for tests (each spell may be indexed under
+// multiple keys, so dedupe before counting).
+export const SPELL_COUNT = new Set(SPELL_DATABASE.values()).size;
