@@ -98,6 +98,39 @@ describe('combat_action consolidated tool', () => {
         });
     });
 
+    // Regression for issue #49: off-turn actions used to succeed silently,
+    // letting a caller stack multiple attacks from different actors in one
+    // round. Now the response surfaces an off_turn_action warning.
+    describe('off-turn advisory', () => {
+        it('warns when actorId does not match the current-turn participant', async () => {
+            // Test setup gave hero-1 initiativeBonus 10 vs goblin-1's 1, so
+            // hero-1 is on turn. Fire an attack as the goblin instead.
+            const result = await handleCombatAction({
+                action: 'attack',
+                encounterId: testEncounterId,
+                actorId: 'goblin-1',
+                targetId: 'hero-1',
+                attackBonus: 3,
+                damage: 4
+            }, ctx);
+
+            expect(result.content[0].text).toMatch(/off_turn_action/);
+        });
+
+        it('does not warn when actorId is the current-turn participant', async () => {
+            const result = await handleCombatAction({
+                action: 'attack',
+                encounterId: testEncounterId,
+                actorId: 'hero-1',
+                targetId: 'goblin-1',
+                attackBonus: 5,
+                damage: 8
+            }, ctx);
+
+            expect(result.content[0].text).not.toMatch(/off_turn_action/);
+        });
+    });
+
     describe('attack action', () => {
         it('should execute an attack', async () => {
             const result = await handleCombatAction({

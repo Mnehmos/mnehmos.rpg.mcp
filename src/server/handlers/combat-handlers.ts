@@ -1239,6 +1239,32 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
         getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
     }
 
+    // Turn-identity advisory (issue #49). Every action routed through this
+    // handler (attack / cast_spell / move / dash / dodge / help / heal /
+    // disengage / ready) is an on-turn action. If actorId doesn't match the
+    // active participant, surface a warning so the caller can see the
+    // misuse — we don't throw because reactions aren't modeled yet and
+    // some legitimate flows could be disrupted. A stricter mode can be
+    // layered on top later.
+    let turnWarning: string | undefined;
+    {
+        const liveState = engine.getState();
+        if (liveState) {
+            const activeId = liveState.turnOrder[liveState.currentTurnIndex];
+            if (
+                activeId &&
+                activeId !== 'LAIR' &&
+                parsed.actorId !== activeId &&
+                // Ignore if the supplied actorId isn't a real participant —
+                // the action handler will produce a clearer error downstream.
+                liveState.participants.some((p) => p.id === parsed.actorId)
+            ) {
+                const actor = liveState.participants.find((p) => p.id === activeId);
+                turnWarning = `off_turn_action: ${parsed.actorId} acting during ${actor?.name ?? activeId}'s turn`;
+            }
+        }
+    }
+
     let result: CombatActionResult | undefined;
     let output = '';
 
@@ -2023,6 +2049,10 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
         // Append current state JSON for frontend
         const stateJson = buildStateJson(state, parsed.encounterId);
         output += `\n\n<!-- STATE_JSON\n${JSON.stringify(stateJson)}\nSTATE_JSON -->`;
+    }
+
+    if (turnWarning) {
+        output += `\n\n⚠️  ${turnWarning}\n`;
     }
 
     return {
