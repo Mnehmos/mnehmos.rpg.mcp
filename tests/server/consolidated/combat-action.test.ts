@@ -130,6 +130,31 @@ describe('combat_action consolidated tool', () => {
             expect(result.content[0].text).not.toMatch(/off_turn_action/);
         });
 
+        // Reviewer follow-up on PR #59: hasLairActions wasn't being persisted,
+        // so loadState() couldn't rebuild the LAIR slot in turnOrder after a
+        // restart. The lair turn would silently disappear.
+        it('persists hasLairActions so LAIR survives a loadState round-trip', async () => {
+            const { handleCreateEncounter } = await import('../../../src/server/handlers/combat-handlers.js');
+            const { EncounterRepository } = await import('../../../src/storage/repos/encounter.repo.js');
+            const lairCtx = { sessionId: `lair-persist-${randomUUID()}` };
+
+            const create = await handleCreateEncounter({
+                seed: 'lair-persist-test',
+                participants: [
+                    { id: 'pc', name: 'Hero', initiativeBonus: 0, hp: 30, maxHp: 30, isEnemy: false, position: { x: 0, y: 0 } },
+                    { id: 'dragon', name: 'Dragon', initiativeBonus: 0, hp: 100, maxHp: 100, isEnemy: true, hasLairActions: true, position: { x: 5, y: 5 } }
+                ]
+            }, lairCtx);
+            const eid = (create.content[0].text.match(/encounter-[\w-]+/) || [])[0]!;
+
+            const repo = new EncounterRepository(getDb(':memory:'));
+            const loaded = repo.loadState(eid);
+            expect(loaded).not.toBeNull();
+            expect(loaded.turnOrder).toContain('LAIR');
+            const dragon = loaded.participants.find((p: { id: string }) => p.id === 'dragon');
+            expect(dragon?.hasLairActions).toBe(true);
+        });
+
         // Reviewer follow-up on PR #59: previously the warning was suppressed
         // when the active turn slot was 'LAIR', so a participant could still
         // act mid-LAIR-turn without any signal. The warning should fire.

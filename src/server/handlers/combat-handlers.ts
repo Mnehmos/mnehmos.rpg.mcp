@@ -1134,6 +1134,7 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
             initiativeBonus: p.initiativeBonus,
             initiative: p.initiative,    // Store rolled initiative
             isEnemy: p.isEnemy,          // Store enemy flag
+            hasLairActions: p.hasLairActions,  // PR #59 follow-up: persist lair flag so loadState can rebuild the LAIR slot
             hp: p.hp,
             maxHp: p.maxHp,
             conditions: p.conditions,
