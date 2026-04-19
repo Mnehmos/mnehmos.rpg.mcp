@@ -348,8 +348,16 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                         hint: `Added ${count} ${preset.name}(s) to existing encounter. Initiative re-sorted.`
                     };
                 }
-                // encounterId given but neither in memory nor in DB — fall
-                // through to new-encounter path.
+                // encounterId given but neither in memory nor in DB — return
+                // an explicit error rather than silently creating a new
+                // encounter with the spawned enemies. Silent fallback hides
+                // typos and stale ids from the caller (PR #58 reviewer ask).
+                return {
+                    error: true,
+                    actionType: 'spawn_quick_enemy',
+                    message: `Encounter ${params.encounterId} not found in memory or DB. Omit encounterId to create a new encounter.`,
+                    requestedEncounterId: params.encounterId
+                };
             }
 
             // Create encounter with these participants

@@ -240,6 +240,22 @@ describe('combat_manage consolidated tool', () => {
             expect(spawnData.turnOrder.length).toBe(2);
         });
 
+        // Reviewer follow-up on PR #58: when an encounterId is supplied but
+        // doesn't exist anywhere, return an explicit error. Silent fallback
+        // to creating a fresh encounter hides typos / stale ids.
+        it('spawn_quick_enemy errors when encounterId is unknown to memory and DB', async () => {
+            const spawnResult = await handleCombatManage({
+                action: 'spawn_quick_enemy',
+                encounterId: 'encounter-does-not-exist-anywhere',
+                creature: 'goblin',
+                count: 1
+            }, ctx);
+            const data = parseResult(spawnResult);
+            expect(data.error).toBe(true);
+            expect(data.message).toMatch(/not found/i);
+            expect(data.requestedEncounterId).toBe('encounter-does-not-exist-anywhere');
+        });
+
         it('spawn_quick_enemy still creates a new encounter when encounterId is omitted', async () => {
             const result = await handleCombatManage({
                 action: 'spawn_quick_enemy',
