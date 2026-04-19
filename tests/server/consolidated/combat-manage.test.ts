@@ -167,6 +167,26 @@ describe('combat_manage consolidated tool', () => {
             expect(data.success).toBe(true);
         });
 
+        // PR #57 follow-up: ensure ac survives an initial create -> loadState
+        // round-trip even before any saveState() is called.
+        it('persists ac into the initial encounter row (no loss on cold load)', async () => {
+            const { EncounterRepository } = await import('../../../src/storage/repos/encounter.repo.js');
+            const createResult = await handleCombatManage({
+                action: 'create',
+                seed: 'ac-persistence-cold-load',
+                participants: [
+                    { id: 'tanky', name: 'Tank', initiativeBonus: 0, hp: 30, maxHp: 30, ac: 18, isEnemy: false }
+                ]
+            }, ctx);
+            const encounterId = parseResult(createResult).encounterId;
+
+            const repo = new EncounterRepository(getDb(':memory:'));
+            const loaded = repo.loadState(encounterId);
+            expect(loaded).not.toBeNull();
+            const tank = loaded.participants.find((p: { id: string; ac?: number }) => p.id === 'tanky');
+            expect(tank?.ac).toBe(18);
+        });
+
         // Regression for issue #47: participant `ac` was being silently dropped
         // by the consolidated schema and never reached the attack resolver. All
         // attacks resolved vs AC 10 regardless of the supplied value.

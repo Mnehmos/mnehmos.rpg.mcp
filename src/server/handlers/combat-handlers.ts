@@ -1130,7 +1130,10 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
     const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
     const repo = new EncounterRepository(db);
 
-    // Create the encounter record first (with initiative and isEnemy)
+    // Create the encounter record first (with initiative and isEnemy).
+    // PR #57 follow-up: persist ac/attackDamage/attackBonus too — those drive
+    // attack resolution, and omitting them on initial create made loadState()
+    // (before any saveState) drop back to the default-AC-10 fallback.
     repo.create({
         id: encounterId,
         tokens: state.participants.map(p => ({
@@ -1144,6 +1147,10 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
             maxHp: p.maxHp,
             conditions: p.conditions,
             abilityScores: p.abilityScores,
+            // Combat stats used by the attack resolver
+            ac: p.ac,
+            attackDamage: p.attackDamage,
+            attackBonus: p.attackBonus,
             // Spatial visualization data
             position: p.position,
             movementSpeed: p.movementSpeed ?? 30,
