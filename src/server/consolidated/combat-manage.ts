@@ -308,19 +308,37 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                 }
 
                 if (engine) {
+                    // Snapshot for rollback before mutating in-memory state.
+                    const beforeIds = new Set(engine.getState()?.participants.map((p) => p.id) ?? []);
                     const state = engine.addParticipants(
                         participants as unknown as Parameters<typeof engine.addParticipants>[0]
                     );
 
                     // Persist the appended state so a restart doesn't lose the
-                    // newly spawned enemies. Use the same DB the load path used.
+                    // newly spawned enemies. PR #58 reviewer ask: don't return
+                    // success if persistence fails — that splits in-memory and
+                    // DB state. Roll back the in-memory addParticipants and
+                    // surface an explicit error.
                     try {
                         const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
                         const repo = new EncounterRepository(db);
                         repo.saveState(params.encounterId, state);
-                    } catch {
-                        // Persistence is best-effort here; the in-memory state
-                        // is still authoritative for the current session.
+                    } catch (err) {
+                        // Roll back: drop the just-added participants so memory
+                        // matches DB. Use the engine's state directly since we
+                        // know the schema.
+                        const live = engine.getState();
+                        if (live) {
+                            live.participants = live.participants.filter((p) => beforeIds.has(p.id));
+                            live.turnOrder = live.turnOrder.filter((id) => id === 'LAIR' || beforeIds.has(id));
+                        }
+                        return {
+                            error: true,
+                            actionType: 'spawn_quick_enemy',
+                            encounterId: params.encounterId,
+                            message: `Failed to persist appended encounter state: ${(err as Error).message}. In-memory append rolled back.`,
+                            rolledBack: true
+                        };
                     }
 
                     return {
