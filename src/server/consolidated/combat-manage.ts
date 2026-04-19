@@ -22,6 +22,8 @@ import {
 import { expandCreatureTemplate, listAllTemplates } from '../../data/creature-presets.js';
 import { getDb } from '../../storage/index.js';
 import { CombatActionLogRepository } from '../../storage/repos/combat-action-log.repo.js';
+import { EncounterRepository } from '../../storage/repos/encounter.repo.js';
+import { CombatEngine } from '../../engine/combat/engine.js';
 import { getCombatManager } from '../state/combat-manager.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -282,12 +284,45 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                 });
             }
 
-            // If encounterId is supplied and refers to an active encounter, append
-            // the new enemies to it instead of creating a fresh encounter.
+            // If encounterId is supplied, append the new enemies to that
+            // encounter. Auto-loads from the database when the engine isn't
+            // in memory (mirroring handleGetEncounterState / handleExecute*),
+            // and persists the new state back so a subsequent restart still
+            // sees the spawned enemies. Only falls back to creating a fresh
+            // encounter when the id genuinely doesn't exist anywhere.
             if (params.encounterId) {
-                const engine = getCombatManager().get(`${currentContext.sessionId}:${params.encounterId}`);
+                const sessionKey = `${currentContext.sessionId}:${params.encounterId}`;
+                let engine = getCombatManager().get(sessionKey);
+                let loadedFromDb = false;
+
+                if (!engine) {
+                    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+                    const repo = new EncounterRepository(db);
+                    const persisted = repo.loadState(params.encounterId);
+                    if (persisted) {
+                        engine = new CombatEngine(params.encounterId);
+                        engine.loadState(persisted);
+                        getCombatManager().create(sessionKey, engine);
+                        loadedFromDb = true;
+                    }
+                }
+
                 if (engine) {
-                    const state = engine.addParticipants(participants as unknown as Parameters<typeof engine.addParticipants>[0]);
+                    const state = engine.addParticipants(
+                        participants as unknown as Parameters<typeof engine.addParticipants>[0]
+                    );
+
+                    // Persist the appended state so a restart doesn't lose the
+                    // newly spawned enemies. Use the same DB the load path used.
+                    try {
+                        const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+                        const repo = new EncounterRepository(db);
+                        repo.saveState(params.encounterId, state);
+                    } catch {
+                        // Persistence is best-effort here; the in-memory state
+                        // is still authoritative for the current session.
+                    }
+
                     return {
                         success: true,
                         actionType: 'spawn_quick_enemy',
@@ -295,6 +330,7 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                         creature: params.creature,
                         spawnedCount: count,
                         appendedToExisting: true,
+                        loadedFromDb,
                         enemies: participants.map(p => ({
                             id: p.id,
                             name: p.name,
@@ -305,13 +341,15 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                             attack: preset.defaultAttack
                         })),
                         turnOrder: state.turnOrder,
-                        currentTurn: state.participants[state.currentTurnIndex]?.id,
+                        // currentTurnIndex indexes turnOrder, NOT participants —
+                        // those arrays can diverge when LAIR is in the order.
+                        currentTurn: state.turnOrder[state.currentTurnIndex],
                         readyForCombat: true,
                         hint: `Added ${count} ${preset.name}(s) to existing encounter. Initiative re-sorted.`
                     };
                 }
-                // encounterId given but engine not found — fall through to new-encounter path
-                // with a message noting the fallback.
+                // encounterId given but neither in memory nor in DB — fall
+                // through to new-encounter path.
             }
 
             // Create encounter with these participants

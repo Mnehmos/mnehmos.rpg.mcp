@@ -186,6 +186,60 @@ describe('combat_manage consolidated tool', () => {
             expect(spawnData.turnOrder.length).toBe(3);
         });
 
+        // Reviewer follow-ups on PR #58:
+        // - currentTurn must come from turnOrder index, not participants[i]?.id.
+        // - Auto-load from DB when the in-memory engine is gone.
+        it('spawn_quick_enemy currentTurn comes from turnOrder index', async () => {
+            const createResult = await handleCombatManage({
+                action: 'create',
+                seed: 'spawn-currentTurn-test',
+                participants: [
+                    { id: 'pc-hero', name: 'Hero', initiativeBonus: 5, hp: 30, maxHp: 30, isEnemy: false, position: { x: 0, y: 0 } }
+                ]
+            }, ctx);
+            const originalId = parseResult(createResult).encounterId;
+
+            const spawnResult = await handleCombatManage({
+                action: 'spawn_quick_enemy',
+                encounterId: originalId,
+                creature: 'goblin',
+                count: 1
+            }, ctx);
+            const spawnData = parseResult(spawnResult);
+
+            // turnOrder[currentTurnIndex] must match the reported currentTurn.
+            expect(spawnData.turnOrder[0]).toBe(spawnData.currentTurn);
+        });
+
+        it('spawn_quick_enemy auto-loads from DB when engine is evicted from memory', async () => {
+            const { getCombatManager } = await import('../../../src/server/state/combat-manager.js');
+            const createResult = await handleCombatManage({
+                action: 'create',
+                seed: 'spawn-autoload-test',
+                participants: [
+                    { id: 'pc-hero', name: 'Hero', initiativeBonus: 5, hp: 30, maxHp: 30, isEnemy: false, position: { x: 0, y: 0 } }
+                ]
+            }, ctx);
+            const originalId = parseResult(createResult).encounterId;
+
+            // Simulate process restart / context eviction.
+            getCombatManager().clear();
+
+            const spawnResult = await handleCombatManage({
+                action: 'spawn_quick_enemy',
+                encounterId: originalId,
+                creature: 'goblin',
+                count: 1
+            }, ctx);
+            const spawnData = parseResult(spawnResult);
+
+            expect(spawnData.success).toBe(true);
+            expect(spawnData.appendedToExisting).toBe(true);
+            expect(spawnData.loadedFromDb).toBe(true);
+            expect(spawnData.encounterId).toBe(originalId);
+            expect(spawnData.turnOrder.length).toBe(2);
+        });
+
         it('spawn_quick_enemy still creates a new encounter when encounterId is omitted', async () => {
             const result = await handleCombatManage({
                 action: 'spawn_quick_enemy',
