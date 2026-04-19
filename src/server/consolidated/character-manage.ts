@@ -449,7 +449,7 @@ async function handleLevelUp(args: z.infer<typeof LevelUpSchema>): Promise<objec
     // Recompute spell slots for the new level. Without this, level_up would
     // not grant the new caster slots a player earned with the level. Mirrors
     // the create-time path through convertSpellSlotsToObject.
-    const className = char.characterClass || char.class;
+    const className = char.characterClass;
     if (className && isSpellcaster(className)) {
         const slots = getSpellSlots(className, targetLevel);
         const next = convertSpellSlotsToObject(slots);
