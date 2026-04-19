@@ -167,6 +167,38 @@ describe('combat_manage consolidated tool', () => {
             expect(data.success).toBe(true);
         });
 
+        // PR #57 follow-up: damage modifiers must also survive the initial
+        // create -> loadState cycle. Dropping resistances/immunities/etc.
+        // changes damage resolution after a cold load.
+        it('persists resistances/immunities/vulnerabilities into the initial encounter row', async () => {
+            const { EncounterRepository } = await import('../../../src/storage/repos/encounter.repo.js');
+            const createResult = await handleCombatManage({
+                action: 'create',
+                seed: 'damage-mods-cold-load',
+                participants: [
+                    {
+                        id: 'fire-elem',
+                        name: 'Fire Elemental',
+                        initiativeBonus: 0,
+                        hp: 30,
+                        maxHp: 30,
+                        isEnemy: true,
+                        resistances: ['bludgeoning', 'piercing', 'slashing'],
+                        immunities: ['fire'],
+                        vulnerabilities: ['cold']
+                    }
+                ]
+            }, ctx);
+            const encounterId = parseResult(createResult).encounterId;
+
+            const repo = new EncounterRepository(getDb(':memory:'));
+            const loaded = repo.loadState(encounterId);
+            const elem = loaded.participants.find((p: { id: string }) => p.id === 'fire-elem');
+            expect(elem?.resistances).toEqual(['bludgeoning', 'piercing', 'slashing']);
+            expect(elem?.immunities).toEqual(['fire']);
+            expect(elem?.vulnerabilities).toEqual(['cold']);
+        });
+
         // PR #57 follow-up: ensure ac survives an initial create -> loadState
         // round-trip even before any saveState() is called.
         it('persists ac into the initial encounter row (no loss on cold load)', async () => {

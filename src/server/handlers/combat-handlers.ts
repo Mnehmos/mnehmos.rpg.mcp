@@ -1151,6 +1151,10 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
             ac: p.ac,
             attackDamage: p.attackDamage,
             attackBonus: p.attackBonus,
+            // Damage modifiers — drop them and post-load attacks lose half/2x/immune behavior
+            resistances: p.resistances,
+            vulnerabilities: p.vulnerabilities,
+            immunities: p.immunities,
             // Spatial visualization data
             position: p.position,
             movementSpeed: p.movementSpeed ?? 30,
