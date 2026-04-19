@@ -95,6 +95,24 @@ describe('CombatRNG', () => {
             expect(detail.modifier).toBe(4);
             expect(detail.total).toBe(detail.diceTotal + detail.modifier);
         });
+
+        // Strict-grammar regression: malformed operator sequences must throw
+        // rather than silently evaluate (caught by reviewers on PR #51).
+        it.each([
+            '1d6++2',
+            '1d6--2',
+            '1d6+-2',
+            '1d6-+2',
+            '1d6+',
+            '1d6-',
+            '+',
+            '++1d6',
+            '1d6+2+',
+            '1d6 + + 2'
+        ])('rejects malformed operator sequence: %s', (notation) => {
+            const rng = new CombatRNG('malformed-ops');
+            expect(() => rng.roll(notation)).toThrow('Invalid dice notation');
+        });
     });
 
     describe('Advantage/Disadvantage', () => {
