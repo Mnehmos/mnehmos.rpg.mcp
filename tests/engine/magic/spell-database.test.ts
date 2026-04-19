@@ -23,7 +23,11 @@ describe('spell-database key normalization', () => {
         ['Cure Wounds', ['cure-wounds', 'cure wounds']],
         ['Hold Person', ['hold-person', 'hold person']],
         ['Spiritual Weapon', ['spiritual-weapon', 'spiritual weapon']],
-        ['Bless', ['bless', 'BLESS']]
+        ['Bless', ['bless', 'BLESS']],
+        // Issue #41 acceptance — must resolve via either canonical name or kebab id.
+        ['Scorching Ray', ['scorching-ray', 'scorching ray']],
+        ['Healing Word', ['healing-word', 'healing word']],
+        ['Web', ['web', 'WEB']]
     ];
 
     for (const [canonical, variants] of synonyms) {

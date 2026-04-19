@@ -239,9 +239,78 @@ registerSpell({
     autoHit: false
 });
 
+registerSpell({
+    id: 'healing-word',
+    name: 'Healing Word',
+    level: 1,
+    school: 'evocation',
+    castingTime: 'bonus_action',
+    range: 60,
+    components: { verbal: true, somatic: false, material: false },
+    duration: 'Instantaneous',
+    concentration: false,
+    description: 'A creature of your choice within range regains 1d4 + your spellcasting ability modifier.',
+    higherLevels: 'Healing increases by 1d4 for each slot level above 1st.',
+    classes: ['bard', 'cleric', 'druid'],
+    targetType: 'creature',
+    effects: [{
+        type: 'healing',
+        dice: '1d4',
+        upcastBonus: { dice: '1d4', perLevel: 1 }
+    }],
+    autoHit: false
+});
+
 // ============================================================================
 // 2ND LEVEL SPELLS
 // ============================================================================
+
+registerSpell({
+    id: 'scorching-ray',
+    name: 'Scorching Ray',
+    level: 2,
+    school: 'evocation',
+    castingTime: 'action',
+    range: 120,
+    components: { verbal: true, somatic: true, material: false },
+    duration: 'Instantaneous',
+    concentration: false,
+    description: 'You create three rays of fire and hurl them at targets within range. Each ray deals 2d6 fire on a hit.',
+    higherLevels: 'You create one additional ray for each slot level above 2nd.',
+    classes: ['sorcerer', 'wizard'],
+    targetType: 'creature',
+    effects: [{
+        type: 'damage',
+        dice: '6d6',
+        damageType: 'fire',
+        saveType: 'none',
+        upcastBonus: { dice: '2d6', perLevel: 1 }
+    }],
+    autoHit: false
+});
+
+registerSpell({
+    id: 'web',
+    name: 'Web',
+    level: 2,
+    school: 'conjuration',
+    castingTime: 'action',
+    range: 60,
+    components: { verbal: true, somatic: true, material: true, materialDescription: 'a bit of spiderweb' },
+    duration: 'Concentration, up to 1 hour',
+    concentration: true,
+    description: 'You conjure a mass of thick, sticky webbing in a 20-foot cube. Creatures starting their turn in the webs or entering them on their turn must make a Dexterity saving throw or become restrained.',
+    classes: ['sorcerer', 'wizard'],
+    targetType: 'area',
+    areaOfEffect: { shape: 'cube', size: 20 },
+    effects: [{
+        type: 'debuff',
+        saveType: 'dexterity',
+        saveEffect: 'none',
+        conditions: ['RESTRAINED']
+    }],
+    autoHit: false
+});
 
 registerSpell({
     id: 'hold-person',
