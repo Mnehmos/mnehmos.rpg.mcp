@@ -1007,6 +1007,14 @@ export class CombatEngine {
         if (!participant) return { ok: false, error: `Participant ${participantId} not found` };
         if (participant.hasDashed) return { ok: false, error: 'Already dashed this turn' };
 
+        // Dash IS the action. Reject if the participant already burned their
+        // main action this turn (5e action economy). Without this guard, a
+        // caller could attack and then dash for a free 60ft of movement.
+        const econ = this.validateActionEconomy(participantId, 'action');
+        if (!econ.valid) {
+            return { ok: false, error: econ.error || 'Action already used this turn' };
+        }
+
         const baseSpeed = participant.movementSpeed ?? 30;
         const currentRemaining = participant.movementRemaining ?? baseSpeed;
         participant.movementRemaining = currentRemaining + baseSpeed;

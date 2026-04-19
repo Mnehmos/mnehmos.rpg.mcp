@@ -283,6 +283,44 @@ describe('combat_action consolidated tool', () => {
             expect(data.actionType).toBe('dash');
         });
 
+        // Reviewer follow-ups on PR #60:
+        // - dash must consume the action economy slot (else attack-then-dash).
+        // - dash must auto-load the engine from DB (matches other actions).
+        it('dash refuses when the actor already used their main action this turn', async () => {
+            // hero-1 attacks (consumes action) then tries to dash.
+            await handleCombatAction({
+                action: 'attack',
+                encounterId: testEncounterId,
+                actorId: 'hero-1',
+                targetId: 'goblin-1',
+                attackBonus: 5,
+                damage: 4
+            }, ctx);
+
+            const dashResult = await handleCombatAction({
+                action: 'dash',
+                encounterId: testEncounterId,
+                actorId: 'hero-1'
+            }, ctx);
+            const dashData = parseResult(dashResult);
+            expect(dashData.error).toBe(true);
+            expect(dashData.message).toMatch(/already used|action/i);
+        });
+
+        it('dash auto-loads the encounter from DB when engine is evicted', async () => {
+            const { getCombatManager } = await import('../../../src/server/state/combat-manager.js');
+            getCombatManager().clear();
+
+            const dashResult = await handleCombatAction({
+                action: 'dash',
+                encounterId: testEncounterId,
+                actorId: 'hero-1'
+            }, ctx);
+            const dashData = parseResult(dashResult);
+            expect(dashData.success).toBe(true);
+            expect(dashData.movementRemaining).toBe(60);
+        });
+
         // Regression for issue #50: dash was a stub that returned a success
         // message without actually extending movementRemaining, so the next
         // move call still enforced the base 30ft budget.

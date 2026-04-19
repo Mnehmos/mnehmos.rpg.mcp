@@ -10,6 +10,9 @@ import { SessionContext } from '../types.js';
 import { RichFormatter } from '../utils/formatter.js';
 import { handleExecuteCombatAction } from '../handlers/combat-handlers.js';
 import { getCombatManager } from '../state/combat-manager.js';
+import { getDb } from '../../storage/index.js';
+import { EncounterRepository } from '../../storage/repos/encounter.repo.js';
+import { CombatEngine } from '../../engine/combat/engine.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -189,7 +192,25 @@ const definitions: Record<CombatAction, ActionDefinition> = {
         schema: DashSchema,
         handler: async (params: z.infer<typeof DashSchema>) => {
             if (!currentContext) throw new Error('No session context');
-            const engine = getCombatManager().get(`${currentContext.sessionId}:${params.encounterId}`);
+
+            const sessionKey = `${currentContext.sessionId}:${params.encounterId}`;
+            let engine = getCombatManager().get(sessionKey);
+
+            // Auto-load from DB if the engine isn't in memory (matches the
+            // pattern in handleExecuteCombatAction). Without this, dash
+            // returned "not found" after a process restart even when the
+            // encounter still existed and other actions worked.
+            if (!engine) {
+                const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+                const repo = new EncounterRepository(db);
+                const persisted = repo.loadState(params.encounterId);
+                if (persisted) {
+                    engine = new CombatEngine(params.encounterId);
+                    engine.loadState(persisted);
+                    getCombatManager().create(sessionKey, engine);
+                }
+            }
+
             if (!engine) {
                 return {
                     error: true,
