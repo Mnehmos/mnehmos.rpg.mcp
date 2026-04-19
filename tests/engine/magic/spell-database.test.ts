@@ -8,6 +8,8 @@
 import {
     getSpell,
     spellExists,
+    getSpellsByLevel,
+    getSpellsForClass,
     SPELL_DATABASE,
     SPELL_COUNT
 } from '../../../src/engine/magic/spell-database';
@@ -43,5 +45,25 @@ describe('spell-database key normalization', () => {
     it('SPELL_COUNT counts unique spells, not key aliases', () => {
         const uniqueSpells = new Set(SPELL_DATABASE.values()).size;
         expect(SPELL_COUNT).toBe(uniqueSpells);
+    });
+});
+
+describe('spell-database iteration helpers (no duplicates)', () => {
+    // After dual-key registration, iterating SPELL_DATABASE.values() directly
+    // would yield each spell twice. The helpers must dedupe.
+    it('getSpellsByLevel returns unique spells per level', () => {
+        for (const level of [0, 1, 2, 3]) {
+            const list = getSpellsByLevel(level);
+            const ids = list.map((s) => s.id);
+            expect(new Set(ids).size).toBe(ids.length);
+        }
+    });
+
+    it('getSpellsForClass returns unique spells per class', () => {
+        for (const klass of ['wizard', 'cleric', 'sorcerer', 'warlock'] as const) {
+            const list = getSpellsForClass(klass);
+            const ids = list.map((s) => s.id);
+            expect(new Set(ids).size, `${klass} contained duplicates`).toBe(ids.length);
+        }
     });
 });

@@ -595,17 +595,26 @@ export function spellExists(name: string): boolean {
 }
 
 /**
+ * Iterate the deduplicated spell set. Each spell may live under multiple
+ * keys (name + id), so iterating SPELL_DATABASE.values() directly would
+ * yield duplicates.
+ */
+function uniqueSpells(): Spell[] {
+    return Array.from(new Set(SPELL_DATABASE.values()));
+}
+
+/**
  * Get all spells of a specific level
  */
 export function getSpellsByLevel(level: number): Spell[] {
-    return Array.from(SPELL_DATABASE.values()).filter(s => s.level === level);
+    return uniqueSpells().filter(s => s.level === level);
 }
 
 /**
  * Get all spells available to a class
  */
 export function getSpellsForClass(characterClass: SpellcastingClass): Spell[] {
-    return Array.from(SPELL_DATABASE.values()).filter(s =>
+    return uniqueSpells().filter(s =>
         s.classes.includes(characterClass)
     );
 }
