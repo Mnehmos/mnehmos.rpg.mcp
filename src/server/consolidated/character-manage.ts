@@ -18,6 +18,7 @@ import { SessionContext } from '../types.js';
 import { getDb } from '../../storage/index.js';
 import { CharacterRepository } from '../../storage/repos/character.repo.js';
 import { provisionStartingEquipment } from '../../services/starting-equipment.service.js';
+import { getSpellSlots, isSpellcaster } from '../../data/class-starting-data.js';
 import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/action-router.js';
 import { RichFormatter } from '../utils/formatter.js';
 
@@ -445,6 +446,16 @@ async function handleLevelUp(args: z.infer<typeof LevelUpSchema>): Promise<objec
         updates.hp = (char.hp || 0) + args.hpIncrease;
     }
 
+    // Recompute spell slots for the new level. Without this, level_up would
+    // not grant the new caster slots a player earned with the level. Mirrors
+    // the create-time path through convertSpellSlotsToObject.
+    const className = char.characterClass || char.class;
+    if (className && isSpellcaster(className)) {
+        const slots = getSpellSlots(className, targetLevel);
+        const next = convertSpellSlotsToObject(slots);
+        if (next) updates.spellSlots = next;
+    }
+
     characterRepo.update(char.id, updates);
 
     return {
@@ -454,6 +465,7 @@ async function handleLevelUp(args: z.infer<typeof LevelUpSchema>): Promise<objec
         newLevel: targetLevel,
         hpIncrease: args.hpIncrease || 0,
         newMaxHp: updates.maxHp || char.maxHp,
+        spellSlots: updates.spellSlots,
         message: `Leveled up to ${targetLevel}!`
     };
 }
