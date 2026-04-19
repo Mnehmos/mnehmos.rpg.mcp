@@ -480,7 +480,7 @@ const definitions: Record<QuestManageAction, ActionDefinition> = {
         schema: UpdateObjectiveSchema,
         handler: handleUpdateObjective,
         aliases: ['progress', 'advance'],
-        description: 'Update objective progress'
+        description: 'Update objective progress (requires characterId — quest must be active for that character)'
     },
     complete_objective: {
         schema: CompleteObjectiveSchema,
@@ -521,10 +521,19 @@ Aliases: new→create, accept→assign, progress→update_objective, finish→co
 📜 QUEST WORKFLOW:
 1. create - Define a quest with objectives and rewards
 2. assign - Character accepts the quest
-3. update_objective - Track progress on objectives
+3. update_objective - Track progress on objectives (requires characterId)
 4. complete_objective - Mark objectives done
 5. complete - Turn in quest for rewards
-6. get_log - View character's quest journal`,
+6. get_log - View character's quest journal
+
+🎯 OBJECTIVE TYPES (for create):
+Each objective requires a "type" field. Valid values:
+- kill: defeat enemies
+- collect: gather items
+- deliver: bring an item to a destination
+- explore: visit a location
+- interact: talk to / interact with an entity
+- custom: anything else (escape, escort, survive, etc.)`,
     inputSchema: z.object({
         action: z.string().describe(`Action: ${ACTIONS.join(', ')}`),
         questId: z.string().optional().describe('Quest ID'),
@@ -534,7 +543,7 @@ Aliases: new→create, accept→assign, progress→update_objective, finish→co
         description: z.string().optional().describe('Quest description'),
         worldId: z.string().optional().describe('World ID'),
         giver: z.string().optional().describe('Quest giver name'),
-        objectives: z.array(z.any()).optional().describe('Quest objectives'),
+        objectives: z.array(z.any()).optional().describe('Quest objectives. Each requires { description, type } where type is one of: kill, collect, deliver, explore, interact, custom'),
         rewards: z.any().optional().describe('Quest rewards'),
         prerequisites: z.array(z.string()).optional(),
         status: z.string().optional(),
