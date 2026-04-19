@@ -200,14 +200,31 @@ const definitions: Record<CombatAction, ActionDefinition> = {
             // pattern in handleExecuteCombatAction). Without this, dash
             // returned "not found" after a process restart even when the
             // encounter still existed and other actions worked.
+            //
+            // Race-safe restore (PR #60 reviewer ask): two concurrent
+            // requests can both find the engine missing and both load from
+            // DB. CombatManager.create throws if the key already exists, so
+            // wrap the create in a try/get fallback — the loser of the race
+            // adopts the winner's engine.
             if (!engine) {
                 const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
                 const repo = new EncounterRepository(db);
                 const persisted = repo.loadState(params.encounterId);
                 if (persisted) {
-                    engine = new CombatEngine(params.encounterId);
-                    engine.loadState(persisted);
-                    getCombatManager().create(sessionKey, engine);
+                    // Re-check in case another concurrent request restored it
+                    // between our initial get() and now.
+                    engine = getCombatManager().get(sessionKey);
+                    if (!engine) {
+                        const candidate = new CombatEngine(params.encounterId);
+                        candidate.loadState(persisted);
+                        try {
+                            getCombatManager().create(sessionKey, candidate);
+                            engine = candidate;
+                        } catch {
+                            // Lost the race — adopt the engine the winner created.
+                            engine = getCombatManager().get(sessionKey);
+                        }
+                    }
                 }
             }
 

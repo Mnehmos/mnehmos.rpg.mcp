@@ -307,6 +307,38 @@ describe('combat_action consolidated tool', () => {
             expect(dashData.message).toMatch(/already used|action/i);
         });
 
+        // Reviewer follow-up on PR #60 (Minor): two concurrent dash calls
+        // hitting the auto-load path could both try to register the same
+        // engine key, throwing "Encounter X already exists" on the loser.
+        it('dash survives two concurrent auto-load requests without throwing', async () => {
+            const { getCombatManager } = await import('../../../src/server/state/combat-manager.js');
+            getCombatManager().clear();
+
+            const [a, b] = await Promise.all([
+                handleCombatAction({
+                    action: 'dash',
+                    encounterId: testEncounterId,
+                    actorId: 'hero-1'
+                }, ctx),
+                handleCombatAction({
+                    action: 'dash',
+                    encounterId: testEncounterId,
+                    actorId: 'hero-1'
+                }, ctx)
+            ]);
+
+            const da = parseResult(a);
+            const db = parseResult(b);
+            // One must succeed (the first) and the other must reject due to
+            // hasDashed/economy — but neither may throw "already exists".
+            expect([da, db].some((d) => d.success === true)).toBe(true);
+            for (const d of [da, db]) {
+                if (d.error) {
+                    expect(String(d.message ?? '')).not.toMatch(/already exists/i);
+                }
+            }
+        });
+
         it('dash auto-loads the encounter from DB when engine is evicted', async () => {
             const { getCombatManager } = await import('../../../src/server/state/combat-manager.js');
             getCombatManager().clear();
