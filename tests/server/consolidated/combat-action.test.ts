@@ -129,6 +129,46 @@ describe('combat_action consolidated tool', () => {
 
             expect(result.content[0].text).not.toMatch(/off_turn_action/);
         });
+
+        // Reviewer follow-up on PR #59: previously the warning was suppressed
+        // when the active turn slot was 'LAIR', so a participant could still
+        // act mid-LAIR-turn without any signal. The warning should fire.
+        it('warns when a participant acts during a LAIR turn', async () => {
+            const { handleCreateEncounter, handleExecuteCombatAction } =
+                await import('../../../src/server/handlers/combat-handlers.js');
+            const lairCtx = { sessionId: `lair-test-${randomUUID()}` };
+
+            // Construct an encounter with a LAIR-bearing creature so that the
+            // turn order includes a 'LAIR' slot at initiative 20.
+            const create = await handleCreateEncounter({
+                seed: 'lair-warning-test',
+                participants: [
+                    { id: 'pc', name: 'Hero', initiativeBonus: 0, hp: 30, maxHp: 30, isEnemy: false, position: { x: 0, y: 0 } },
+                    { id: 'dragon', name: 'Dragon', initiativeBonus: 0, hp: 100, maxHp: 100, isEnemy: true, hasLairActions: true, position: { x: 5, y: 5 } }
+                ]
+            }, lairCtx);
+            const lairEncounterId = (create.content[0].text.match(/encounter-[\w-]+/) || [])[0]!;
+
+            // Force the active slot to LAIR by advancing turns until we hit it.
+            const { getCombatManager } = await import('../../../src/server/state/combat-manager.js');
+            const engine = getCombatManager().get(`${lairCtx.sessionId}:${lairEncounterId}`)!;
+            const state = engine.getState()!;
+            const lairIndex = state.turnOrder.indexOf('LAIR');
+            expect(lairIndex).toBeGreaterThanOrEqual(0);
+            state.currentTurnIndex = lairIndex;
+
+            // Now PC tries to act — should warn even though the active slot is LAIR.
+            const acted = await handleExecuteCombatAction({
+                encounterId: lairEncounterId,
+                action: 'attack',
+                actorId: 'pc',
+                targetId: 'dragon',
+                attackBonus: 3,
+                damage: 5
+            }, lairCtx);
+            expect(acted.content[0].text).toMatch(/off_turn_action/);
+            expect(acted.content[0].text).toMatch(/LAIR action/);
+        });
     });
 
     describe('attack action', () => {
