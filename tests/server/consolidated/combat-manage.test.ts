@@ -166,6 +166,80 @@ describe('combat_manage consolidated tool', () => {
             const data = parseResult(result);
             expect(data.success).toBe(true);
         });
+
+        // PR #57 follow-up: damage modifiers must also survive the initial
+        // create -> loadState cycle. Dropping resistances/immunities/etc.
+        // changes damage resolution after a cold load.
+        it('persists resistances/immunities/vulnerabilities into the initial encounter row', async () => {
+            const { EncounterRepository } = await import('../../../src/storage/repos/encounter.repo.js');
+            const createResult = await handleCombatManage({
+                action: 'create',
+                seed: 'damage-mods-cold-load',
+                participants: [
+                    {
+                        id: 'fire-elem',
+                        name: 'Fire Elemental',
+                        initiativeBonus: 0,
+                        hp: 30,
+                        maxHp: 30,
+                        isEnemy: true,
+                        resistances: ['bludgeoning', 'piercing', 'slashing'],
+                        immunities: ['fire'],
+                        vulnerabilities: ['cold']
+                    }
+                ]
+            }, ctx);
+            const encounterId = parseResult(createResult).encounterId;
+
+            const repo = new EncounterRepository(getDb(':memory:'));
+            const loaded = repo.loadState(encounterId);
+            const elem = loaded.participants.find((p: { id: string }) => p.id === 'fire-elem');
+            expect(elem?.resistances).toEqual(['bludgeoning', 'piercing', 'slashing']);
+            expect(elem?.immunities).toEqual(['fire']);
+            expect(elem?.vulnerabilities).toEqual(['cold']);
+        });
+
+        // PR #57 follow-up: ensure ac survives an initial create -> loadState
+        // round-trip even before any saveState() is called.
+        it('persists ac into the initial encounter row (no loss on cold load)', async () => {
+            const { EncounterRepository } = await import('../../../src/storage/repos/encounter.repo.js');
+            const createResult = await handleCombatManage({
+                action: 'create',
+                seed: 'ac-persistence-cold-load',
+                participants: [
+                    { id: 'tanky', name: 'Tank', initiativeBonus: 0, hp: 30, maxHp: 30, ac: 18, isEnemy: false }
+                ]
+            }, ctx);
+            const encounterId = parseResult(createResult).encounterId;
+
+            const repo = new EncounterRepository(getDb(':memory:'));
+            const loaded = repo.loadState(encounterId);
+            expect(loaded).not.toBeNull();
+            const tank = loaded.participants.find((p: { id: string; ac?: number }) => p.id === 'tanky');
+            expect(tank?.ac).toBe(18);
+        });
+
+        // Regression for issue #47: participant `ac` was being silently dropped
+        // by the consolidated schema and never reached the attack resolver. All
+        // attacks resolved vs AC 10 regardless of the supplied value.
+        it('honors participant `ac` in encounter state', async () => {
+            const result = await handleCombatManage({
+                action: 'create',
+                seed: 'ac-persistence-test',
+                participants: [
+                    { id: 'tanky-pc', name: 'Tank', initiativeBonus: 0, hp: 38, maxHp: 38, ac: 18, isEnemy: false, position: { x: 0, y: 0 } },
+                    { id: 'squishy-enemy', name: 'Bandit', initiativeBonus: 0, hp: 10, maxHp: 10, ac: 11, isEnemy: true, position: { x: 1, y: 0 } }
+                ]
+            }, ctx);
+            const data = parseResult(result);
+            expect(data.success).toBe(true);
+
+            const byId = Object.fromEntries(
+                (data.participants as Array<{ id: string; ac?: number }>).map((p) => [p.id, p.ac])
+            );
+            expect(byId['tanky-pc']).toBe(18);
+            expect(byId['squishy-enemy']).toBe(11);
+        });
     });
 
     describe('get action', () => {

@@ -69,7 +69,11 @@ export interface CombatParticipant {
     isStabilized?: boolean;       // Unconscious but won't die
     isDead?: boolean;             // Permanently defeated
     // COMBAT STATS (Auto-resolution)
-    ac?: number;               // Armor Class
+    /**
+     * Armor Class. Used by the attack resolver. If omitted, the engine falls
+     * back to a derived value (10 + initiativeBonus/2) for legacy compatibility.
+     */
+    ac?: number;
     attackDamage?: string;     // Default attack damage (e.g., "1d6+2")
     attackBonus?: number;      // Default attack bonus used if none provided
 }

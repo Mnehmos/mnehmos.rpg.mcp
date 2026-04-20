@@ -110,7 +110,12 @@ export const TokenSchema = z.object({
     attackBonus: z.number().optional().describe('Default attack bonus'),
     // Lair-action ownership — must be persisted so loadState can rebuild the
     // LAIR slot in turnOrder (see encounter.repo.ts loadState lookup).
-    hasLairActions: z.boolean().optional().describe('Whether this token owns lair actions')
+    hasLairActions: z.boolean().optional().describe('Whether this token owns lair actions'),
+    // Damage modifiers (HIGH-002) — must persist so post-load attack resolution
+    // continues to honor immunities/resistances/vulnerabilities.
+    resistances: z.array(z.string()).optional().describe('Damage types dealt at half damage'),
+    vulnerabilities: z.array(z.string()).optional().describe('Damage types dealt at double damage'),
+    immunities: z.array(z.string()).optional().describe('Damage types ignored entirely')
 });
 
 export type Token = z.infer<typeof TokenSchema>;

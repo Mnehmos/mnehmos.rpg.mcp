@@ -40,6 +40,8 @@ const ParticipantSchema = z.object({
     initiativeBonus: z.number().int(),
     hp: z.number().int().nonnegative(), // Allow 0 HP for dying characters
     maxHp: z.number().int().positive(),
+    ac: z.number().int().min(0).optional()
+        .describe('Armor Class. If omitted, falls back to attacker-side derivation.'),
     isEnemy: z.boolean().optional(),
     /**
      * Convenience alias for `isEnemy`. Values "enemy" / "hostile" map to
