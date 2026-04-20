@@ -96,6 +96,44 @@ describe('character_manage consolidated tool', () => {
             expect(parsed._provisioning).toBeDefined();
         });
 
+        // Regression for issue #45: provisioning ran before character row was
+        // inserted, so every starting-item grant failed FOREIGN KEY check on
+        // inventory_items.character_id and characters spawned with empty bags.
+        it('actually grants starting equipment without FK errors', async () => {
+            const classes = ['Paladin', 'Rogue', 'Wizard', 'Cleric', 'Fighter'];
+            for (const klass of classes) {
+                const result = await handleCharacterManage({
+                    action: 'create',
+                    name: `${klass}-Equip`,
+                    class: klass,
+                    level: 4
+                }, ctx);
+                const parsed = extractJson(result.content[0].text);
+                expect(parsed._provisioning, `${klass}: missing _provisioning`).toBeDefined();
+                expect(parsed._provisioning.errors, `${klass}: equipment errors leaked`).toBeUndefined();
+                expect(parsed._provisioning.equipmentGranted.length, `${klass}: nothing granted`).toBeGreaterThan(0);
+            }
+        });
+
+        // Reviewer follow-up: with provisioning now running after the character
+        // is inserted, also confirm that the slot-array → slot-object conversion
+        // is zero-indexed. Without this fix bundled in, paladin L4 / wizard L4
+        // persisted 0 / 3 first-level slots respectively.
+        it('persists spell slots from the correct array index after the FK reorder', async () => {
+            const wizard = await handleCharacterManage({
+                action: 'create', name: 'IndexCheck-Wizard', class: 'Wizard', level: 4
+            }, ctx);
+            const w = extractJson(wizard.content[0].text);
+            expect(w.spellSlots.level1.max).toBe(4);
+            expect(w.spellSlots.level2.max).toBe(3);
+
+            const paladin = await handleCharacterManage({
+                action: 'create', name: 'IndexCheck-Paladin', class: 'Paladin', level: 4
+            }, ctx);
+            const p = extractJson(paladin.content[0].text);
+            expect(p.spellSlots.level1.max).toBe(3);
+        });
+
         it('should skip provisioning when provisionEquipment is false', async () => {
             const result = await handleCharacterManage({
                 action: 'create',

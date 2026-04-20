@@ -149,23 +149,26 @@ const LevelUpSchema = z.object({
 // ═══════════════════════════════════════════════════════════════════════════
 
 /**
- * Convert spell slots from array format [0, slots1, slots2, ...] to object format
- * The array format from provisionStartingEquipment has index 0 as cantrips (unused here),
- * and indices 1-9 as spell levels 1-9.
+ * Convert spell slots from the zero-indexed array returned by getSpellSlots
+ * (slots[0] = level-1 slot count, slots[1] = level-2, …) into the object
+ * shape persisted on the character row.
+ *
+ * NOTE: This fix is duplicated in PR #54 (issue #44). It must land here too,
+ * or every wizard/cleric this PR persists will be off by one slot level.
  */
 function convertSpellSlotsToObject(slots: number[] | null) {
     if (!slots || slots.length === 0) return undefined;
-    
+
     return {
-        level1: { current: slots[1] || 0, max: slots[1] || 0 },
-        level2: { current: slots[2] || 0, max: slots[2] || 0 },
-        level3: { current: slots[3] || 0, max: slots[3] || 0 },
-        level4: { current: slots[4] || 0, max: slots[4] || 0 },
-        level5: { current: slots[5] || 0, max: slots[5] || 0 },
-        level6: { current: slots[6] || 0, max: slots[6] || 0 },
-        level7: { current: slots[7] || 0, max: slots[7] || 0 },
-        level8: { current: slots[8] || 0, max: slots[8] || 0 },
-        level9: { current: slots[9] || 0, max: slots[9] || 0 }
+        level1: { current: slots[0] || 0, max: slots[0] || 0 },
+        level2: { current: slots[1] || 0, max: slots[1] || 0 },
+        level3: { current: slots[2] || 0, max: slots[2] || 0 },
+        level4: { current: slots[3] || 0, max: slots[3] || 0 },
+        level5: { current: slots[4] || 0, max: slots[4] || 0 },
+        level6: { current: slots[5] || 0, max: slots[5] || 0 },
+        level7: { current: slots[6] || 0, max: slots[6] || 0 },
+        level8: { current: slots[7] || 0, max: slots[7] || 0 },
+        level9: { current: slots[8] || 0, max: slots[8] || 0 }
     };
 }
 
@@ -185,7 +188,40 @@ async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<object>
     const maxHp = args.maxHp ?? hp;
     const characterId = randomUUID();
 
-    // Provision starting equipment and spells if enabled
+    // Build the base character record from args. The character row MUST be
+    // inserted before provisioning runs, otherwise inventory_items.character_id
+    // FK fails when the provisioner tries to grant starting equipment.
+    const character: Record<string, unknown> = {
+        id: characterId,
+        name: args.name,
+        race: args.race,
+        background: args.background,
+        alignment: args.alignment,
+        characterClass: className,
+        stats: args.stats || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+        hp,
+        maxHp,
+        ac: args.ac ?? 10,
+        level: args.level ?? 1,
+        characterType: args.characterType ?? 'pc',
+        factionId: args.factionId,
+        behavior: args.behavior,
+        knownSpells: args.knownSpells || [],
+        cantripsKnown: [],
+        preparedSpells: args.preparedSpells || [],
+        resistances: args.resistances || [],
+        vulnerabilities: args.vulnerabilities || [],
+        immunities: args.immunities || [],
+        spellSlots: undefined,
+        pactMagicSlots: undefined,
+        xp: 0,
+        createdAt: now,
+        updatedAt: now
+    };
+
+    characterRepo.create(character as any);
+
+    // Now safe to provision: character row exists, so FK on inventory_items.character_id resolves.
     let provisioningResult = null;
     const shouldProvision = args.provisionEquipment !== false &&
         (args.characterType === 'pc' || args.characterType === undefined);
@@ -202,40 +238,23 @@ async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<object>
                 startingGold: args.startingGold
             }
         );
+
+        // Roll spell-related fields from provisioning into the in-memory record
+        // and persist via update so the character row stays consistent.
+        character.knownSpells = provisioningResult.spellsGranted.length
+            ? [...new Set([...(args.knownSpells || []), ...provisioningResult.spellsGranted])]
+            : args.knownSpells || [];
+        character.cantripsKnown = provisioningResult.cantripsGranted || [];
+        character.spellSlots = convertSpellSlotsToObject(provisioningResult.spellSlots ?? null);
+        character.pactMagicSlots = provisioningResult.pactMagicSlots || undefined;
+
+        characterRepo.update(characterId, {
+            knownSpells: character.knownSpells as string[],
+            cantripsKnown: character.cantripsKnown as string[],
+            spellSlots: character.spellSlots,
+            pactMagicSlots: character.pactMagicSlots
+        } as any);
     }
-
-    // Build character
-    const character = {
-        id: characterId,
-        name: args.name,
-        race: args.race,
-        background: args.background,
-        alignment: args.alignment,
-        characterClass: className,
-        stats: args.stats || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-        hp,
-        maxHp,
-        ac: args.ac ?? 10,
-        level: args.level ?? 1,
-        characterType: args.characterType ?? 'pc',
-        factionId: args.factionId,
-        behavior: args.behavior,
-        knownSpells: provisioningResult?.spellsGranted.length
-            ? [...new Set([...args.knownSpells || [], ...provisioningResult.spellsGranted])]
-            : args.knownSpells || [],
-        cantripsKnown: provisioningResult?.cantripsGranted || [],
-        preparedSpells: args.preparedSpells || [],
-        resistances: args.resistances || [],
-        vulnerabilities: args.vulnerabilities || [],
-        immunities: args.immunities || [],
-        spellSlots: convertSpellSlotsToObject(provisioningResult?.spellSlots ?? null),
-        pactMagicSlots: provisioningResult?.pactMagicSlots || undefined,
-        xp: 0,
-        createdAt: now,
-        updatedAt: now
-    };
-
-    characterRepo.create(character as any);
 
     const response: Record<string, unknown> = { ...character, success: true };
     if (provisioningResult) {
