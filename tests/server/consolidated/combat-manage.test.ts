@@ -114,6 +114,46 @@ describe('combat_manage consolidated tool', () => {
             expect(data.success).toBe(true);
         });
 
+        // Regression for issue #46: side="enemy" was silently dropped, leaving
+        // isEnemy=undefined → false. Enemies showed as PCs in the turn prompt.
+        it('honors participant `side` as alias for isEnemy', async () => {
+            const result = await handleCombatManage({
+                action: 'create',
+                seed: 'side-alias-test',
+                participants: [
+                    { id: 'pc-vela', name: 'Vela', initiativeBonus: 0, hp: 38, maxHp: 38, side: 'party', position: { x: 1, y: 1 } },
+                    { id: 'pc-tobin', name: 'Tobin', initiativeBonus: 4, hp: 28, maxHp: 28, side: 'ally', position: { x: 1, y: 2 } },
+                    { id: 'enemy-rurk', name: 'Rurk', initiativeBonus: 1, hp: 22, maxHp: 22, side: 'enemy', position: { x: 5, y: 5 } },
+                    { id: 'enemy-mira', name: 'Mira', initiativeBonus: 2, hp: 16, maxHp: 16, side: 'hostile', position: { x: 6, y: 5 } }
+                ]
+            }, ctx);
+
+            const data = parseResult(result);
+            expect(data.success).toBe(true);
+
+            const byId = Object.fromEntries(
+                (data.participants as Array<{ id: string; isEnemy: boolean }>).map((p) => [p.id, p.isEnemy])
+            );
+            expect(byId['pc-vela']).toBe(false);
+            expect(byId['pc-tobin']).toBe(false);
+            expect(byId['enemy-rurk']).toBe(true);
+            expect(byId['enemy-mira']).toBe(true);
+        });
+
+        it('explicit isEnemy wins over side when both are supplied', async () => {
+            const result = await handleCombatManage({
+                action: 'create',
+                seed: 'side-conflict-test',
+                participants: [
+                    { id: 'overridden', name: 'Override', initiativeBonus: 0, hp: 10, maxHp: 10, side: 'enemy', isEnemy: false }
+                ]
+            }, ctx);
+
+            const data = parseResult(result);
+            const p = (data.participants as Array<{ id: string; isEnemy: boolean }>).find((x) => x.id === 'overridden');
+            expect(p?.isEnemy).toBe(false);
+        });
+
         it('should accept "start" alias', async () => {
             const result = await handleCombatManage({
                 action: 'start',

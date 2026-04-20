@@ -41,6 +41,12 @@ const ParticipantSchema = z.object({
     hp: z.number().int().nonnegative(), // Allow 0 HP for dying characters
     maxHp: z.number().int().positive(),
     isEnemy: z.boolean().optional(),
+    /**
+     * Convenience alias for `isEnemy`. Values "enemy" / "hostile" map to
+     * isEnemy=true; "party" / "ally" / "friendly" / "neutral" map to false.
+     * If both `side` and `isEnemy` are provided, `isEnemy` wins.
+     */
+    side: z.enum(['party', 'enemy', 'hostile', 'ally', 'friendly', 'neutral']).optional(),
     conditions: z.array(z.string()).default([]),
     position: z.object({
         x: z.number(),
@@ -51,6 +57,16 @@ const ParticipantSchema = z.object({
     vulnerabilities: z.array(z.string()).optional(),
     immunities: z.array(z.string()).optional()
 });
+
+/**
+ * Coerce a participant's `side` into an `isEnemy` boolean.
+ * Explicit `isEnemy` wins; otherwise derived from `side`.
+ */
+function deriveIsEnemy(p: { isEnemy?: boolean; side?: string }): boolean | undefined {
+    if (typeof p.isEnemy === 'boolean') return p.isEnemy;
+    if (!p.side) return undefined;
+    return p.side === 'enemy' || p.side === 'hostile';
+}
 
 const TerrainSchema = z.object({
     obstacles: z.array(z.string()).default([]),
@@ -136,10 +152,16 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
         schema: CreateSchema,
         handler: async (params: z.infer<typeof CreateSchema>) => {
             if (!currentContext) throw new Error('No session context');
-            // Transform params to original format
+            // Map convenience `side` field down to canonical `isEnemy` and drop `side`
+            // before forwarding to handleCreateEncounter (which doesn't accept it).
+            const normalizedParticipants = params.participants.map((p) => {
+                const { side: _side, ...rest } = p;
+                const derived = deriveIsEnemy(p);
+                return derived === undefined ? rest : { ...rest, isEnemy: derived };
+            });
             const originalParams = {
                 seed: params.seed,
-                participants: params.participants,
+                participants: normalizedParticipants,
                 terrain: params.terrain
             };
             const result = await handleCreateEncounter(originalParams, currentContext);
