@@ -98,6 +98,104 @@ describe('combat_action consolidated tool', () => {
         });
     });
 
+    // Regression for issue #49: off-turn actions used to succeed silently,
+    // letting a caller stack multiple attacks from different actors in one
+    // round. Now the response surfaces an off_turn_action warning.
+    describe('off-turn advisory', () => {
+        it('warns when actorId does not match the current-turn participant', async () => {
+            // Test setup gave hero-1 initiativeBonus 10 vs goblin-1's 1, so
+            // hero-1 is on turn. Fire an attack as the goblin instead.
+            const result = await handleCombatAction({
+                action: 'attack',
+                encounterId: testEncounterId,
+                actorId: 'goblin-1',
+                targetId: 'hero-1',
+                attackBonus: 3,
+                damage: 4
+            }, ctx);
+
+            expect(result.content[0].text).toMatch(/off_turn_action/);
+        });
+
+        it('does not warn when actorId is the current-turn participant', async () => {
+            const result = await handleCombatAction({
+                action: 'attack',
+                encounterId: testEncounterId,
+                actorId: 'hero-1',
+                targetId: 'goblin-1',
+                attackBonus: 5,
+                damage: 8
+            }, ctx);
+
+            expect(result.content[0].text).not.toMatch(/off_turn_action/);
+        });
+
+        // Reviewer follow-up on PR #59: hasLairActions wasn't being persisted,
+        // so loadState() couldn't rebuild the LAIR slot in turnOrder after a
+        // restart. The lair turn would silently disappear.
+        it('persists hasLairActions so LAIR survives a loadState round-trip', async () => {
+            const { handleCreateEncounter } = await import('../../../src/server/handlers/combat-handlers.js');
+            const { EncounterRepository } = await import('../../../src/storage/repos/encounter.repo.js');
+            const lairCtx = { sessionId: `lair-persist-${randomUUID()}` };
+
+            const create = await handleCreateEncounter({
+                seed: 'lair-persist-test',
+                participants: [
+                    { id: 'pc', name: 'Hero', initiativeBonus: 0, hp: 30, maxHp: 30, isEnemy: false, position: { x: 0, y: 0 } },
+                    { id: 'dragon', name: 'Dragon', initiativeBonus: 0, hp: 100, maxHp: 100, isEnemy: true, hasLairActions: true, position: { x: 5, y: 5 } }
+                ]
+            }, lairCtx);
+            const eid = (create.content[0].text.match(/encounter-[\w-]+/) || [])[0]!;
+
+            const repo = new EncounterRepository(getDb(':memory:'));
+            const loaded = repo.loadState(eid);
+            expect(loaded).not.toBeNull();
+            expect(loaded.turnOrder).toContain('LAIR');
+            const dragon = loaded.participants.find((p: { id: string }) => p.id === 'dragon');
+            expect(dragon?.hasLairActions).toBe(true);
+        });
+
+        // Reviewer follow-up on PR #59: previously the warning was suppressed
+        // when the active turn slot was 'LAIR', so a participant could still
+        // act mid-LAIR-turn without any signal. The warning should fire.
+        it('warns when a participant acts during a LAIR turn', async () => {
+            const { handleCreateEncounter, handleExecuteCombatAction } =
+                await import('../../../src/server/handlers/combat-handlers.js');
+            const lairCtx = { sessionId: `lair-test-${randomUUID()}` };
+
+            // Construct an encounter with a LAIR-bearing creature so that the
+            // turn order includes a 'LAIR' slot at initiative 20.
+            const create = await handleCreateEncounter({
+                seed: 'lair-warning-test',
+                participants: [
+                    { id: 'pc', name: 'Hero', initiativeBonus: 0, hp: 30, maxHp: 30, isEnemy: false, position: { x: 0, y: 0 } },
+                    { id: 'dragon', name: 'Dragon', initiativeBonus: 0, hp: 100, maxHp: 100, isEnemy: true, hasLairActions: true, position: { x: 5, y: 5 } }
+                ]
+            }, lairCtx);
+            const lairEncounterId = (create.content[0].text.match(/encounter-[\w-]+/) || [])[0]!;
+
+            // Force the active slot to LAIR by advancing turns until we hit it.
+            const { getCombatManager } = await import('../../../src/server/state/combat-manager.js');
+            const engine = getCombatManager().get(`${lairCtx.sessionId}:${lairEncounterId}`)!;
+            const state = engine.getState()!;
+            const lairIndex = state.turnOrder.indexOf('LAIR');
+            expect(lairIndex).toBeGreaterThanOrEqual(0);
+            state.currentTurnIndex = lairIndex;
+
+            // Now PC tries to act — should warn even though the active slot is LAIR.
+            const acted = await handleExecuteCombatAction({
+                encounterId: lairEncounterId,
+                action: 'attack',
+                actorId: 'pc',
+                targetId: 'dragon',
+                attackBonus: 3,
+                damage: 5
+            }, lairCtx);
+            expect(acted.content[0].text).toMatch(/off_turn_action/);
+            expect(acted.content[0].text).toMatch(/LAIR action/);
+        });
+    });
+
     describe('attack action', () => {
         it('should execute an attack', async () => {
             const result = await handleCombatAction({

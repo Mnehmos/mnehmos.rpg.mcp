@@ -107,7 +107,10 @@ export const TokenSchema = z.object({
     // Combat Stats for Auto-Resolution
     ac: z.number().optional().describe('Armor Class for auto-resolution'),
     attackDamage: z.string().optional().describe('Default attack damage (e.g., "1d6+2")'),
-    attackBonus: z.number().optional().describe('Default attack bonus')
+    attackBonus: z.number().optional().describe('Default attack bonus'),
+    // Lair-action ownership — must be persisted so loadState can rebuild the
+    // LAIR slot in turnOrder (see encounter.repo.ts loadState lookup).
+    hasLairActions: z.boolean().optional().describe('Whether this token owns lair actions')
 });
 
 export type Token = z.infer<typeof TokenSchema>;

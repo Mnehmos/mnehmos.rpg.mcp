@@ -577,6 +577,8 @@ Example (use real UUID from context for player character!):
                 hp: z.number().int().nonnegative(), // Allow 0 HP for dying characters
                 maxHp: z.number().int().positive(),
                 isEnemy: z.boolean().optional().describe('Whether this is an enemy (auto-detected if not set)'),
+                hasLairActions: z.boolean().optional()
+                    .describe('Adds a LAIR slot at initiative 20 to the turn order'),
                 conditions: z.array(z.string()).default([]),
                 position: z.object({ x: z.number(), y: z.number(), z: z.number().optional() }).optional()
                     .describe('CRIT-003: Spatial position for movement (x, y coordinates)'),
@@ -1094,6 +1096,7 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
             initiative: 0, // Will be rolled
             initiativeBonus: p.initiativeBonus ?? 0,
             isEnemy: p.isEnemy ?? false,
+            hasLairActions: p.hasLairActions ?? false,
             conditions: p.conditions || [],
             position: p.position,
             resistances: p.resistances,
@@ -1131,6 +1134,7 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
             initiativeBonus: p.initiativeBonus,
             initiative: p.initiative,    // Store rolled initiative
             isEnemy: p.isEnemy,          // Store enemy flag
+            hasLairActions: p.hasLairActions,  // PR #59 follow-up: persist lair flag so loadState can rebuild the LAIR slot
             hp: p.hp,
             maxHp: p.maxHp,
             conditions: p.conditions,
@@ -1237,6 +1241,36 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
         engine = new CombatEngine(parsed.encounterId, pubsub || undefined);
         engine.loadState(state);
         getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
+    }
+
+    // Turn-identity advisory (issue #49). Every action routed through this
+    // handler (attack / cast_spell / move / dash / dodge / help / heal /
+    // disengage / ready) is an on-turn action. If actorId doesn't match the
+    // active participant, surface a warning so the caller can see the
+    // misuse — we don't throw because reactions aren't modeled yet and
+    // some legitimate flows could be disrupted. A stricter mode can be
+    // layered on top later.
+    let turnWarning: string | undefined;
+    {
+        const liveState = engine.getState();
+        if (liveState) {
+            const activeId = liveState.turnOrder[liveState.currentTurnIndex];
+            if (
+                activeId &&
+                parsed.actorId !== activeId &&
+                // Ignore if the supplied actorId isn't a real participant —
+                // the action handler will produce a clearer error downstream.
+                liveState.participants.some((p) => p.id === parsed.actorId)
+            ) {
+                // LAIR turns are still off-turn for participant actions: only
+                // the lair_action tool may resolve during initiative-20 LAIR.
+                const isLair = activeId === 'LAIR';
+                const activeLabel = isLair
+                    ? 'LAIR action'
+                    : (liveState.participants.find((p) => p.id === activeId)?.name ?? activeId);
+                turnWarning = `off_turn_action: ${parsed.actorId} acting during ${activeLabel}'s turn`;
+            }
+        }
     }
 
     let result: CombatActionResult | undefined;
@@ -2023,6 +2057,10 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
         // Append current state JSON for frontend
         const stateJson = buildStateJson(state, parsed.encounterId);
         output += `\n\n<!-- STATE_JSON\n${JSON.stringify(stateJson)}\nSTATE_JSON -->`;
+    }
+
+    if (turnWarning) {
+        output += `\n\n⚠️  ${turnWarning}\n`;
     }
 
     return {
