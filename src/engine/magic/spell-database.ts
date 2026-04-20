@@ -11,13 +11,23 @@ export const SPELL_DATABASE: Map<string, Spell> = new Map();
 // Input type for spell registration (ritual defaults to false)
 type SpellInput = Omit<Spell, 'ritual'> & { ritual?: boolean };
 
-// Helper to add spell to database
+/**
+ * Normalize a spell name/id for lookup.
+ * Accepts "Fire Bolt", "fire-bolt", "fire_bolt", "FIREBOLT" — all collapse to "firebolt".
+ */
+function normalizeSpellKey(name: string): string {
+    return name.toLowerCase().replace(/[\s\-_]+/g, '');
+}
+
+// Helper to add spell to database — registers under both the spaced name
+// and the kebab-case id so all reasonable callers can find the spell.
 function registerSpell(input: SpellInput): void {
     const spell: Spell = {
         ...input,
         ritual: input.ritual ?? false
     };
-    SPELL_DATABASE.set(spell.name.toLowerCase(), spell);
+    SPELL_DATABASE.set(normalizeSpellKey(spell.name), spell);
+    SPELL_DATABASE.set(normalizeSpellKey(spell.id), spell);
 }
 
 // ============================================================================
@@ -229,9 +239,78 @@ registerSpell({
     autoHit: false
 });
 
+registerSpell({
+    id: 'healing-word',
+    name: 'Healing Word',
+    level: 1,
+    school: 'evocation',
+    castingTime: 'bonus_action',
+    range: 60,
+    components: { verbal: true, somatic: false, material: false },
+    duration: 'Instantaneous',
+    concentration: false,
+    description: 'A creature of your choice within range regains 1d4 + your spellcasting ability modifier.',
+    higherLevels: 'Healing increases by 1d4 for each slot level above 1st.',
+    classes: ['bard', 'cleric', 'druid'],
+    targetType: 'creature',
+    effects: [{
+        type: 'healing',
+        dice: '1d4',
+        upcastBonus: { dice: '1d4', perLevel: 1 }
+    }],
+    autoHit: false
+});
+
 // ============================================================================
 // 2ND LEVEL SPELLS
 // ============================================================================
+
+registerSpell({
+    id: 'scorching-ray',
+    name: 'Scorching Ray',
+    level: 2,
+    school: 'evocation',
+    castingTime: 'action',
+    range: 120,
+    components: { verbal: true, somatic: true, material: false },
+    duration: 'Instantaneous',
+    concentration: false,
+    description: 'You create three rays of fire and hurl them at targets within range. Each ray deals 2d6 fire on a hit.',
+    higherLevels: 'You create one additional ray for each slot level above 2nd.',
+    classes: ['sorcerer', 'wizard'],
+    targetType: 'creature',
+    effects: [{
+        type: 'damage',
+        dice: '6d6',
+        damageType: 'fire',
+        saveType: 'none',
+        upcastBonus: { dice: '2d6', perLevel: 1 }
+    }],
+    autoHit: false
+});
+
+registerSpell({
+    id: 'web',
+    name: 'Web',
+    level: 2,
+    school: 'conjuration',
+    castingTime: 'action',
+    range: 60,
+    components: { verbal: true, somatic: true, material: true, materialDescription: 'a bit of spiderweb' },
+    duration: 'Concentration, up to 1 hour',
+    concentration: true,
+    description: 'You conjure a mass of thick, sticky webbing in a 20-foot cube. Creatures starting their turn in the webs or entering them on their turn must make a Dexterity saving throw or become restrained.',
+    classes: ['sorcerer', 'wizard'],
+    targetType: 'area',
+    areaOfEffect: { shape: 'cube', size: 20 },
+    effects: [{
+        type: 'debuff',
+        saveType: 'dexterity',
+        saveEffect: 'none',
+        conditions: ['RESTRAINED']
+    }],
+    autoHit: false
+});
 
 registerSpell({
     id: 'hold-person',
@@ -571,31 +650,40 @@ registerSpell({
 // ============================================================================
 
 /**
- * Get spell by name (case-insensitive)
+ * Get spell by name or id (case-insensitive, ignores spaces/hyphens/underscores)
  */
 export function getSpell(name: string): Spell | undefined {
-    return SPELL_DATABASE.get(name.toLowerCase());
+    return SPELL_DATABASE.get(normalizeSpellKey(name));
 }
 
 /**
  * Check if spell exists in database
  */
 export function spellExists(name: string): boolean {
-    return SPELL_DATABASE.has(name.toLowerCase());
+    return SPELL_DATABASE.has(normalizeSpellKey(name));
+}
+
+/**
+ * Iterate the deduplicated spell set. Each spell may live under multiple
+ * keys (name + id), so iterating SPELL_DATABASE.values() directly would
+ * yield duplicates.
+ */
+function uniqueSpells(): Spell[] {
+    return Array.from(new Set(SPELL_DATABASE.values()));
 }
 
 /**
  * Get all spells of a specific level
  */
 export function getSpellsByLevel(level: number): Spell[] {
-    return Array.from(SPELL_DATABASE.values()).filter(s => s.level === level);
+    return uniqueSpells().filter(s => s.level === level);
 }
 
 /**
  * Get all spells available to a class
  */
 export function getSpellsForClass(characterClass: SpellcastingClass): Spell[] {
-    return Array.from(SPELL_DATABASE.values()).filter(s =>
+    return uniqueSpells().filter(s =>
         s.classes.includes(characterClass)
     );
 }
@@ -665,5 +753,6 @@ export function calculateUpcastDice(spell: Spell, slotLevel: number): string {
     return `${totalCount}d${diceSize}${modifier}`;
 }
 
-// Export total spell count for tests
-export const SPELL_COUNT = SPELL_DATABASE.size;
+// Export total unique-spell count for tests (each spell may be indexed under
+// multiple keys, so dedupe before counting).
+export const SPELL_COUNT = new Set(SPELL_DATABASE.values()).size;
