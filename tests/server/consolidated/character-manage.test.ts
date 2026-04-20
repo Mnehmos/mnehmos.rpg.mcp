@@ -115,6 +115,105 @@ describe('character_manage consolidated tool', () => {
             }
         });
 
+        // Regression for issue #44: spell slot array was being read with the
+        // wrong index (slots[1] for level1, etc.), so half-casters got nothing
+        // and full casters reported one level too low. Reviewers asked for
+        // L1–L9 coverage on the create path plus a level_up assertion.
+
+        // Source-of-truth tables (PHB). Indexes 0..8 = level1..level9 slots.
+        const FULL_CASTER: Record<number, number[]> = {
+            1: [2, 0, 0, 0, 0, 0, 0, 0, 0],
+            2: [3, 0, 0, 0, 0, 0, 0, 0, 0],
+            3: [4, 2, 0, 0, 0, 0, 0, 0, 0],
+            4: [4, 3, 0, 0, 0, 0, 0, 0, 0],
+            5: [4, 3, 2, 0, 0, 0, 0, 0, 0],
+            6: [4, 3, 3, 0, 0, 0, 0, 0, 0],
+            7: [4, 3, 3, 1, 0, 0, 0, 0, 0],
+            8: [4, 3, 3, 2, 0, 0, 0, 0, 0],
+            9: [4, 3, 3, 3, 1, 0, 0, 0, 0]
+        };
+        const HALF_CASTER: Record<number, number[]> = {
+            1: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+            2: [2, 0, 0, 0, 0, 0, 0, 0, 0],
+            3: [3, 0, 0, 0, 0, 0, 0, 0, 0],
+            4: [3, 0, 0, 0, 0, 0, 0, 0, 0],
+            5: [4, 2, 0, 0, 0, 0, 0, 0, 0],
+            6: [4, 2, 0, 0, 0, 0, 0, 0, 0],
+            7: [4, 3, 0, 0, 0, 0, 0, 0, 0],
+            8: [4, 3, 0, 0, 0, 0, 0, 0, 0],
+            9: [4, 3, 2, 0, 0, 0, 0, 0, 0]
+        };
+
+        function assertSlots(actual: any, expected: number[], label: string) {
+            for (let i = 0; i < 9; i++) {
+                const key = `level${i + 1}` as const;
+                expect(actual[key].max, `${label} ${key}.max`).toBe(expected[i]);
+                expect(actual[key].current, `${label} ${key}.current`).toBe(expected[i]);
+            }
+        }
+
+        it.each([1, 2, 3, 4, 5, 6, 7, 8, 9])(
+            'seeds Wizard L%i with full-caster slots',
+            async (level) => {
+                const result = await handleCharacterManage({
+                    action: 'create', name: `Wizard-L${level}`, class: 'Wizard', level
+                }, ctx);
+                const parsed = extractJson(result.content[0].text);
+                assertSlots(parsed.spellSlots, FULL_CASTER[level], `Wizard L${level}`);
+            }
+        );
+
+        it.each([1, 2, 3, 4, 5, 6, 7, 8, 9])(
+            'seeds Cleric L%i with full-caster slots',
+            async (level) => {
+                const result = await handleCharacterManage({
+                    action: 'create', name: `Cleric-L${level}`, class: 'Cleric', level
+                }, ctx);
+                const parsed = extractJson(result.content[0].text);
+                assertSlots(parsed.spellSlots, FULL_CASTER[level], `Cleric L${level}`);
+            }
+        );
+
+        it.each([1, 2, 3, 4, 5, 6, 7, 8, 9])(
+            'seeds Paladin L%i with half-caster slots',
+            async (level) => {
+                const result = await handleCharacterManage({
+                    action: 'create', name: `Paladin-L${level}`, class: 'Paladin', level
+                }, ctx);
+                const parsed = extractJson(result.content[0].text);
+                assertSlots(parsed.spellSlots, HALF_CASTER[level], `Paladin L${level}`);
+            }
+        );
+
+        it('level_up recomputes spell slots so a wizard going L4 → L5 gains 2nd-level slot', async () => {
+            const create = await handleCharacterManage({
+                action: 'create', name: 'Aspiring Wizard', class: 'Wizard', level: 4
+            }, ctx);
+            const created = extractJson(create.content[0].text);
+            assertSlots(created.spellSlots, FULL_CASTER[4], 'Wizard L4 (create)');
+
+            const lu = await handleCharacterManage({
+                action: 'level_up', characterId: created.id, targetLevel: 5
+            }, ctx);
+            const leveled = extractJson(lu.content[0].text);
+            expect(leveled.newLevel).toBe(5);
+            assertSlots(leveled.spellSlots, FULL_CASTER[5], 'Wizard L5 (level_up)');
+        });
+
+        it('level_up grants paladin their first spell slots when crossing L1 → L2', async () => {
+            const create = await handleCharacterManage({
+                action: 'create', name: 'Squire', class: 'Paladin', level: 1
+            }, ctx);
+            const created = extractJson(create.content[0].text);
+            assertSlots(created.spellSlots, HALF_CASTER[1], 'Paladin L1 (create)');
+
+            const lu = await handleCharacterManage({
+                action: 'level_up', characterId: created.id, targetLevel: 2
+            }, ctx);
+            const leveled = extractJson(lu.content[0].text);
+            assertSlots(leveled.spellSlots, HALF_CASTER[2], 'Paladin L2 (level_up)');
+        });
+
         // Reviewer follow-up: with provisioning now running after the character
         // is inserted, also confirm that the slot-array → slot-object conversion
         // is zero-indexed. Without this fix bundled in, paladin L4 / wizard L4
