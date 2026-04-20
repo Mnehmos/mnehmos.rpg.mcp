@@ -9,6 +9,10 @@ import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/a
 import { SessionContext } from '../types.js';
 import { RichFormatter } from '../utils/formatter.js';
 import { handleExecuteCombatAction } from '../handlers/combat-handlers.js';
+import { getCombatManager } from '../state/combat-manager.js';
+import { getDb } from '../../storage/index.js';
+import { EncounterRepository } from '../../storage/repos/encounter.repo.js';
+import { CombatEngine } from '../../engine/combat/engine.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -188,13 +192,65 @@ const definitions: Record<CombatAction, ActionDefinition> = {
         schema: DashSchema,
         handler: async (params: z.infer<typeof DashSchema>) => {
             if (!currentContext) throw new Error('No session context');
-            // Dash doubles movement speed for the turn
+
+            const sessionKey = `${currentContext.sessionId}:${params.encounterId}`;
+            let engine = getCombatManager().get(sessionKey);
+
+            // Auto-load from DB if the engine isn't in memory (matches the
+            // pattern in handleExecuteCombatAction). Without this, dash
+            // returned "not found" after a process restart even when the
+            // encounter still existed and other actions worked.
+            //
+            // Race-safe restore (PR #60 reviewer ask): two concurrent
+            // requests can both find the engine missing and both load from
+            // DB. CombatManager.create throws if the key already exists, so
+            // wrap the create in a try/get fallback — the loser of the race
+            // adopts the winner's engine.
+            if (!engine) {
+                const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+                const repo = new EncounterRepository(db);
+                const persisted = repo.loadState(params.encounterId);
+                if (persisted) {
+                    // Re-check in case another concurrent request restored it
+                    // between our initial get() and now.
+                    engine = getCombatManager().get(sessionKey);
+                    if (!engine) {
+                        const candidate = new CombatEngine(params.encounterId);
+                        candidate.loadState(persisted);
+                        try {
+                            getCombatManager().create(sessionKey, candidate);
+                            engine = candidate;
+                        } catch {
+                            // Lost the race — adopt the engine the winner created.
+                            engine = getCombatManager().get(sessionKey);
+                        }
+                    }
+                }
+            }
+
+            if (!engine) {
+                return {
+                    error: true,
+                    actionType: 'dash',
+                    message: `Encounter ${params.encounterId} not found.`
+                };
+            }
+            const result = engine.applyDash(params.actorId);
+            if (!result.ok) {
+                return {
+                    error: true,
+                    actionType: 'dash',
+                    actorId: params.actorId,
+                    message: result.error
+                };
+            }
             return {
                 success: true,
                 actionType: 'dash',
                 actorId: params.actorId,
-                effect: 'Movement speed doubled for this turn',
-                message: `${params.actorId} takes the Dash action, doubling movement speed.`
+                movementRemaining: result.movementRemaining,
+                effect: `Movement speed doubled for this turn (budget now ${result.movementRemaining}ft)`,
+                message: `${params.actorId} takes the Dash action. Movement doubled; ${result.movementRemaining}ft remaining.`
             };
         },
         aliases: ['sprint', 'run', 'hustle']

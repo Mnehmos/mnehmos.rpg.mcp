@@ -380,6 +380,101 @@ describe('combat_action consolidated tool', () => {
             // Alias resolves to dash
             expect(data.actionType).toBe('dash');
         });
+
+        // Reviewer follow-ups on PR #60:
+        // - dash must consume the action economy slot (else attack-then-dash).
+        // - dash must auto-load the engine from DB (matches other actions).
+        it('dash refuses when the actor already used their main action this turn', async () => {
+            // hero-1 attacks (consumes action) then tries to dash.
+            await handleCombatAction({
+                action: 'attack',
+                encounterId: testEncounterId,
+                actorId: 'hero-1',
+                targetId: 'goblin-1',
+                attackBonus: 5,
+                damage: 4
+            }, ctx);
+
+            const dashResult = await handleCombatAction({
+                action: 'dash',
+                encounterId: testEncounterId,
+                actorId: 'hero-1'
+            }, ctx);
+            const dashData = parseResult(dashResult);
+            expect(dashData.error).toBe(true);
+            expect(dashData.message).toMatch(/already used|action/i);
+        });
+
+        // Reviewer follow-up on PR #60 (Minor): two concurrent dash calls
+        // hitting the auto-load path could both try to register the same
+        // engine key, throwing "Encounter X already exists" on the loser.
+        it('dash survives two concurrent auto-load requests without throwing', async () => {
+            const { getCombatManager } = await import('../../../src/server/state/combat-manager.js');
+            getCombatManager().clear();
+
+            const [a, b] = await Promise.all([
+                handleCombatAction({
+                    action: 'dash',
+                    encounterId: testEncounterId,
+                    actorId: 'hero-1'
+                }, ctx),
+                handleCombatAction({
+                    action: 'dash',
+                    encounterId: testEncounterId,
+                    actorId: 'hero-1'
+                }, ctx)
+            ]);
+
+            const da = parseResult(a);
+            const db = parseResult(b);
+            // One must succeed (the first) and the other must reject due to
+            // hasDashed/economy — but neither may throw "already exists".
+            expect([da, db].some((d) => d.success === true)).toBe(true);
+            for (const d of [da, db]) {
+                if (d.error) {
+                    expect(String(d.message ?? '')).not.toMatch(/already exists/i);
+                }
+            }
+        });
+
+        it('dash auto-loads the encounter from DB when engine is evicted', async () => {
+            const { getCombatManager } = await import('../../../src/server/state/combat-manager.js');
+            getCombatManager().clear();
+
+            const dashResult = await handleCombatAction({
+                action: 'dash',
+                encounterId: testEncounterId,
+                actorId: 'hero-1'
+            }, ctx);
+            const dashData = parseResult(dashResult);
+            expect(dashData.success).toBe(true);
+            expect(dashData.movementRemaining).toBe(60);
+        });
+
+        // Regression for issue #50: dash was a stub that returned a success
+        // message without actually extending movementRemaining, so the next
+        // move call still enforced the base 30ft budget.
+        it('dash actually doubles the enforced move budget', async () => {
+            const dashResult = await handleCombatAction({
+                action: 'dash',
+                encounterId: testEncounterId,
+                actorId: 'hero-1'
+            }, ctx);
+            const dashData = parseResult(dashResult);
+            expect(dashData.success).toBe(true);
+            expect(dashData.movementRemaining).toBe(60);
+
+            // Move 9 tiles diagonally (~45ft at 5ft/sq). Without dash this
+            // would exceed the 30ft budget; with dash (60ft) it fits.
+            const moveResult = await handleCombatAction({
+                action: 'move',
+                encounterId: testEncounterId,
+                actorId: 'hero-1',
+                targetPosition: { x: 14, y: 14 }
+            }, ctx);
+            const moveData = parseResult(moveResult);
+            expect(moveData.success).toBe(true);
+        });
     });
 
     describe('dodge action', () => {
