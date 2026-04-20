@@ -154,6 +154,163 @@ describe('combat_manage consolidated tool', () => {
             expect(p?.isEnemy).toBe(false);
         });
 
+        // Regression for issue #48: spawn_quick_enemy with encounterId was
+        // ignoring the id and creating a fresh encounter, leaving PCs without
+        // opponents in the original.
+        it('spawn_quick_enemy appends to existing encounter when encounterId is set', async () => {
+            // Create encounter with PCs only
+            const createResult = await handleCombatManage({
+                action: 'create',
+                seed: 'spawn-append-test',
+                participants: [
+                    { id: 'pc-hero', name: 'Hero', initiativeBonus: 3, hp: 30, maxHp: 30, isEnemy: false, position: { x: 0, y: 0 } }
+                ]
+            }, ctx);
+            const originalId = parseResult(createResult).encounterId;
+
+            // Spawn goblins into the same encounter
+            const spawnResult = await handleCombatManage({
+                action: 'spawn_quick_enemy',
+                encounterId: originalId,
+                creature: 'goblin',
+                count: 2,
+                position: { x: 10, y: 10 }
+            }, ctx);
+            const spawnData = parseResult(spawnResult);
+
+            expect(spawnData.success).toBe(true);
+            expect(spawnData.appendedToExisting).toBe(true);
+            expect(spawnData.encounterId).toBe(originalId);
+            expect(spawnData.spawnedCount).toBe(2);
+            // Original encounter now has PC + 2 goblins = 3 participants
+            expect(spawnData.turnOrder.length).toBe(3);
+        });
+
+        // Reviewer follow-ups on PR #58:
+        // - currentTurn must come from turnOrder index, not participants[i]?.id.
+        // - Auto-load from DB when the in-memory engine is gone.
+        it('spawn_quick_enemy currentTurn comes from turnOrder index', async () => {
+            const createResult = await handleCombatManage({
+                action: 'create',
+                seed: 'spawn-currentTurn-test',
+                participants: [
+                    { id: 'pc-hero', name: 'Hero', initiativeBonus: 5, hp: 30, maxHp: 30, isEnemy: false, position: { x: 0, y: 0 } }
+                ]
+            }, ctx);
+            const originalId = parseResult(createResult).encounterId;
+
+            const spawnResult = await handleCombatManage({
+                action: 'spawn_quick_enemy',
+                encounterId: originalId,
+                creature: 'goblin',
+                count: 1
+            }, ctx);
+            const spawnData = parseResult(spawnResult);
+
+            // currentTurn must remain anchored to the pre-existing actor.
+            // (Asserting turnOrder[0] is brittle to initiative re-sorting.)
+            expect(spawnData.currentTurn).toBe('pc-hero');
+            expect(spawnData.turnOrder).toContain(spawnData.currentTurn);
+        });
+
+        it('spawn_quick_enemy auto-loads from DB when engine is evicted from memory', async () => {
+            const { getCombatManager } = await import('../../../src/server/state/combat-manager.js');
+            const createResult = await handleCombatManage({
+                action: 'create',
+                seed: 'spawn-autoload-test',
+                participants: [
+                    { id: 'pc-hero', name: 'Hero', initiativeBonus: 5, hp: 30, maxHp: 30, isEnemy: false, position: { x: 0, y: 0 } }
+                ]
+            }, ctx);
+            const originalId = parseResult(createResult).encounterId;
+
+            // Simulate process restart / context eviction.
+            getCombatManager().clear();
+
+            const spawnResult = await handleCombatManage({
+                action: 'spawn_quick_enemy',
+                encounterId: originalId,
+                creature: 'goblin',
+                count: 1
+            }, ctx);
+            const spawnData = parseResult(spawnResult);
+
+            expect(spawnData.success).toBe(true);
+            expect(spawnData.appendedToExisting).toBe(true);
+            expect(spawnData.loadedFromDb).toBe(true);
+            expect(spawnData.encounterId).toBe(originalId);
+            expect(spawnData.turnOrder.length).toBe(2);
+        });
+
+        // Reviewer follow-up on PR #58: when persistence fails after an
+        // in-memory append, we must NOT return success — that splits memory
+        // and DB state. Roll back the in-memory addParticipants.
+        it('spawn_quick_enemy rolls back in-memory append when persistence fails', async () => {
+            const { getCombatManager } = await import('../../../src/server/state/combat-manager.js');
+            const createResult = await handleCombatManage({
+                action: 'create',
+                seed: 'spawn-rollback-test',
+                participants: [
+                    { id: 'pc-hero', name: 'Hero', initiativeBonus: 5, hp: 30, maxHp: 30, isEnemy: false, position: { x: 0, y: 0 } }
+                ]
+            }, ctx);
+            const eid = parseResult(createResult).encounterId;
+            const engine = getCombatManager().get(`${ctx.sessionId}:${eid}`)!;
+            const beforeCount = engine.getState()!.participants.length;
+
+            // Simulate persistence failure by stubbing saveState to throw.
+            const repoMod = await import('../../../src/storage/repos/encounter.repo.js');
+            const originalSave = repoMod.EncounterRepository.prototype.saveState;
+            repoMod.EncounterRepository.prototype.saveState = function () {
+                throw new Error('disk full');
+            };
+
+            try {
+                const result = await handleCombatManage({
+                    action: 'spawn_quick_enemy',
+                    encounterId: eid,
+                    creature: 'goblin',
+                    count: 1
+                }, ctx);
+                const data = parseResult(result);
+                expect(data.error).toBe(true);
+                expect(data.rolledBack).toBe(true);
+                expect(data.message).toMatch(/persist/i);
+                // In-memory state must match what it was before the attempt.
+                expect(engine.getState()!.participants.length).toBe(beforeCount);
+            } finally {
+                repoMod.EncounterRepository.prototype.saveState = originalSave;
+            }
+        });
+
+        // Reviewer follow-up on PR #58: when an encounterId is supplied but
+        // doesn't exist anywhere, return an explicit error. Silent fallback
+        // to creating a fresh encounter hides typos / stale ids.
+        it('spawn_quick_enemy errors when encounterId is unknown to memory and DB', async () => {
+            const spawnResult = await handleCombatManage({
+                action: 'spawn_quick_enemy',
+                encounterId: 'encounter-does-not-exist-anywhere',
+                creature: 'goblin',
+                count: 1
+            }, ctx);
+            const data = parseResult(spawnResult);
+            expect(data.error).toBe(true);
+            expect(data.message).toMatch(/not found/i);
+            expect(data.requestedEncounterId).toBe('encounter-does-not-exist-anywhere');
+        });
+
+        it('spawn_quick_enemy still creates a new encounter when encounterId is omitted', async () => {
+            const result = await handleCombatManage({
+                action: 'spawn_quick_enemy',
+                creature: 'goblin',
+                count: 1
+            }, ctx);
+            const data = parseResult(result);
+            expect(data.success).toBe(true);
+            expect(data.appendedToExisting).toBeUndefined();
+            expect(data.encounterId).toBeDefined();
+        });
+
         it('should accept "start" alias', async () => {
             const result = await handleCombatManage({
                 action: 'start',

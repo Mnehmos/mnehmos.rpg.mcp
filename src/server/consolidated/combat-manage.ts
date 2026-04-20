@@ -22,6 +22,9 @@ import {
 import { expandCreatureTemplate, listAllTemplates } from '../../data/creature-presets.js';
 import { getDb } from '../../storage/index.js';
 import { CombatActionLogRepository } from '../../storage/repos/combat-action-log.repo.js';
+import { EncounterRepository } from '../../storage/repos/encounter.repo.js';
+import { CombatEngine } from '../../engine/combat/engine.js';
+import { getCombatManager } from '../state/combat-manager.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -271,6 +274,9 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                     initiativeBonus: Math.floor((preset.stats.dex - 10) / 2),
                     hp: preset.hp,
                     maxHp: preset.maxHp,
+                    ac: preset.ac,
+                    attackDamage: preset.defaultAttack?.damage,
+                    attackBonus: preset.defaultAttack?.toHit,
                     isEnemy: true,
                     conditions: [],
                     position: pos,
@@ -278,6 +284,100 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                     vulnerabilities: preset.vulnerabilities || [],
                     immunities: preset.immunities || []
                 });
+            }
+
+            // If encounterId is supplied, append the new enemies to that
+            // encounter. Auto-loads from the database when the engine isn't
+            // in memory (mirroring handleGetEncounterState / handleExecute*),
+            // and persists the new state back so a subsequent restart still
+            // sees the spawned enemies. Only falls back to creating a fresh
+            // encounter when the id genuinely doesn't exist anywhere.
+            if (params.encounterId) {
+                const sessionKey = `${currentContext.sessionId}:${params.encounterId}`;
+                let engine = getCombatManager().get(sessionKey);
+                let loadedFromDb = false;
+
+                if (!engine) {
+                    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+                    const repo = new EncounterRepository(db);
+                    const persisted = repo.loadState(params.encounterId);
+                    if (persisted) {
+                        engine = new CombatEngine(params.encounterId);
+                        engine.loadState(persisted);
+                        getCombatManager().create(sessionKey, engine);
+                        loadedFromDb = true;
+                    }
+                }
+
+                if (engine) {
+                    // Snapshot for rollback before mutating in-memory state.
+                    const beforeIds = new Set(engine.getState()?.participants.map((p) => p.id) ?? []);
+                    const state = engine.addParticipants(
+                        participants as unknown as Parameters<typeof engine.addParticipants>[0]
+                    );
+
+                    // Persist the appended state so a restart doesn't lose the
+                    // newly spawned enemies. PR #58 reviewer ask: don't return
+                    // success if persistence fails — that splits in-memory and
+                    // DB state. Roll back the in-memory addParticipants and
+                    // surface an explicit error.
+                    try {
+                        const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+                        const repo = new EncounterRepository(db);
+                        repo.saveState(params.encounterId, state);
+                    } catch (err) {
+                        // Roll back: drop the just-added participants so memory
+                        // matches DB. Use the engine's state directly since we
+                        // know the schema.
+                        const live = engine.getState();
+                        if (live) {
+                            live.participants = live.participants.filter((p) => beforeIds.has(p.id));
+                            live.turnOrder = live.turnOrder.filter((id) => id === 'LAIR' || beforeIds.has(id));
+                        }
+                        return {
+                            error: true,
+                            actionType: 'spawn_quick_enemy',
+                            encounterId: params.encounterId,
+                            message: `Failed to persist appended encounter state: ${(err as Error).message}. In-memory append rolled back.`,
+                            rolledBack: true
+                        };
+                    }
+
+                    return {
+                        success: true,
+                        actionType: 'spawn_quick_enemy',
+                        encounterId: params.encounterId,
+                        creature: params.creature,
+                        spawnedCount: count,
+                        appendedToExisting: true,
+                        loadedFromDb,
+                        enemies: participants.map(p => ({
+                            id: p.id,
+                            name: p.name,
+                            hp: p.hp,
+                            maxHp: p.maxHp,
+                            ac: preset.ac,
+                            position: p.position,
+                            attack: preset.defaultAttack
+                        })),
+                        turnOrder: state.turnOrder,
+                        // currentTurnIndex indexes turnOrder, NOT participants —
+                        // those arrays can diverge when LAIR is in the order.
+                        currentTurn: state.turnOrder[state.currentTurnIndex],
+                        readyForCombat: true,
+                        hint: `Added ${count} ${preset.name}(s) to existing encounter. Initiative re-sorted.`
+                    };
+                }
+                // encounterId given but neither in memory nor in DB — return
+                // an explicit error rather than silently creating a new
+                // encounter with the spawned enemies. Silent fallback hides
+                // typos and stale ids from the caller (PR #58 reviewer ask).
+                return {
+                    error: true,
+                    actionType: 'spawn_quick_enemy',
+                    message: `Encounter ${params.encounterId} not found in memory or DB. Omit encounterId to create a new encounter.`,
+                    requestedEncounterId: params.encounterId
+                };
             }
 
             // Create encounter with these participants
