@@ -37,11 +37,48 @@ describe('narrative_manage consolidated tool', () => {
 
         it('should list all actions in description', () => {
             expect(NarrativeManageTool.description).toContain('add');
+            expect(NarrativeManageTool.description).toContain('batch_add');
             expect(NarrativeManageTool.description).toContain('search');
             expect(NarrativeManageTool.description).toContain('update');
             expect(NarrativeManageTool.description).toContain('get');
             expect(NarrativeManageTool.description).toContain('delete');
             expect(NarrativeManageTool.description).toContain('get_context');
+        });
+    });
+
+    describe('action: batch_add', () => {
+        it('should create multiple notes in one call', async () => {
+            const result = await handleNarrativeManage({
+                action: 'batch_add',
+                worldId,
+                notes: [
+                    { type: 'plot_thread', content: 'The dragon awakens' },
+                    { type: 'foreshadowing', content: 'A hooded figure watches from the shadows' },
+                    { type: 'session_log', content: 'Session 3 complete' }
+                ]
+            }, ctx) as any;
+            const data = result.content ? JSON.parse(result.content[0].text.match(/<!--JSON:(.+?)-->/s)?.[1] ?? 'null') : result;
+            expect(data?.createdCount ?? (result as any).createdCount).toBe(3);
+        });
+
+        it('should return WORLD_NOT_FOUND for unknown world', async () => {
+            const result = await handleNarrativeManage({
+                action: 'batch_add',
+                worldId: 'nonexistent-world',
+                notes: [{ type: 'session_log', content: 'test' }]
+            }, ctx) as any;
+            const text = result.content?.[0]?.text ?? JSON.stringify(result);
+            expect(text).toContain('WORLD_NOT_FOUND');
+        });
+
+        it('should accept alias "bulk_add"', async () => {
+            const result = await handleNarrativeManage({
+                action: 'bulk_add',
+                worldId,
+                notes: [{ type: 'canonical_moment', content: 'Hero slays the ogre' }]
+            }, ctx) as any;
+            const text = result.content?.[0]?.text ?? JSON.stringify(result);
+            expect(text).not.toContain('"error":true');
         });
     });
 

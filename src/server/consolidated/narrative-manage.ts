@@ -20,7 +20,7 @@ import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/a
 // CONSTANTS & ENUMS
 // ═══════════════════════════════════════════════════════════════════════════
 
-const ACTIONS = ['add', 'search', 'update', 'get', 'delete', 'get_context'] as const;
+const ACTIONS = ['add', 'batch_add', 'search', 'update', 'get', 'delete', 'get_context'] as const;
 type NarrativeAction = typeof ACTIONS[number];
 
 const NoteTypeEnum = z.enum([
@@ -101,6 +101,21 @@ const AddSchema = z.object({
     entityId: z.string().optional().describe('Link to character/NPC/location'),
     entityType: z.enum(['character', 'npc', 'location', 'item']).optional(),
     status: NoteStatusEnum.optional().default('active')
+});
+
+const BatchAddSchema = z.object({
+    action: z.literal('batch_add'),
+    worldId: z.string().describe('World/campaign ID'),
+    notes: z.array(z.object({
+        type: NoteTypeEnum.describe('Note type'),
+        content: z.string().min(1),
+        metadata: z.record(z.any()).optional().default({}),
+        visibility: VisibilityEnum.optional().default('dm_only'),
+        tags: z.array(z.string()).optional().default([]),
+        entityId: z.string().optional(),
+        entityType: z.enum(['character', 'npc', 'location', 'item']).optional(),
+        status: NoteStatusEnum.optional().default('active')
+    })).min(1).max(20).describe('1–20 notes to create in one transaction')
 });
 
 const SearchSchema = z.object({
@@ -213,6 +228,60 @@ async function handleAdd(args: z.infer<typeof AddSchema>): Promise<object> {
         noteId: id,
         type: args.type,
         message: `Created ${args.type} note: "${args.content.substring(0, 50)}${args.content.length > 50 ? '...' : ''}"`
+    };
+}
+
+async function handleBatchAdd(args: z.infer<typeof BatchAddSchema>): Promise<object> {
+    const db = ensureDb();
+
+    const worldCheck = db.prepare('SELECT id FROM worlds WHERE id = ?').get(args.worldId);
+    if (!worldCheck) {
+        return {
+            error: true,
+            code: 'WORLD_NOT_FOUND',
+            message: `World "${args.worldId}" not found. Create it first with world_manage.`
+        };
+    }
+
+    const now = new Date().toISOString();
+    const stmt = db.prepare(`
+        INSERT INTO narrative_notes (id, world_id, type, content, metadata, visibility, tags, entity_id, entity_type, status, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `);
+
+    const created: Array<{ noteId: string; type: string; content: string }> = [];
+
+    const insertAll = db.transaction(() => {
+        for (const note of args.notes) {
+            const id = uuidv4();
+            stmt.run(
+                id,
+                args.worldId,
+                note.type,
+                note.content,
+                JSON.stringify(note.metadata ?? {}),
+                note.visibility ?? 'dm_only',
+                JSON.stringify(note.tags ?? []),
+                note.entityId ?? null,
+                note.entityType ?? null,
+                note.status ?? 'active',
+                now,
+                now
+            );
+            created.push({
+                noteId: id,
+                type: note.type,
+                content: note.content.substring(0, 60) + (note.content.length > 60 ? '...' : '')
+            });
+        }
+    });
+
+    insertAll();
+
+    return {
+        success: true,
+        createdCount: created.length,
+        notes: created
     };
 }
 
@@ -486,7 +555,13 @@ const definitions: Record<NarrativeAction, ActionDefinition> = {
         schema: AddSchema,
         handler: handleAdd,
         aliases: ['create', 'new'],
-        description: 'Create a typed narrative note'
+        description: 'Create a single typed narrative note (use batch_add for multiple)'
+    },
+    batch_add: {
+        schema: BatchAddSchema,
+        handler: handleBatchAdd,
+        aliases: ['add_many', 'bulk_add', 'multi_add', 'log_session'],
+        description: 'Create multiple narrative notes in one transaction — preferred over repeated add calls'
     },
     search: {
         schema: SearchSchema,
@@ -542,18 +617,27 @@ export const NarrativeManageTool = {
 - session_log: Session summaries (XP, attendance, events)
 
 🎯 AI WORKFLOW:
-1. add - Create notes during play as events happen
-2. get_context - Inject into system prompt for informed storytelling
-3. update - Mark plot_threads as 'resolved' when completed
+1. batch_add - PREFERRED: Create multiple notes at end-of-session (one call, one transaction)
+2. add - Create a single note during play when something notable happens
+3. get_context - Inject into system prompt for informed storytelling
+4. update - Mark plot_threads as 'resolved' when completed
+
+⚡ BATCH FIRST: When cataloguing session events, plot threads, or foreshadowing at once,
+   use batch_add with a notes[] array instead of making multiple add calls.
+   Example: { action: "batch_add", worldId: "...", notes: [
+     { type: "plot_thread", content: "..." },
+     { type: "foreshadowing", content: "..." },
+     { type: "session_log", content: "..." }
+   ]}
 
 👀 VISIBILITY:
 - dm_only: Only DM sees (default) - secrets, NPC true motivations
 - player_visible: Can be shown to players - session logs, known lore
 
-Actions: add, search, update, get, delete, get_context
-Aliases: create→add, find→search, context→get_context`,
+Actions: add, batch_add, search, update, get, delete, get_context
+Aliases: add_many/bulk_add/log_session→batch_add, create→add, find→search, context→get_context`,
     inputSchema: z.object({
-        action: z.string().describe('Action: add, search, update, get, delete, get_context'),
+        action: z.string().describe('Action: add, batch_add, search, update, get, delete, get_context'),
         worldId: z.string().optional().describe('World ID (required for add, search, get_context)'),
         noteId: z.string().optional().describe('Note ID (required for get, update, delete)'),
         type: NoteTypeEnum.optional().describe('Note type: plot_thread, canonical_moment, npc_voice, foreshadowing, session_log'),
@@ -564,6 +648,16 @@ Aliases: create→add, find→search, context→get_context`,
         status: NoteStatusEnum.optional(),
         entityId: z.string().optional(),
         entityType: z.enum(['character', 'npc', 'location', 'item']).optional(),
+        notes: z.array(z.object({
+            type: NoteTypeEnum,
+            content: z.string().min(1),
+            metadata: z.record(z.any()).optional(),
+            visibility: VisibilityEnum.optional(),
+            tags: z.array(z.string()).optional(),
+            entityId: z.string().optional(),
+            entityType: z.enum(['character', 'npc', 'location', 'item']).optional(),
+            status: NoteStatusEnum.optional()
+        })).optional().describe('Array of notes for batch_add (1–20)'),
         query: z.string().optional().describe('Text search (for search action)'),
         limit: z.number().optional(),
         orderBy: z.enum(['created_at', 'updated_at']).optional(),
