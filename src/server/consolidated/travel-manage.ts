@@ -167,7 +167,7 @@ async function handleTravel(input: TravelManageInput, _ctx: SessionContext): Pro
     }
 
     // Update party position
-    db.prepare('UPDATE parties SET currentLocation = ?, updated_at = ? WHERE id = ?')
+    db.prepare('UPDATE parties SET current_location = ?, updated_at = ? WHERE id = ?')
         .run(poi.name, new Date().toISOString(), input.partyId);
 
     // Enter location if requested

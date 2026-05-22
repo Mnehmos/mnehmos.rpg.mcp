@@ -71,12 +71,8 @@ describe('travel_manage consolidated tool', () => {
             )
         `);
 
-        // Add currentLocation column to parties if needed
-        try {
-            db.exec(`ALTER TABLE parties ADD COLUMN currentLocation TEXT`);
-        } catch {
-            // Column might already exist
-        }
+        // No workaround column — the migration defines current_location (snake_case)
+        // and the handler must use the correct column name
 
         // Create test characters
         const charRepo = new CharacterRepository(db);
