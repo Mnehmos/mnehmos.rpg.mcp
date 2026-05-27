@@ -57,7 +57,8 @@ describe('narrative_manage consolidated tool', () => {
                     { type: 'session_log', content: 'Session 3 complete' }
                 ]
             }, ctx) as any;
-            const data = result.content ? JSON.parse(result.content[0].text.match(/<!--JSON:(.+?)-->/s)?.[1] ?? 'null') : result;
+            // narrative_manage returns raw JSON in content[0].text (no RichFormatter wrap)
+            const data = result.content ? JSON.parse(result.content[0].text) : result;
             expect(data?.createdCount ?? (result as any).createdCount).toBe(3);
         });
 
