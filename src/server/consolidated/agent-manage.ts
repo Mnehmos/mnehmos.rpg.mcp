@@ -28,6 +28,11 @@ import {
 } from '../../schema/agent.js';
 import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/action-router.js';
 import { RichFormatter } from '../utils/formatter.js';
+import { getAgentRuntime, buildAgentRuntime } from '../../agent/runtime/deps.js';
+import { invokeAgent } from '../../agent/runtime/invoke.js';
+import { composePrompt } from '../../agent/prompt/compose.js';
+import { replayCall } from '../../agent/audit/replay.js';
+import { ProviderFactory } from '../../agent/provider/factory.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -68,6 +73,22 @@ function resolveAgent(repo: AgentRepository, args: { agentId?: string; character
     if (args.agentId) return repo.findById(args.agentId);
     if (args.characterId) return repo.findByCharacterId(args.characterId);
     return null;
+}
+
+/**
+ * Get the agent runtime, lazily initializing one bound to the current DB if
+ * the server didn't pre-wire it. This makes the tool usable in tests and in
+ * any environment where the runtime hasn't been explicitly registered.
+ */
+function ensureRuntime() {
+    const existing = getAgentRuntime();
+    if (existing) return existing;
+
+    const { db } = ensureDb();
+    // Lazy fallback factory — reads env keys only, no startup wiring required.
+    const factory = new ProviderFactory();
+    factory.initialize();
+    return buildAgentRuntime(db, factory);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -493,23 +514,27 @@ async function handleBroadcast(args: z.infer<typeof BroadcastSchema>): Promise<o
 }
 
 async function handlePreviewPrompt(args: z.infer<typeof PreviewPromptSchema>): Promise<object> {
-    const { agentRepo } = ensureDb();
-    const agent = resolveAgent(agentRepo, args);
+    const runtime = ensureRuntime();
+    const agent = resolveAgent(runtime.agentRepo, args);
     if (!agent) return { error: true, message: 'Agent not found' };
 
-    // Stub — compose layer ships in step 4. Returns structural placeholder
-    // so DM tooling can plumb against the final shape now.
+    const composed = composePrompt(
+        {
+            agentId: agent.id,
+            characterId: agent.characterId,
+            situation: args.situation
+        },
+        runtime
+    );
+
     return {
         actionType: 'preview_prompt',
         agentId: agent.id,
-        status: 'not_implemented',
-        message: 'Prompt composer ships in next step (src/agent/prompt/compose.ts).',
-        plannedShape: {
-            messages: [],
-            estimatedPromptTokens: 0,
-            slicesIncluded: [],
-            slicesSkipped: []
-        }
+        characterId: agent.characterId,
+        messages: composed.messages,
+        estimatedPromptTokens: composed.estimatedPromptTokens,
+        slicesIncluded: composed.slicesIncluded,
+        slicesSkipped: composed.slicesSkipped
     };
 }
 
@@ -574,48 +599,38 @@ async function handleGetJournal(args: z.infer<typeof GetJournalSchema>): Promise
     return { actionType: 'get_journal', agentId: agent.id, count: entries.length, entries };
 }
 
-// ----- Invocation (stubs — runtime ships in step 5) -----
+// ----- Invocation -----
 
-async function handleInvoke(args: z.infer<typeof InvokeSchema>, _ctx?: SessionContext): Promise<object> {
-    const { agentRepo } = ensureDb();
-    const agent = resolveAgent(agentRepo, args);
-    if (!agent) return { error: true, message: 'Agent not found' };
+async function handleInvoke(args: z.infer<typeof InvokeSchema>, ctx?: SessionContext): Promise<object> {
+    const runtime = ensureRuntime();
+
+    const result = await invokeAgent({
+        agentId: args.agentId,
+        characterId: args.characterId,
+        situation: args.situation,
+        encounterId: args.encounterId,
+        systemOverride: args.systemOverride,
+        messagesOverride: args.messagesOverride,
+        requestId: ctx?.sessionId
+    }, runtime);
 
     return {
         actionType: 'invoke',
-        status: 'not_implemented',
-        agentId: agent.id,
-        message: 'Provider + runtime ship in next steps (src/agent/provider, src/agent/runtime).',
-        plannedShape: {
-            callId: '',
-            characterId: agent.characterId,
-            characterName: '',
-            response: '',
-            status: 'ok',
-            promptTokens: 0,
-            completionTokens: 0,
-            durationMs: 0
-        }
+        ...result
     };
 }
 
 async function handleReplay(args: z.infer<typeof ReplaySchema>): Promise<object> {
-    const { agentRepo } = ensureDb();
-    const call = agentRepo.findCallById(args.callId);
-    if (!call) return { error: true, message: `Call not found: ${args.callId}` };
+    const runtime = ensureRuntime();
+    const result = await replayCall({ callId: args.callId, model: args.model }, runtime);
+
+    if ('error' in result) {
+        return { error: true, message: result.message };
+    }
 
     return {
         actionType: 'replay',
-        status: 'not_implemented',
-        callId: call.id,
-        message: 'Replay ships in step 5 (src/agent/audit/replay.ts).',
-        originalCall: {
-            id: call.id,
-            provider: call.provider,
-            model: call.model,
-            status: call.status,
-            createdAt: call.createdAt
-        }
+        ...result
     };
 }
 

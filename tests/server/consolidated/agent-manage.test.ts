@@ -311,15 +311,23 @@ describe('agent_manage tool', () => {
             expect(result.skipped).toBe(1);
         });
 
-        it('preview_prompt returns the planned not_implemented shape', async () => {
+        it('preview_prompt returns composed messages without calling the LLM', async () => {
             const characterId = await setupAgent();
+            // Add a slice so there's content to compose
+            await handleAgentManage(
+                { action: 'set_slice', characterId, kind: 'persona', content: 'You are Kara.' },
+                ctx
+            );
+
             const result = extractJson(await handleAgentManage(
-                { action: 'preview_prompt', characterId },
+                { action: 'preview_prompt', characterId, situation: "It's your turn." },
                 ctx
             ));
-            expect(result.status).toBe('not_implemented');
-            expect(result.plannedShape).toBeDefined();
-            expect(result.plannedShape.messages).toEqual([]);
+            expect(result.actionType).toBe('preview_prompt');
+            expect(Array.isArray(result.messages)).toBe(true);
+            expect(result.messages.length).toBeGreaterThan(0);
+            expect(result.slicesIncluded).toContain('persona');
+            expect(result.estimatedPromptTokens).toBeGreaterThan(0);
         });
     });
 
@@ -379,10 +387,10 @@ describe('agent_manage tool', () => {
         });
     });
 
-    // ─────────── Invocation stubs ───────────
+    // ─────────── Invocation (live, against runtime with no provider keys) ───────────
 
-    describe('invocation stubs', () => {
-        it('invoke returns not_implemented with planned shape', async () => {
+    describe('invocation', () => {
+        it('invoke surfaces a real status (error or ok) — runtime is wired', async () => {
             const characterId = createCharacter('Kara');
             await handleAgentManage(
                 { action: 'create', characterId, provider: 'openai', model: 'gpt-4o-mini' },
@@ -393,9 +401,38 @@ describe('agent_manage tool', () => {
                 { action: 'invoke', characterId, situation: "It's your turn." },
                 ctx
             ));
-            expect(result.status).toBe('not_implemented');
-            expect(result.plannedShape).toBeDefined();
-            expect(result.plannedShape.characterId).toBe(characterId);
+
+            // No OPENAI_API_KEY in test env -> runtime returns status='error' with provider message
+            expect(result.actionType).toBe('invoke');
+            // Either 'error' (no key) or 'ok' (if test env has a key) — both are valid surfaces
+            expect(['error', 'ok', 'incapable', 'paused', 'budget_exhausted']).toContain(result.status);
+            expect(result.agentId).toBeDefined();
+            expect(result.characterName).toBe('Kara');
+        });
+
+        it('replay returns dry-mode info for a stored call', async () => {
+            const characterId = createCharacter('Kara');
+            await handleAgentManage(
+                { action: 'create', characterId, provider: 'openai', model: 'gpt-4o-mini' },
+                ctx
+            );
+
+            // Trigger an invoke so there's a call to replay
+            const invokeResult = extractJson(await handleAgentManage(
+                { action: 'invoke', characterId, situation: "go" },
+                ctx
+            ));
+
+            if (invokeResult.callId) {
+                const replay = extractJson(await handleAgentManage(
+                    { action: 'replay', callId: invokeResult.callId },
+                    ctx
+                ));
+                expect(replay.actionType).toBe('replay');
+                expect(replay.mode).toBe('dry');
+                expect(replay.original).toBeDefined();
+                expect(replay.callId).toBe(invokeResult.callId);
+            }
         });
 
         it('replay errors when callId not found', async () => {
