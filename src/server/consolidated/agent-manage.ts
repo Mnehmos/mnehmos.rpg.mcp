@@ -803,12 +803,61 @@ export async function handleAgentManage(args: unknown, ctx: SessionContext): Pro
                         'Last call': parsed.lastCallAt ?? 'never'
                     });
                     break;
-                case 'invoke':
-                case 'preview_prompt':
-                case 'replay':
-                    output = RichFormatter.header(`Agent ${parsed.actionType}`, '');
-                    output += RichFormatter.alert(parsed.message || 'Not implemented yet', 'info');
+                case 'invoke': {
+                    const name = parsed.characterName || parsed.characterId || 'agent';
+                    if (parsed.status === 'ok') {
+                        output = RichFormatter.header(`${name} speaks`, '');
+                        output += RichFormatter.keyValue({
+                            'Status': parsed.status,
+                            'Tokens': `${parsed.promptTokens ?? '?'} in / ${parsed.completionTokens ?? '?'} out`,
+                            'Duration': parsed.durationMs !== null ? `${parsed.durationMs}ms` : '—',
+                            'Call ID': parsed.callId
+                        });
+                        output += '\n**Response:**\n';
+                        output += `> ${String(parsed.response).split('\n').join('\n> ')}\n`;
+                    } else {
+                        // status: error / timeout / circuit_open / budget_exhausted / incapable / paused / rate_limited
+                        const alertType = parsed.status === 'incapable' || parsed.status === 'paused' ? 'warning' : 'error';
+                        output = RichFormatter.header(`Agent invoke — ${parsed.status}`, '');
+                        output += RichFormatter.alert(parsed.reason || `Agent returned status: ${parsed.status}`, alertType);
+                        if (parsed.callId) {
+                            output += RichFormatter.keyValue({
+                                'Agent': name,
+                                'Call ID': parsed.callId,
+                                'Status': parsed.status
+                            });
+                        }
+                    }
                     break;
+                }
+                case 'preview_prompt': {
+                    output = RichFormatter.header('Prompt preview', '');
+                    output += RichFormatter.keyValue({
+                        'Agent ID': parsed.agentId,
+                        'Messages': parsed.messages?.length ?? 0,
+                        'Estimated prompt tokens': parsed.estimatedPromptTokens ?? 0,
+                        'Slices included': Array.isArray(parsed.slicesIncluded) ? parsed.slicesIncluded.join(', ') : '—',
+                        'Slices skipped': Array.isArray(parsed.slicesSkipped) ? parsed.slicesSkipped.join(', ') : '—'
+                    });
+                    break;
+                }
+                case 'replay': {
+                    output = RichFormatter.header(`Replay (${parsed.mode})`, '');
+                    if (parsed.original) {
+                        output += '**Original:** ';
+                        output += `${parsed.original.provider}:${parsed.original.model} — status ${parsed.original.status} @ ${parsed.original.createdAt}\n`;
+                    }
+                    if (parsed.replay) {
+                        output += '**Replay:** ';
+                        output += `${parsed.replay.provider}:${parsed.replay.model} — status ${parsed.replay.status}`;
+                        if (parsed.replay.promptTokens) output += ` (${parsed.replay.promptTokens} in / ${parsed.replay.completionTokens} out)`;
+                        output += '\n';
+                    }
+                    if (parsed.diff) {
+                        output += `**Diff:** ${parsed.diff.sameText ? 'identical' : `different (orig=${parsed.diff.originalLength} chars, replay=${parsed.diff.replayLength} chars)`}\n`;
+                    }
+                    break;
+                }
                 default:
                     output = RichFormatter.header(`Agent ${parsed.actionType || 'operation'}`, '');
                     if (parsed.message) output += parsed.message + '\n';
