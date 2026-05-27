@@ -25,6 +25,9 @@ import { CombatActionLogRepository } from '../../storage/repos/combat-action-log
 import { EncounterRepository } from '../../storage/repos/encounter.repo.js';
 import { CombatEngine } from '../../engine/combat/engine.js';
 import { getCombatManager } from '../state/combat-manager.js';
+import { getAgentRuntime, buildAgentRuntime } from '../../agent/runtime/deps.js';
+import { invokeAgent } from '../../agent/runtime/invoke.js';
+import { ProviderFactory } from '../../agent/provider/factory.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -146,8 +149,6 @@ const GetHistorySchema = z.object({
 // CONTEXT HOLDER (for passing session context to handlers)
 // ═══════════════════════════════════════════════════════════════════════════
 
-let currentContext: SessionContext | null = null;
-
 // ═══════════════════════════════════════════════════════════════════════════
 // ACTION DEFINITIONS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -155,8 +156,8 @@ let currentContext: SessionContext | null = null;
 const definitions: Record<CombatManageAction, ActionDefinition> = {
     create: {
         schema: CreateSchema,
-        handler: async (params: z.infer<typeof CreateSchema>) => {
-            if (!currentContext) throw new Error('No session context');
+        handler: async (params: z.infer<typeof CreateSchema>, ctx?: SessionContext) => {
+            if (!ctx) throw new Error('No session context');
             // Map convenience `side` field down to canonical `isEnemy` and drop `side`
             // before forwarding to handleCreateEncounter (which doesn't accept it).
             const normalizedParticipants = params.participants.map((p) => {
@@ -169,7 +170,7 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                 participants: normalizedParticipants,
                 terrain: params.terrain
             };
-            const result = await handleCreateEncounter(originalParams, currentContext);
+            const result = await handleCreateEncounter(originalParams, ctx);
             return extractResultData(result, 'create');
         },
         aliases: ['start', 'new', 'begin', 'init']
@@ -177,9 +178,9 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
 
     get: {
         schema: GetSchema,
-        handler: async (params: z.infer<typeof GetSchema>) => {
-            if (!currentContext) throw new Error('No session context');
-            const result = await handleGetEncounterState({ encounterId: params.encounterId }, currentContext);
+        handler: async (params: z.infer<typeof GetSchema>, ctx?: SessionContext) => {
+            if (!ctx) throw new Error('No session context');
+            const result = await handleGetEncounterState({ encounterId: params.encounterId }, ctx);
             return extractResultData(result, 'get');
         },
         aliases: ['state', 'status', 'show']
@@ -187,9 +188,9 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
 
     end: {
         schema: EndSchema,
-        handler: async (params: z.infer<typeof EndSchema>) => {
-            if (!currentContext) throw new Error('No session context');
-            const result = await handleEndEncounter({ encounterId: params.encounterId }, currentContext);
+        handler: async (params: z.infer<typeof EndSchema>, ctx?: SessionContext) => {
+            if (!ctx) throw new Error('No session context');
+            const result = await handleEndEncounter({ encounterId: params.encounterId }, ctx);
             return extractResultData(result, 'end');
         },
         aliases: ['finish', 'complete', 'stop', 'close']
@@ -197,9 +198,9 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
 
     load: {
         schema: LoadSchema,
-        handler: async (params: z.infer<typeof LoadSchema>) => {
-            if (!currentContext) throw new Error('No session context');
-            const result = await handleLoadEncounter({ encounterId: params.encounterId }, currentContext);
+        handler: async (params: z.infer<typeof LoadSchema>, ctx?: SessionContext) => {
+            if (!ctx) throw new Error('No session context');
+            const result = await handleLoadEncounter({ encounterId: params.encounterId }, ctx);
             return extractResultData(result, 'load');
         },
         aliases: ['restore', 'resume', 'continue']
@@ -207,22 +208,76 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
 
     advance: {
         schema: AdvanceSchema,
-        handler: async (params: z.infer<typeof AdvanceSchema>) => {
-            if (!currentContext) throw new Error('No session context');
-            const result = await handleAdvanceTurn({ encounterId: params.encounterId }, currentContext);
-            return extractResultData(result, 'advance');
+        handler: async (params: z.infer<typeof AdvanceSchema>, ctx?: SessionContext) => {
+            if (!ctx) throw new Error('No session context');
+            const result = await handleAdvanceTurn({ encounterId: params.encounterId }, ctx);
+            const data = extractResultData(result, 'advance');
+
+            // ──────────────────────────────────────────────────────────────────
+            // Agent auto-invoke hook: after initiative advances, if the new
+            // current actor has an active agent with auto_on_turn=true, fire a
+            // synchronous invoke and embed the response in this payload.
+            // Errors here NEVER block the turn — the turn already advanced.
+            // ──────────────────────────────────────────────────────────────────
+            try {
+                const currentTurn = (data as { currentTurn?: { id?: string; name?: string } }).currentTurn;
+                const currentActorId = currentTurn?.id;
+                if (currentActorId) {
+                    const runtime = getAgentRuntime() ?? (() => {
+                        const factory = new ProviderFactory();
+                        factory.initialize();
+                        return buildAgentRuntime(getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db'), factory);
+                    })();
+
+                    const agent = runtime.agentRepo.findByCharacterId(currentActorId);
+                    if (agent && agent.autoOnTurn && agent.status === 'active') {
+                        const round = (data as { round?: number }).round;
+                        const situation = `It's your turn in encounter ${params.encounterId}` +
+                            (round !== undefined ? `, round ${round}.` : '.');
+                        const agentResult = await invokeAgent(
+                            {
+                                agentId: agent.id,
+                                situation,
+                                encounterId: params.encounterId,
+                                round,
+                                requestId: ctx.sessionId
+                            },
+                            runtime
+                        );
+                        (data as Record<string, unknown>).agentResponse = {
+                            status: agentResult.status,
+                            reason: agentResult.reason,
+                            characterName: agentResult.characterName,
+                            response: agentResult.response,
+                            callId: agentResult.callId,
+                            promptTokens: agentResult.promptTokens,
+                            completionTokens: agentResult.completionTokens,
+                            durationMs: agentResult.durationMs
+                        };
+                    }
+                }
+            } catch (err) {
+                // Auto-invoke must NEVER break turn advance. Surface the failure
+                // in the payload so the DM can investigate, but the turn stands.
+                (data as Record<string, unknown>).agentResponse = {
+                    status: 'error',
+                    reason: `auto_invoke_threw: ${err instanceof Error ? err.message : String(err)}`
+                };
+            }
+
+            return data;
         },
         aliases: ['next', 'next_turn', 'advance_turn']
     },
 
     death_save: {
         schema: DeathSaveSchema,
-        handler: async (params: z.infer<typeof DeathSaveSchema>) => {
-            if (!currentContext) throw new Error('No session context');
+        handler: async (params: z.infer<typeof DeathSaveSchema>, ctx?: SessionContext) => {
+            if (!ctx) throw new Error('No session context');
             const result = await handleRollDeathSave({
                 encounterId: params.encounterId,
                 characterId: params.characterId
-            }, currentContext);
+            }, ctx);
             return extractResultData(result, 'death_save');
         },
         aliases: ['death_saving_throw', 'save_death', 'dying']
@@ -230,10 +285,10 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
 
     lair_action: {
         schema: LairActionSchema,
-        handler: async (params: z.infer<typeof LairActionSchema>) => {
-            if (!currentContext) throw new Error('No session context');
+        handler: async (params: z.infer<typeof LairActionSchema>, ctx?: SessionContext) => {
+            if (!ctx) throw new Error('No session context');
             const { action, ...lairParams } = params;
-            const result = await handleExecuteLairAction(lairParams, currentContext);
+            const result = await handleExecuteLairAction(lairParams, ctx);
             return extractResultData(result, 'lair_action');
         },
         aliases: ['lair', 'legendary', 'boss_action']
@@ -241,8 +296,8 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
 
     spawn_quick_enemy: {
         schema: SpawnQuickEnemySchema,
-        handler: async (params: z.infer<typeof SpawnQuickEnemySchema>) => {
-            if (!currentContext) throw new Error('No session context');
+        handler: async (params: z.infer<typeof SpawnQuickEnemySchema>, ctx?: SessionContext) => {
+            if (!ctx) throw new Error('No session context');
 
             // Expand creature template
             const preset = expandCreatureTemplate(params.creature);
@@ -293,7 +348,7 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
             // sees the spawned enemies. Only falls back to creating a fresh
             // encounter when the id genuinely doesn't exist anywhere.
             if (params.encounterId) {
-                const sessionKey = `${currentContext.sessionId}:${params.encounterId}`;
+                const sessionKey = `${ctx.sessionId}:${params.encounterId}`;
                 let engine = getCombatManager().get(sessionKey);
                 let loadedFromDb = false;
 
@@ -388,7 +443,7 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                 terrain: { obstacles: [], difficultTerrain: [], water: [] }
             };
 
-            const result = await handleCreateEncounter(createParams, currentContext);
+            const result = await handleCreateEncounter(createParams, ctx);
             const resultData = extractResultData(result, 'spawn_quick_enemy');
 
             // Enhance with spawn info
@@ -530,6 +585,7 @@ Aliases: start/begin→create, state/status→get, finish/stop→end, restore/re
 For combat ACTIONS (attack, move, cast), use combat_action tool instead.
 For MAP operations (render, aoe, terrain), use combat_map tool instead.
 For CORPSES after combat, use corpse_manage tool.`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe(`Action: ${ACTIONS.join(', ')}`),
         encounterId: z.string().optional().describe('Encounter ID (required for most actions)'),
@@ -555,11 +611,8 @@ For CORPSES after combat, use corpse_manage tool.`,
 // ═══════════════════════════════════════════════════════════════════════════
 
 export async function handleCombatManage(args: unknown, ctx: SessionContext): Promise<McpResponse> {
-    // Store context for handlers
-    currentContext = ctx;
-
     try {
-        const result = await router(args as Record<string, unknown>);
+        const result = await router(args as Record<string, unknown>, ctx);
         const parsed = JSON.parse(result.content[0].text);
 
         let output = '';
@@ -657,7 +710,13 @@ export async function handleCombatManage(args: unknown, ctx: SessionContext): Pr
                 text: output
             }]
         };
-    } finally {
-        currentContext = null;
+    } catch (error) {
+        return {
+            content: [{
+                type: 'text' as const,
+                text: RichFormatter.header('Error', '') +
+                    RichFormatter.alert(error instanceof Error ? error.message : String(error), 'error')
+            }]
+        };
     }
 }
