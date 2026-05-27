@@ -892,6 +892,82 @@ function runMigrations(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_narrative_notes_status ON narrative_notes(status);
     CREATE INDEX IF NOT EXISTS idx_narrative_notes_created ON narrative_notes(created_at DESC);
     CREATE INDEX IF NOT EXISTS idx_narrative_notes_entity ON narrative_notes(entity_id, entity_type);
+
+    -- AGENT LAYER: LLM-driven NPCs bound to characters
+    -- One agent per character; owns mind state (slices, secrets, journal) + call audit
+    CREATE TABLE IF NOT EXISTS agents (
+      id TEXT PRIMARY KEY,
+      character_id TEXT NOT NULL UNIQUE REFERENCES characters(id) ON DELETE CASCADE,
+      provider TEXT NOT NULL CHECK (provider IN ('openai', 'openrouter')),
+      model TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'paused', 'retired')),
+      auto_on_turn INTEGER NOT NULL DEFAULT 0,
+      auto_on_legendary INTEGER NOT NULL DEFAULT 0,
+      temperature REAL DEFAULT 0.7,
+      max_tokens INTEGER DEFAULT 800,
+      budget_tokens INTEGER,
+      tokens_used INTEGER NOT NULL DEFAULT 0,
+      timeout_ms INTEGER NOT NULL DEFAULT 25000,
+      consecutive_failures INTEGER NOT NULL DEFAULT 0,
+      circuit_state TEXT NOT NULL DEFAULT 'closed' CHECK (circuit_state IN ('closed', 'open', 'half_open')),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_agents_character ON agents(character_id);
+    CREATE INDEX IF NOT EXISTS idx_agents_auto_on_turn ON agents(auto_on_turn) WHERE auto_on_turn = 1;
+
+    -- Modular prompt slices; ordered, toggleable
+    CREATE TABLE IF NOT EXISTS agent_prompt_slices (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL CHECK (kind IN ('persona', 'directive', 'secrets', 'narrative_feed', 'recent', 'character_state', 'custom')),
+      label TEXT,
+      content TEXT NOT NULL,
+      order_index INTEGER NOT NULL,
+      enabled INTEGER NOT NULL DEFAULT 1,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_slices_agent_order ON agent_prompt_slices(agent_id, order_index);
+
+    -- Agent-private knowledge (separate from npc_voice narrative notes by design)
+    CREATE TABLE IF NOT EXISTS agent_secrets (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      importance TEXT CHECK (importance IN ('low', 'medium', 'high', 'critical')),
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_secrets_agent ON agent_secrets(agent_id);
+
+    -- First-person journal: every invoke auto-appends 'response'; DM adds 'observation' notes
+    CREATE TABLE IF NOT EXISTS agent_journal (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL CHECK (kind IN ('response', 'observation', 'plan', 'reflection', 'dm_note')),
+      encounter_id TEXT,
+      round INTEGER,
+      content TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_journal_agent_time ON agent_journal(agent_id, created_at DESC);
+
+    -- Audit + replay log of every LLM call
+    CREATE TABLE IF NOT EXISTS agent_calls (
+      id TEXT PRIMARY KEY,
+      agent_id TEXT NOT NULL REFERENCES agents(id) ON DELETE CASCADE,
+      request_id TEXT,
+      provider TEXT NOT NULL,
+      model TEXT NOT NULL,
+      messages_json TEXT NOT NULL,
+      raw_response TEXT,
+      prompt_tokens INTEGER,
+      completion_tokens INTEGER,
+      duration_ms INTEGER,
+      status TEXT NOT NULL CHECK (status IN ('ok', 'timeout', 'rate_limited', 'error', 'circuit_open', 'budget_exhausted', 'incapable', 'paused')),
+      error_message TEXT,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_calls_agent_time ON agent_calls(agent_id, created_at DESC);
   `);
 }
 

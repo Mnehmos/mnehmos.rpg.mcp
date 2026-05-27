@@ -7,7 +7,8 @@ export type ToolCategory =
   | 'world' | 'combat' | 'character' | 'inventory' | 'quest' | 'party'
   | 'math' | 'strategy' | 'secret' | 'concentration' | 'rest' | 'scroll'
   | 'aura' | 'npc' | 'spatial' | 'theft' | 'corpse' | 'improvisation'
-  | 'turn-management' | 'meta' | 'batch' | 'context' | 'narrative' | 'composite';
+  | 'turn-management' | 'meta' | 'batch' | 'context' | 'narrative' | 'composite'
+  | 'agent';
 
 export type TokenCost = 'low' | 'medium' | 'high' | 'variable';
 
@@ -27,6 +28,7 @@ export interface ToolMetadata {
 export interface ToolRegistryEntry {
   metadata: ToolMetadata;
   schema: any; // Zod schema
+  actionSchemas?: any; // Action-specific schema documentation for consolidated tools
   handler: Function;
 }
 

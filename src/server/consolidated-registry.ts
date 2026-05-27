@@ -66,6 +66,7 @@ const TOOL_CATEGORIES: Record<string, ToolCategory> = {
     session_manage: 'meta',
     travel_manage: 'party',
     batch_manage: 'meta',
+    agent_manage: 'agent',
 };
 
 // Map tool names to keywords
@@ -98,6 +99,7 @@ const TOOL_KEYWORDS: Record<string, string[]> = {
     session_manage: ['session', 'initialize', 'context', 'start', 'resume'],
     travel_manage: ['travel', 'move', 'rest', 'loot', 'journey', 'party'],
     batch_manage: ['batch', 'bulk', 'create', 'workflow', 'template'],
+    agent_manage: ['agent', 'llm', 'npc', 'ai', 'persona', 'invoke', 'prompt', 'memory', 'autonomous'],
 };
 
 // Map tool names to capabilities
@@ -130,6 +132,7 @@ const TOOL_CAPABILITIES: Record<string, string[]> = {
     session_manage: ['Session initialization', 'Context loading'],
     travel_manage: ['Party travel', 'Encounter looting', 'Camp/rest'],
     batch_manage: ['Bulk character creation', 'Workflows', 'Templates'],
+    agent_manage: ['LLM-driven NPC minds', 'Modular prompt slices', 'Plain-text intent declarations', 'Auto-invoke on initiative'],
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -161,6 +164,7 @@ export function buildConsolidatedRegistry(): ToolRegistry {
                 true  // deferLoading
             ),
             schema: tool.inputSchema,
+            actionSchemas: (tool as { actionSchemas?: unknown }).actionSchemas,
             handler: handler as (args: unknown, ctx: SessionContext) => Promise<any>
         };
     }
@@ -182,7 +186,7 @@ export function getConsolidatedToolCategories(): ToolCategory[] {
         'world', 'combat', 'character', 'inventory', 'quest', 'party',
         'math', 'strategy', 'secret', 'concentration', 'rest', 'scroll',
         'aura', 'npc', 'spatial', 'theft', 'corpse', 'improvisation',
-        'turn-management', 'meta', 'narrative'
+        'turn-management', 'meta', 'narrative', 'agent'
     ];
 }
 

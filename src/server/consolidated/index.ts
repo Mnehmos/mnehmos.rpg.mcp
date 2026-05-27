@@ -49,6 +49,9 @@ export { SessionManageTool, handleSessionManage } from './session-manage.js';
 export { TravelManageTool, handleTravelManage } from './travel-manage.js';
 export { BatchManageTool, handleBatchManage } from './batch-manage.js';
 
+// Batch 7 - Agent (LLM-driven NPCs)
+export { AgentManageTool, handleAgentManage } from './agent-manage.js';
+
 /**
  * Array of all consolidated tool definitions for easy iteration
  */
@@ -80,6 +83,7 @@ import { SpawnManageTool, handleSpawnManage } from './spawn-manage.js';
 import { SessionManageTool, handleSessionManage } from './session-manage.js';
 import { TravelManageTool, handleTravelManage } from './travel-manage.js';
 import { BatchManageTool, handleBatchManage } from './batch-manage.js';
+import { AgentManageTool, handleAgentManage } from './agent-manage.js';
 
 export const ConsolidatedTools = [
     { tool: SecretManageTool, handler: handleSecretManage },
@@ -110,4 +114,5 @@ export const ConsolidatedTools = [
     { tool: SessionManageTool, handler: handleSessionManage },
     { tool: TravelManageTool, handler: handleTravelManage },
     { tool: BatchManageTool, handler: handleBatchManage },
+    { tool: AgentManageTool, handler: handleAgentManage },
 ];
