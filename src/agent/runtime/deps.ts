@@ -13,6 +13,7 @@ import { CharacterRepository } from '../../storage/repos/character.repo.js';
 import { ConcentrationRepository } from '../../storage/repos/concentration.repo.js';
 import { InventoryRepository } from '../../storage/repos/inventory.repo.js';
 import { NpcMemoryRepository } from '../../storage/repos/npc-memory.repo.js';
+import { EventInboxRepository } from '../../storage/repos/event-inbox.repo.js';
 
 export interface AgentRuntimeDeps {
     db: Database.Database;
@@ -22,6 +23,7 @@ export interface AgentRuntimeDeps {
     concentrationRepo: ConcentrationRepository;
     inventoryRepo: InventoryRepository;
     npcMemoryRepo: NpcMemoryRepository;
+    eventInboxRepo: EventInboxRepository;
 }
 
 let defaultDeps: AgentRuntimeDeps | null = null;
@@ -50,6 +52,7 @@ export function buildAgentRuntime(db: Database.Database, providerFactory: Provid
         characterRepo: new CharacterRepository(db),
         concentrationRepo: new ConcentrationRepository(db),
         inventoryRepo: new InventoryRepository(db),
-        npcMemoryRepo: new NpcMemoryRepository(db)
+        npcMemoryRepo: new NpcMemoryRepository(db),
+        eventInboxRepo: new EventInboxRepository(db)
     };
 }

@@ -189,6 +189,31 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
             round: input.round ?? null
         });
 
+        // Emit event_inbox row for frontend polling — npc_action with the response payload.
+        try {
+            deps.eventInboxRepo.push({
+                eventType: 'npc_action',
+                sourceType: 'npc',
+                sourceId: agent.characterId,
+                priority: 5,
+                payload: {
+                    agentId: agent.id,
+                    characterId: agent.characterId,
+                    characterName: character?.name ?? null,
+                    response: result.text,
+                    callId: call.id,
+                    encounterId: input.encounterId ?? null,
+                    round: input.round ?? null,
+                    promptTokens: result.promptTokens ?? null,
+                    completionTokens: result.completionTokens ?? null,
+                    durationMs: result.durationMs,
+                    status: 'ok'
+                }
+            });
+        } catch {
+            // Event emission must never break invoke — it's a one-way notification.
+        }
+
         return {
             callId: call.id,
             agentId: agent.id,
