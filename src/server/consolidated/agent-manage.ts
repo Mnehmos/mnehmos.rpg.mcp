@@ -23,8 +23,7 @@ import {
     AgentStatusSchema,
     AgentSliceKindSchema,
     AgentSecretImportanceSchema,
-    AgentJournalKindSchema,
-    AgentCallStatusSchema
+    AgentJournalKindSchema
 } from '../../schema/agent.js';
 import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/action-router.js';
 import { RichFormatter } from '../utils/formatter.js';

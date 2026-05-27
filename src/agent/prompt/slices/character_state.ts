@@ -117,7 +117,7 @@ export function buildCharacterStateSlice(
     const lines: string[] = [HEADER];
 
     // Identity line
-    const subclass = character.subclass ? ` ${character.subclass.name}` : '';
+    const subclass = character.subclass && character.subclass !== 'none' ? ` ${character.subclass.replace(/_/g, ' ')}` : '';
     lines.push(`${character.name} — ${character.race ?? 'Human'} ${character.characterClass ?? 'fighter'}${subclass}, level ${character.level}`);
 
     // Vital stats line

@@ -8,9 +8,13 @@
  * - On-demand schema loading
  */
 
+import { config as loadDotenv } from 'dotenv';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
+
+// Load .env BEFORE anything reads process.env (provider keys, agent config, etc.)
+loadDotenv();
 
 // Meta-tools and registry
 import { MetaTools, handleSearchTools, handleLoadToolSchema } from './meta-tools.js';
@@ -22,7 +26,11 @@ import { PubSub } from '../engine/pubsub.js';
 import { registerEventTools } from './events.js';
 import { AuditLogger } from './audit.js';
 import { withSession } from './types.js';
-import { closeDb, getDbPath } from '../storage/index.js';
+import { closeDb, getDb, getDbPath } from '../storage/index.js';
+
+// Agent runtime
+import { ProviderFactory } from '../agent/provider/factory.js';
+import { setAgentRuntime, buildAgentRuntime } from '../agent/runtime/deps.js';
 
 /**
  * Setup graceful shutdown handlers to ensure database is properly closed.
@@ -78,8 +86,25 @@ async function main() {
 
   const server = new McpServer({
     name: 'rpg-mcp',
-    version: '1.1.0'
+    version: '1.0.2'
   });
+
+  // =========================================================================
+  // AGENT RUNTIME: wire LLM providers + repos behind getAgentRuntime()
+  // =========================================================================
+  try {
+    const agentDb = getDb(getDbPath());
+    const providerFactory = new ProviderFactory();
+    const providers = providerFactory.initialize();
+    setAgentRuntime(buildAgentRuntime(agentDb, providerFactory));
+    if (providers.length > 0) {
+      console.error(`[Server] Agent runtime ready (providers: ${providers.join(', ')})`);
+    } else {
+      console.error('[Server] Agent runtime ready (no LLM provider keys found — set OPENAI_API_KEY and/or OPENROUTER_API_KEY to enable invoke)');
+    }
+  } catch (err) {
+    console.error(`[Server] Failed to initialize agent runtime: ${(err as Error).message}`);
+  }
 
   // Initialize PubSub for event subscription
   const pubsub = new PubSub();
@@ -155,14 +180,32 @@ async function main() {
     : (args.includes('--ws') || args.includes('--websocket')) ? 'websocket'
     : 'stdio';
 
+  const getArgValue = (name: string): string | undefined => {
+    const index = args.indexOf(name);
+    return index !== -1 ? args[index + 1] : undefined;
+  };
+  const networkHost = getArgValue('--host') || '127.0.0.1';
+  const transportToken = getArgValue('--transport-token') || process.env.RPG_MCP_TRANSPORT_TOKEN;
+  const maxMessageBytes = parseInt(getArgValue('--max-message-bytes') || '1048576', 10);
+
+  if ((transportType === 'tcp' || transportType === 'websocket') &&
+    networkHost !== '127.0.0.1' &&
+    networkHost !== 'localhost' &&
+    !transportToken) {
+    console.error('[Server] WARNING: network transport is not bound to loopback and no transport token is configured.');
+  }
+
   if (transportType === 'tcp') {
     const { TCPServerTransport } = await import('./transport/tcp.js');
-    const portIndex = args.indexOf('--port');
-    const port = portIndex !== -1 ? parseInt(args[portIndex + 1], 10) : 3000;
+    const port = getArgValue('--port') ? parseInt(getArgValue('--port')!, 10) : 3000;
 
-    const transport = new TCPServerTransport(port);
+    const transport = new TCPServerTransport(port, {
+      host: networkHost,
+      authToken: transportToken,
+      maxMessageBytes
+    });
     await server.connect(transport);
-    console.error(`RPG MCP Server running on TCP port ${port}`);
+    console.error(`RPG MCP Server running on TCP ${networkHost}:${port}`);
   } else if (transportType === 'unix') {
     const { UnixServerTransport } = await import('./transport/unix.js');
     let socketPath = '';
@@ -179,17 +222,20 @@ async function main() {
       socketPath = process.platform === 'win32' ? '\\\\.\\pipe\\rpg-mcp' : '/tmp/rpg-mcp.sock';
     }
 
-    const transport = new UnixServerTransport(socketPath);
+    const transport = new UnixServerTransport(socketPath, { maxMessageBytes });
     await server.connect(transport);
     console.error(`RPG MCP Server running on Unix socket ${socketPath}`);
   } else if (transportType === 'websocket') {
     const { WebSocketServerTransport } = await import('./transport/websocket.js');
-    const portIndex = args.indexOf('--port');
-    const port = portIndex !== -1 ? parseInt(args[portIndex + 1], 10) : 3001;
+    const port = getArgValue('--port') ? parseInt(getArgValue('--port')!, 10) : 3001;
 
-    const transport = new WebSocketServerTransport(port);
+    const transport = new WebSocketServerTransport(port, {
+      host: networkHost,
+      authToken: transportToken,
+      maxMessageBytes
+    });
     await server.connect(transport);
-    console.error(`RPG MCP Server running on WebSocket port ${port}`);
+    console.error(`RPG MCP Server running on WebSocket ${networkHost}:${port}`);
   } else {
     const transport = new StdioServerTransport();
     await server.connect(transport);

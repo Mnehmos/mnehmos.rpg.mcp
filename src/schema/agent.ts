@@ -137,16 +137,19 @@ export type AgentCall = z.infer<typeof AgentCallSchema>;
 // CREATE/UPDATE input types — repo accepts these, fills in id/timestamps
 // ============================================================================
 
-export const AgentCreateInputSchema = AgentSchema.omit({
-    id: true,
-    tokensUsed: true,
-    consecutiveFailures: true,
-    circuitState: true,
-    createdAt: true,
-    updatedAt: true
-}).extend({
+export const AgentCreateInputSchema = z.object({
     id: z.string().optional(),
+    characterId: z.string(),
+    provider: AgentProviderSchema,
+    model: z.string().min(1),
+    status: AgentStatusSchema.optional(),
+    autoOnTurn: z.boolean().optional(),
+    autoOnLegendary: z.boolean().optional(),
+    temperature: z.number().min(0).max(2).optional(),
+    maxTokens: z.number().int().positive().optional(),
+    budgetTokens: z.number().int().positive().nullable().optional(),
     tokensUsed: z.number().int().nonnegative().optional(),
+    timeoutMs: z.number().int().positive().optional(),
     consecutiveFailures: z.number().int().nonnegative().optional(),
     circuitState: AgentCircuitStateSchema.optional()
 });

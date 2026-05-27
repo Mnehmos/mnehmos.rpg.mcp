@@ -62,10 +62,6 @@ export interface ComposeResult {
 
 const TOKEN_RATIO = 4; // chars per token (rough)
 
-function estimateTokens(text: string): number {
-    return Math.ceil(text.length / TOKEN_RATIO);
-}
-
 function totalChars(messages: ChatMessage[]): number {
     return messages.reduce((sum, m) => sum + m.role.length + m.content.length + 8, 0);
 }
