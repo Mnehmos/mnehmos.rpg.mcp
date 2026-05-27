@@ -46,9 +46,9 @@ You talk to an AI (Claude, GPT, etc.) in natural language. You say things like "
 
 ## v1.0 Release (January 2026)
 
-### 85% Tool Reduction: 195 → 32 Tools (28 Consolidated + 4 Meta/Event)
+### 85% Tool Reduction: 195 → 33 Tools (29 Consolidated + 4 Meta/Event)
 
-This release consolidates 195 individual tools into **28 action-based tools** plus 4 standalone meta/event tools using:
+This release consolidates 195 individual tools into **29 action-based tools** plus 4 standalone meta/event tools using:
 
 - **Action enums** - Each tool handles multiple operations via an `action` parameter
 - **Fuzzy matching** - Typo-tolerant action matching with suggestions
@@ -118,7 +118,7 @@ This engine implements the **Event-Driven Agentic AI Architecture**:
 
 ---
 
-## Consolidated Tools Reference (28 Tools)
+## Consolidated Tools Reference (29 Tools)
 
 ### Character & Party
 
@@ -182,6 +182,12 @@ This engine implements the **Event-Driven Agentic AI Architecture**:
 | `session_manage` | initialize_session, get_context | Session state management |
 | `travel_manage` | travel, loot, rest | Party movement and field actions |
 | `batch_manage` | create_characters, create_npcs, distribute_items, execute_workflow | Bulk operations |
+
+### LLM-Driven NPCs (Agents)
+
+| Tool | Actions | Description |
+|------|---------|-------------|
+| `agent_manage` | create, get, list, update, delete, resume, health, budget, set_slice, remove_slice, toggle_slice, list_slices, narrate, broadcast, preview_prompt, add_secret, list_secrets, remove_secret, add_journal, get_journal, invoke, replay | Bind an LLM (OpenAI / OpenRouter) to a character as an autonomous NPC mind. Modular prompt slices (persona/directive/secrets/narrative_feed/recent/character_state), private journal, audit-logged calls, circuit breaker, plain-text intent declarations for DM dispatch. Auto-invokes on initiative when `auto_on_turn=true`. Emits `npc_action` events to `event_inbox` for frontend polling. |
 
 ---
 
