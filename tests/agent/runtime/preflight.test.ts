@@ -11,7 +11,6 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
         model: 'gpt-4o-mini',
         status: 'active',
         autoOnTurn: false,
-        autoOnLegendary: false,
         temperature: 0.7,
         maxTokens: 800,
         budgetTokens: null,

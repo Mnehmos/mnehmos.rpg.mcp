@@ -32,7 +32,8 @@ interface AgentRow {
     model: string;
     status: string;
     auto_on_turn: number;
-    auto_on_legendary: number;
+    // auto_on_legendary column exists in DB (defaults to 0) but is no longer
+    // exposed by the agent surface — it was never wired into the combat engine.
     temperature: number;
     max_tokens: number;
     budget_tokens: number | null;
@@ -101,7 +102,6 @@ function rowToAgent(row: AgentRow): Agent {
         model: row.model,
         status: row.status,
         autoOnTurn: row.auto_on_turn === 1,
-        autoOnLegendary: row.auto_on_legendary === 1,
         temperature: row.temperature,
         maxTokens: row.max_tokens,
         budgetTokens: row.budget_tokens,
@@ -180,15 +180,18 @@ export class AgentRepository {
         const id = input.id ?? randomUUID();
         const now = new Date().toISOString();
 
+        // auto_on_legendary column exists in DB (NOT NULL DEFAULT 0) but is not
+        // exposed by the agent surface — it was never wired into the combat engine.
+        // The DB DEFAULT 0 fills it in automatically for new rows.
         const stmt = this.db.prepare(`
             INSERT INTO agents (
                 id, character_id, provider, model, status,
-                auto_on_turn, auto_on_legendary, temperature, max_tokens, budget_tokens,
+                auto_on_turn, temperature, max_tokens, budget_tokens,
                 tokens_used, timeout_ms, consecutive_failures, circuit_state,
                 created_at, updated_at
             ) VALUES (
                 @id, @characterId, @provider, @model, @status,
-                @autoOnTurn, @autoOnLegendary, @temperature, @maxTokens, @budgetTokens,
+                @autoOnTurn, @temperature, @maxTokens, @budgetTokens,
                 @tokensUsed, @timeoutMs, @consecutiveFailures, @circuitState,
                 @createdAt, @updatedAt
             )
@@ -201,7 +204,6 @@ export class AgentRepository {
             model: input.model,
             status: input.status ?? 'active',
             autoOnTurn: input.autoOnTurn ? 1 : 0,
-            autoOnLegendary: input.autoOnLegendary ? 1 : 0,
             temperature: input.temperature ?? 0.7,
             maxTokens: input.maxTokens ?? 800,
             budgetTokens: input.budgetTokens ?? null,
@@ -258,7 +260,6 @@ export class AgentRepository {
             model: 'model',
             status: 'status',
             autoOnTurn: 'auto_on_turn',
-            autoOnLegendary: 'auto_on_legendary',
             temperature: 'temperature',
             maxTokens: 'max_tokens',
             budgetTokens: 'budget_tokens',

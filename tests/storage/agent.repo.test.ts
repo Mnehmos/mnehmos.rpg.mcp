@@ -78,7 +78,6 @@ describe('AgentRepository', () => {
                 provider: 'openrouter',
                 model: 'anthropic/claude-sonnet-4-5',
                 autoOnTurn: true,
-                autoOnLegendary: true,
                 temperature: 0.3,
                 maxTokens: 1200,
                 budgetTokens: 50000,
@@ -86,7 +85,6 @@ describe('AgentRepository', () => {
             });
 
             expect(agent.autoOnTurn).toBe(true);
-            expect(agent.autoOnLegendary).toBe(true);
             expect(agent.temperature).toBe(0.3);
             expect(agent.maxTokens).toBe(1200);
             expect(agent.budgetTokens).toBe(50000);

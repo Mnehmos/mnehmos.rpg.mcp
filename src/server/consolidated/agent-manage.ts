@@ -14,6 +14,7 @@
  */
 
 import { z } from 'zod';
+import { randomUUID } from 'crypto';
 import { SessionContext } from '../types.js';
 import { getDb } from '../../storage/index.js';
 import { AgentRepository } from '../../storage/repos/agent.repo.js';
@@ -103,7 +104,6 @@ const CreateSchema = z.object({
     model: z.string().min(1).describe('Model identifier (e.g. gpt-4o-mini, anthropic/claude-sonnet-4-5)'),
     status: AgentStatusSchema.optional(),
     autoOnTurn: z.boolean().optional().describe('Auto-invoke when this character\'s turn comes up in combat'),
-    autoOnLegendary: z.boolean().optional(),
     temperature: z.number().min(0).max(2).optional(),
     maxTokens: z.number().int().positive().optional(),
     budgetTokens: z.number().int().positive().optional(),
@@ -130,7 +130,6 @@ const UpdateSchema = z.object({
     model: z.string().min(1).optional(),
     status: AgentStatusSchema.optional(),
     autoOnTurn: z.boolean().optional(),
-    autoOnLegendary: z.boolean().optional(),
     temperature: z.number().min(0).max(2).optional(),
     maxTokens: z.number().int().positive().optional(),
     budgetTokens: z.number().int().positive().nullable().optional(),
@@ -301,7 +300,6 @@ async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<object>
         model: args.model,
         status: args.status,
         autoOnTurn: args.autoOnTurn ?? false,
-        autoOnLegendary: args.autoOnLegendary ?? false,
         temperature: args.temperature,
         maxTokens: args.maxTokens,
         budgetTokens: args.budgetTokens ?? null,
@@ -464,14 +462,15 @@ async function handleNarrate(args: z.infer<typeof NarrateSchema>): Promise<objec
     const agent = resolveAgent(agentRepo, args);
     if (!agent) return { error: true, message: 'Agent not found' };
 
-    // narrative_feed slices are append-only; each call creates a new labeled slice
-    // labeled with timestamp so compose can sort/trim them
-    const ts = new Date().toISOString();
+    // narrative_feed slices are append-only. Label = ISO timestamp + random suffix
+    // so two narrate calls in the same millisecond don't collide on the
+    // (agent_id, kind, label) upsert path in agentRepo.upsertSlice.
+    const label = `${new Date().toISOString()}-${randomUUID().slice(0, 8)}`;
     const slice = agentRepo.upsertSlice({
         agentId: agent.id,
         kind: 'narrative_feed',
         content: args.content,
-        label: ts
+        label
     });
 
     return {
@@ -485,6 +484,9 @@ async function handleNarrate(args: z.infer<typeof NarrateSchema>): Promise<objec
 
 async function handleBroadcast(args: z.infer<typeof BroadcastSchema>): Promise<object> {
     const { agentRepo } = ensureDb();
+    // Each broadcast entry gets its own unique label so multiple broadcasts in
+    // the same millisecond — or to the same agent within a single call — don't
+    // collide on the upsert key.
     const ts = new Date().toISOString();
 
     const results: { characterId: string; agentId: string | null; success: boolean; reason?: string }[] = [];
@@ -499,7 +501,7 @@ async function handleBroadcast(args: z.infer<typeof BroadcastSchema>): Promise<o
             agentId: agent.id,
             kind: 'narrative_feed',
             content: args.content,
-            label: ts
+            label: `${ts}-${randomUUID().slice(0, 8)}`
         });
         results.push({ characterId, agentId: agent.id, success: true });
     }
@@ -719,7 +721,6 @@ Actions: create, get, list, update, delete, resume, health, budget, set_slice, r
         model: z.string().optional(),
         status: AgentStatusSchema.optional(),
         autoOnTurn: z.boolean().optional(),
-        autoOnLegendary: z.boolean().optional(),
         temperature: z.number().optional(),
         maxTokens: z.number().optional(),
         budgetTokens: z.number().nullable().optional(),
