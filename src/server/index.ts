@@ -33,12 +33,18 @@ const __dirname = dirname(__filename);
 const envFromFile = resolve(__dirname, '..', '..', '.env');
 const envFromCwd = resolve(process.cwd(), '.env');
 
+// CRITICAL: pass quiet:true. dotenv v17 ships a startup banner like
+//   "◇ injected env (1) from .env // tip: ⌘ override existing { override: true }"
+// that writes to STDOUT. For an MCP server using stdio transport, anything on
+// STDOUT that isn't a JSON-RPC message causes the client's transport to throw
+// "Unexpected token '◇'... is not valid JSON" and the connection breaks before
+// the first proper message can be exchanged. quiet:true suppresses the banner.
 let envLoadedFrom: string | null = null;
 if (existsSync(envFromFile)) {
-  loadDotenv({ path: envFromFile });
+  loadDotenv({ path: envFromFile, quiet: true });
   envLoadedFrom = envFromFile;
 } else if (existsSync(envFromCwd)) {
-  loadDotenv({ path: envFromCwd });
+  loadDotenv({ path: envFromCwd, quiet: true });
   envLoadedFrom = envFromCwd;
 } else {
   // dotenv is silent if the file is missing — explicit no-op here for clarity.
