@@ -9,12 +9,41 @@
  */
 
 import { config as loadDotenv } from 'dotenv';
+import { existsSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, resolve } from 'node:path';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
 
 // Load .env BEFORE anything reads process.env (provider keys, agent config, etc.)
-loadDotenv();
+//
+// IMPORTANT: dotenv's default behavior is to read `.env` relative to
+// process.cwd(). MCP hosts almost universally spawn server binaries with
+// the host's cwd, not the project root — so a vanilla `loadDotenv()` would
+// silently load nothing and the operator gets the misleading
+// "Provider 'X' is not configured" error even when their .env is correct.
+//
+// Anchor the lookup to this file's location instead. dist/server/index.js
+// and src/server/index.ts both resolve `../../.env` to the project root.
+// We also keep a fallback to the cwd-relative load for non-standard layouts
+// (custom builds, alternate config paths).
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const envFromFile = resolve(__dirname, '..', '..', '.env');
+const envFromCwd = resolve(process.cwd(), '.env');
+
+let envLoadedFrom: string | null = null;
+if (existsSync(envFromFile)) {
+  loadDotenv({ path: envFromFile });
+  envLoadedFrom = envFromFile;
+} else if (existsSync(envFromCwd)) {
+  loadDotenv({ path: envFromCwd });
+  envLoadedFrom = envFromCwd;
+} else {
+  // dotenv is silent if the file is missing — explicit no-op here for clarity.
+  envLoadedFrom = null;
+}
 
 // Meta-tools and registry
 import { MetaTools, handleSearchTools, handleLoadToolSchema } from './meta-tools.js';
@@ -97,10 +126,22 @@ async function main() {
     const providerFactory = new ProviderFactory();
     const providers = providerFactory.initialize();
     setAgentRuntime(buildAgentRuntime(agentDb, providerFactory));
+
+    // Diagnostic: print enough to self-diagnose the "Provider not configured"
+    // error class without ever printing key values. The MCP-host-spawned-with-
+    // wrong-cwd trap is universal; surfacing the resolved .env path makes it
+    // obvious in 5 seconds.
+    console.error('[Agent] Runtime initialized:');
+    console.error(`[Agent]   .env loaded from: ${envLoadedFrom ?? '(none found — relying on ambient env)'}`);
+    console.error(`[Agent]   process cwd:      ${process.cwd()}`);
     if (providers.length > 0) {
-      console.error(`[Server] Agent runtime ready (providers: ${providers.join(', ')})`);
+      console.error(`[Agent]   providers ready:  ${providers.join(', ')}`);
     } else {
-      console.error('[Server] Agent runtime ready (no LLM provider keys found — set OPENAI_API_KEY and/or OPENROUTER_API_KEY to enable invoke)');
+      console.error('[Agent]   providers ready:  (none — set OPENAI_API_KEY and/or OPENROUTER_API_KEY)');
+      // Show which key names exist in the process env (presence only, never values)
+      const visibleKeys = ['OPENAI_API_KEY', 'OPENROUTER_API_KEY', 'OPENAI_ORGANIZATION', 'OPENROUTER_REFERER']
+        .filter(k => process.env[k] !== undefined);
+      console.error(`[Agent]   env keys visible: ${visibleKeys.length > 0 ? visibleKeys.join(', ') : '(none of the expected keys)'}`);
     }
   } catch (err) {
     console.error(`[Server] Failed to initialize agent runtime: ${(err as Error).message}`);

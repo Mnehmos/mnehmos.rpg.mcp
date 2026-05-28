@@ -373,12 +373,20 @@ async function handleResume(args: z.infer<typeof ResumeSchema>): Promise<object>
 }
 
 async function handleHealth(args: z.infer<typeof HealthSchema>): Promise<object> {
+    const runtime = ensureRuntime();
     const { agentRepo } = ensureDb();
     const agent = resolveAgent(agentRepo, args);
     if (!agent) return { error: true, message: 'Agent not found' };
 
     const recentCalls = agentRepo.listCalls(agent.id, { limit: 10 });
     const lastCall = recentCalls[0];
+
+    // Definitive answer to "can this agent actually speak right now?" — checks
+    // the live ProviderFactory, not just stored config. If providerAvailable is
+    // false, the agent's bound provider has no API key in the running process's
+    // environment (regardless of what .env says on disk).
+    const providerAvailable = runtime.providerFactory.tryGet(agent.provider) !== null;
+    const availableProviders = runtime.providerFactory.available();
 
     return {
         actionType: 'health',
@@ -389,6 +397,14 @@ async function handleHealth(args: z.infer<typeof HealthSchema>): Promise<object>
         tokensUsed: agent.tokensUsed,
         budgetTokens: agent.budgetTokens,
         budgetRemaining: agent.budgetTokens === null ? null : Math.max(0, agent.budgetTokens - agent.tokensUsed),
+        provider: agent.provider,
+        model: agent.model,
+        providerAvailable,
+        availableProviders,
+        canInvoke: agent.status === 'active'
+            && agent.circuitState !== 'open'
+            && providerAvailable
+            && (agent.budgetTokens === null || agent.tokensUsed < agent.budgetTokens),
         lastCallAt: lastCall?.createdAt ?? null,
         lastCallStatus: lastCall?.status ?? null,
         recentCallStatuses: recentCalls.map(c => c.status)
@@ -798,12 +814,19 @@ export async function handleAgentManage(args: unknown, ctx: SessionContext): Pro
                 case 'health':
                     output = RichFormatter.header('Agent Health', '');
                     output += RichFormatter.keyValue({
+                        'Can invoke now?': parsed.canInvoke ? 'YES' : 'NO',
                         'Status': parsed.status,
                         'Circuit': parsed.circuitState,
+                        'Provider': `${parsed.provider}:${parsed.model}`,
+                        'Provider configured': parsed.providerAvailable ? 'yes' : 'NO — key missing in process env',
+                        'Available providers': Array.isArray(parsed.availableProviders) && parsed.availableProviders.length > 0
+                            ? parsed.availableProviders.join(', ')
+                            : '(none)',
                         'Failures': parsed.consecutiveFailures,
                         'Tokens used': parsed.tokensUsed,
                         'Budget remaining': parsed.budgetRemaining ?? 'unlimited',
-                        'Last call': parsed.lastCallAt ?? 'never'
+                        'Last call': parsed.lastCallAt ?? 'never',
+                        'Last status': parsed.lastCallStatus ?? '—'
                     });
                     break;
                 case 'invoke': {
