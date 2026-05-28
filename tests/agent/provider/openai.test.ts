@@ -1,4 +1,4 @@
-import { OpenAIProvider } from '../../../src/agent/provider/openai.js';
+import { OpenAIProvider, isReasoningModel } from '../../../src/agent/provider/openai.js';
 import { ProviderError } from '../../../src/agent/provider/types.js';
 
 /**
@@ -77,7 +77,106 @@ describe('OpenAIProvider', () => {
         expect(body.model).toBe('gpt-4o');
         expect(body.temperature).toBe(0.3);
         expect(body.max_tokens).toBe(500);
+        expect(body.max_completion_tokens).toBeUndefined();
         expect(body.messages.length).toBe(2);
+    });
+
+    describe('reasoning/GPT-5 model parameter shape (regression for HTTP 400 max_tokens)', () => {
+        it.each(['gpt-5', 'gpt-5-mini', 'gpt-5-turbo', 'o1', 'o1-mini', 'o3', 'o3-mini', 'o4-mini'])(
+            'uses max_completion_tokens (not max_tokens) for model "%s"',
+            async (model) => {
+                const mock = mockFetch({
+                    body: JSON.stringify({ choices: [{ message: { content: 'x' } }] })
+                });
+                const provider = new OpenAIProvider({ apiKey: 'sk', fetchImpl: mock.fn });
+
+                await provider.call({
+                    model,
+                    messages: [{ role: 'user', content: 'hi' }],
+                    temperature: 0.7,
+                    maxTokens: 200
+                });
+
+                const body = JSON.parse(mock.lastRequest.init?.body as string);
+                expect(body.max_completion_tokens, `${model} should use max_completion_tokens`).toBe(200);
+                expect(body.max_tokens, `${model} must NOT send max_tokens`).toBeUndefined();
+            }
+        );
+
+        it.each(['gpt-5', 'o1', 'o3-mini'])(
+            'omits temperature on reasoning model "%s" (only default is allowed)',
+            async (model) => {
+                const mock = mockFetch({
+                    body: JSON.stringify({ choices: [{ message: { content: 'x' } }] })
+                });
+                const provider = new OpenAIProvider({ apiKey: 'sk', fetchImpl: mock.fn });
+
+                await provider.call({
+                    model,
+                    messages: [{ role: 'user', content: 'hi' }],
+                    temperature: 0.7
+                });
+
+                const body = JSON.parse(mock.lastRequest.init?.body as string);
+                expect(body.temperature).toBeUndefined();
+            }
+        );
+
+        it.each(['gpt-4', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo'])(
+            'keeps max_tokens + temperature for legacy model "%s"',
+            async (model) => {
+                const mock = mockFetch({
+                    body: JSON.stringify({ choices: [{ message: { content: 'x' } }] })
+                });
+                const provider = new OpenAIProvider({ apiKey: 'sk', fetchImpl: mock.fn });
+
+                await provider.call({
+                    model,
+                    messages: [{ role: 'user', content: 'hi' }],
+                    temperature: 0.5,
+                    maxTokens: 300
+                });
+
+                const body = JSON.parse(mock.lastRequest.init?.body as string);
+                expect(body.max_tokens).toBe(300);
+                expect(body.temperature).toBe(0.5);
+                expect(body.max_completion_tokens).toBeUndefined();
+            }
+        );
+
+        it('omits both fields when caller doesn\'t set them', async () => {
+            const mock = mockFetch({
+                body: JSON.stringify({ choices: [{ message: { content: 'x' } }] })
+            });
+            const provider = new OpenAIProvider({ apiKey: 'sk', fetchImpl: mock.fn });
+
+            await provider.call({
+                model: 'gpt-5',
+                messages: [{ role: 'user', content: 'hi' }]
+            });
+
+            const body = JSON.parse(mock.lastRequest.init?.body as string);
+            expect(body.max_tokens).toBeUndefined();
+            expect(body.max_completion_tokens).toBeUndefined();
+            expect(body.temperature).toBeUndefined();
+        });
+    });
+
+    describe('isReasoningModel', () => {
+        it.each(['o1', 'o1-mini', 'o3', 'o3-mini', 'o4-mini', 'gpt-5', 'gpt-5-mini', 'gpt-5-turbo'])(
+            '"%s" → true',
+            (m) => expect(isReasoningModel(m)).toBe(true)
+        );
+
+        it.each(['gpt-4', 'gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo', 'gpt-3.5-turbo', 'chatgpt-4o-latest'])(
+            '"%s" → false',
+            (m) => expect(isReasoningModel(m)).toBe(false)
+        );
+
+        it('is case-insensitive', () => {
+            expect(isReasoningModel('GPT-5')).toBe(true);
+            expect(isReasoningModel('O1-Mini')).toBe(true);
+        });
     });
 
     it('passes organization header when configured', async () => {

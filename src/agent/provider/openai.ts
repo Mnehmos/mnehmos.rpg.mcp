@@ -36,6 +36,23 @@ interface OpenAIChatResponse {
     error?: { message?: string; type?: string };
 }
 
+/**
+ * OpenAI's reasoning models (o1, o3, gpt-5 family) reject `max_tokens` —
+ * they require `max_completion_tokens` instead, because the old name was
+ * misleading once reasoning tokens entered the picture. They also reject
+ * any non-default temperature value.
+ *
+ * Detect by model-name prefix. If OpenAI adds a new reasoning family in the
+ * future, add the prefix here. Exported for testing.
+ */
+export function isReasoningModel(model: string): boolean {
+    const m = model.toLowerCase();
+    return m.startsWith('o1')
+        || m.startsWith('o3')
+        || m.startsWith('o4')
+        || m.startsWith('gpt-5');
+}
+
 export class OpenAIProvider implements LLMProvider {
     readonly name = 'openai' as const;
     private readonly apiKey: string;
@@ -61,12 +78,20 @@ export class OpenAIProvider implements LLMProvider {
         };
         if (this.organization) headers['OpenAI-Organization'] = this.organization;
 
-        const body = {
+        // OpenAI's reasoning/GPT-5 family rejects `max_tokens` and only accepts
+        // `max_completion_tokens`. They also reject any custom temperature
+        // (only default 1 is allowed). Detect and switch parameter shape.
+        const reasoningModel = isReasoningModel(opts.model);
+        const body: Record<string, unknown> = {
             model: opts.model,
-            messages: opts.messages,
-            temperature: opts.temperature,
-            max_tokens: opts.maxTokens
+            messages: opts.messages
         };
+        if (opts.maxTokens !== undefined) {
+            body[reasoningModel ? 'max_completion_tokens' : 'max_tokens'] = opts.maxTokens;
+        }
+        if (opts.temperature !== undefined && !reasoningModel) {
+            body.temperature = opts.temperature;
+        }
 
         let response: Response;
         try {
