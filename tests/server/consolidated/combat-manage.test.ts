@@ -59,6 +59,45 @@ describe('combat_manage consolidated tool', () => {
         });
     });
 
+    describe('terrain field robustness (regression for playtest bug)', () => {
+        const minimalParticipants = [
+            { id: 'h1', name: 'H', initiativeBonus: 0, hp: 10, maxHp: 10, isEnemy: false, conditions: [], position: { x: 0, y: 0 } },
+            { id: 'e1', name: 'E', initiativeBonus: 0, hp: 10, maxHp: 10, isEnemy: true, conditions: [], position: { x: 5, y: 5 } }
+        ];
+
+        it('accepts terrain as an object literal', async () => {
+            const result = await handleCombatManage({
+                action: 'create',
+                seed: 'terrain-obj',
+                participants: minimalParticipants,
+                terrain: { obstacles: ['altar'], difficultTerrain: ['mud'], water: ['pool'] }
+            }, ctx);
+            const data = parseResult(result);
+            expect(data.success).toBe(true);
+        });
+
+        it('accepts terrain as a JSON-stringified object (some MCP transports stringify)', async () => {
+            const result = await handleCombatManage({
+                action: 'create',
+                seed: 'terrain-str',
+                participants: minimalParticipants,
+                terrain: JSON.stringify({ obstacles: ['altar'], difficultTerrain: ['mud'], water: ['pool'] })
+            }, ctx);
+            const data = parseResult(result);
+            expect(data.success).toBe(true);
+        });
+
+        it('accepts terrain field omitted entirely', async () => {
+            const result = await handleCombatManage({
+                action: 'create',
+                seed: 'terrain-none',
+                participants: minimalParticipants
+            }, ctx);
+            const data = parseResult(result);
+            expect(data.success).toBe(true);
+        });
+    });
+
     describe('create action', () => {
         it('should create a new encounter', async () => {
             const result = await handleCombatManage({

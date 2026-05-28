@@ -68,6 +68,40 @@ describe('agent_manage tool', () => {
         }
     });
 
+    // ─────────── MCP-boundary inputSchema (caught the add_journal bug) ───────────
+
+    describe('MCP-boundary inputSchema', () => {
+        it('accepts slice kinds on set_slice', () => {
+            const parsed = AgentManageTool.inputSchema.safeParse({
+                action: 'set_slice', characterId: 'c1', kind: 'persona', content: 'x'
+            });
+            expect(parsed.success).toBe(true);
+        });
+
+        it('accepts journal kinds on add_journal (regression for the playtest bug)', () => {
+            for (const kind of ['response', 'observation', 'plan', 'reflection', 'dm_note']) {
+                const parsed = AgentManageTool.inputSchema.safeParse({
+                    action: 'add_journal', characterId: 'c1', kind, content: 'x'
+                });
+                expect(parsed.success, `kind=${kind} should be accepted`).toBe(true);
+            }
+        });
+
+        it('rejects truly invalid kind values', () => {
+            const parsed = AgentManageTool.inputSchema.safeParse({
+                action: 'add_journal', characterId: 'c1', kind: 'banana', content: 'x'
+            });
+            expect(parsed.success).toBe(false);
+        });
+
+        it('accepts journal kinds array on get_journal', () => {
+            const parsed = AgentManageTool.inputSchema.safeParse({
+                action: 'get_journal', characterId: 'c1', kinds: ['observation', 'plan']
+            });
+            expect(parsed.success).toBe(true);
+        });
+    });
+
     // ─────────── Lifecycle ───────────
 
     describe('lifecycle', () => {

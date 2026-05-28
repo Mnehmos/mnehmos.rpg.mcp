@@ -728,8 +728,10 @@ Actions: create, get, list, update, delete, resume, health, budget, set_slice, r
         // budget
         setBudget: z.number().nullable().optional(),
         resetUsage: z.boolean().optional(),
-        // slice
-        kind: AgentSliceKindSchema.optional(),
+        // slice OR journal kind — per-action schemas (SetSliceSchema, AddJournalSchema)
+        // enforce the correct subset; the MCP boundary just needs to allow either enum
+        // through so add_journal isn't rejected at the wire layer.
+        kind: z.union([AgentSliceKindSchema, AgentJournalKindSchema]).optional(),
         content: z.string().optional(),
         label: z.string().nullable().optional(),
         orderIndex: z.number().optional(),

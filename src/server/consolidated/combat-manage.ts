@@ -76,11 +76,22 @@ function deriveIsEnemy(p: { isEnemy?: boolean; side?: string }): boolean | undef
     return p.side === 'enemy' || p.side === 'hostile';
 }
 
-const TerrainSchema = z.object({
-    obstacles: z.array(z.string()).default([]),
-    difficultTerrain: z.array(z.string()).optional(),
-    water: z.array(z.string()).optional()
-}).optional();
+// Some MCP transports / hosts serialize nested object parameters as JSON strings.
+// Preprocess so callers can pass either a literal object OR a JSON-stringified object
+// and we end up with a real object before the inner schema validates.
+const TerrainSchema = z.preprocess(
+    (val) => {
+        if (typeof val === 'string' && val.trim().startsWith('{')) {
+            try { return JSON.parse(val); } catch { return val; }
+        }
+        return val;
+    },
+    z.object({
+        obstacles: z.array(z.string()).default([]),
+        difficultTerrain: z.array(z.string()).optional(),
+        water: z.array(z.string()).optional()
+    }).optional()
+);
 
 const CreateSchema = z.object({
     action: z.literal('create'),
