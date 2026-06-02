@@ -1,51 +1,92 @@
 /**
- * Bastion (Sebastopyr) Seeder
- * ---------------------------
- * Bridges the canon-archive bootstrap JSON (docs/bastion/rpg-mcp-bootstrap.json)
- * to the rpg-mcp engine's consolidated-tool handlers by invoking them in-process
- * with a fabricated SessionContext.
+ * Bastion (Sebastopyr) Seeder — REWRITE
+ * --------------------------------------
+ * Bridges docs/bastion/rpg-mcp-bootstrap.json to the live rpg-mcp engine by
+ * invoking consolidated tool handlers in-process with a fabricated
+ * SessionContext.
+ *
+ * The previous seeder was a draft. This rewrite incorporates everything we
+ * learned from the playtest:
+ *
+ *   • The Sebastopyr world ALREADY EXISTS in the live DB and 19 cathedral
+ *     rooms are hand-built. We MUST NOT recreate either. Both are constants.
+ *   • Bootstrap location names that match one of the 19 existing rooms are
+ *     skipped entirely; only net-new locations go through spatial_manage.
+ *   • NPCs get placed at create-time by:
+ *         1) character_manage.create  (no currentRoomId support)
+ *         2) characterRepo.update     (sets current_room_id directly)
+ *     using the assigned_room_name → existing UUID map from the survey.
+ *   • Tier-aware NPCs: paragons / central villains / chief summoners get
+ *     real stat blocks (level ~7), broker tier ~3, minor NPCs level 1.
+ *   • Stain / aspersoir / grace facts go into agent_manage.add_secret so
+ *     the bound LLM actually reads them, NOT into canonical_moment notes.
+ *   • Bestiary entries are narrative-only canonical_moment notes (never
+ *     character_manage.create — they have no real stat blocks).
+ *   • Factions / plot_threads / timeline / pantheon / bargain_ledger /
+ *     rpg_mcp_seeds → narrative_manage.batch_add with proper note types
+ *     and urgency buckets.
+ *   • npc_memory seed memories are written via NpcMemoryRepository directly
+ *     (no MCP tool exposes it). Two-three bible memories per llm-bindable
+ *     NPC, characterId == npcId (NPCs talking to themselves as a journal).
+ *   • Idempotency: looks up existing characters by exact name BEFORE create
+ *     and skips if already present. Re-running this script will not produce
+ *     38 duplicate NPCs.
  *
  * Run:
  *   npx tsx scripts/seed-bastion.ts
- *   (or compile and: node dist/scripts/seed-bastion.js)
  *
- * This script does NOT go through the MCP transport — it imports the handler
- * functions from src/server/consolidated/* directly and calls them as functions.
- * Every write therefore lands in the same SQLite file that the live MCP server
- * uses (governed by RPG_MCP_DB_PATH / --db-path / the platform app-data default).
- *
- * Order of operations (mirrors the tool-map plan):
- *   1. world_manage.create                  (one world)
- *   2. spatial_manage.generate               (44 locations -> slug->uuid map)
- *   3. narrative_manage.batch_add (factions) (50 -> slug->uuid map)
- *   4. character_manage.create   (npcs)      (38 -> slug->uuid map)
- *   5. agent_manage.create        (llm-bindable subset)
- *   6. narrative_manage.batch_add (plot_threads)
- *   7. character_manage.create    (bestiary, characterType='enemy')
- *   8. narrative_manage.batch_add (timeline / pantheon / daily_life / bargain_ledger)
- *   9. narrative_manage.batch_add (rpg_mcp_seeds.narrative_manage_seeds, flattened)
+ * The DB path resolves through getDb() — uses RPG_MCP_DB_PATH or the
+ * platform AppData default (Windows: %APPDATA%/rpg-mcp/rpg.db).
  */
 
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
-import { handleWorldManage } from '../src/server/consolidated/world-manage.js';
+
 import { handleSpatialManage } from '../src/server/consolidated/spatial-manage.js';
 import { handleNarrativeManage } from '../src/server/consolidated/narrative-manage.js';
-import { handleCharacterManage } from '../src/server/consolidated/character-manage.js';
-import { handleAgentManage } from '../src/server/consolidated/agent-manage.js';
+import { handleCreate as handleCharacterCreate } from '../src/server/consolidated/character-manage.js';
+import { handleCreate as handleAgentCreate, handleAddSecret as handleAgentAddSecret } from '../src/server/consolidated/agent-manage.js';
 import type { SessionContext } from '../src/server/types.js';
 import { getDb } from '../src/storage/index.js';
+import { CharacterRepository } from '../src/storage/repos/character.repo.js';
+import { NpcMemoryRepository, type Familiarity, type Disposition, type Importance } from '../src/storage/repos/npc-memory.repo.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
-// CONFIG
+// CONFIG  —  the live world and pre-built rooms (DO NOT regenerate)
 // ═══════════════════════════════════════════════════════════════════════════
 
 const SESSION_ID = 'bastion-seeder';
-const WORLD_NAME = 'Sebastopyr';
-const WORLD_SEED = 'sebastopyr-606-pd';
-const WORLD_WIDTH = 400;
-const WORLD_HEIGHT = 300;
+
+/** The Sebastopyr world already exists. We seed INTO it. */
+const SEBASTOPYR_WORLD_ID = '33e0a378-0278-41ea-bd7a-1645b914a777';
+
+/**
+ * Hand-built rooms. Bootstrap locations whose name matches a key here are
+ * SKIPPED for spatial_manage.generate; their UUID is used directly for NPC
+ * placement instead.
+ */
+const EXISTING_ROOMS: Record<string, string> = {
+    'Vocation House Inner Chamber':   '62ff2dd0-57af-4a9f-8207-695ef77b70f4',
+    'Vestibule of Discernment':       'a492cab2-473a-4dab-8c5e-dd6116e1ddb6',
+    'Cathedral Sebastinum — Nave':    'e33202b2-7d2d-4227-b7f7-ec9eabf3be2f',
+    'Sanctuary of the Sebastopater':  '8435cc73-59fd-49b3-a739-ed7124d14c43',
+    'Choir of the Watch':             'cc50876f-c764-4c1d-b345-69e209aa659b',
+    'Hall of the Long Vigil':         'a0048871-3808-489e-baa8-c074c074c428',
+    'Audit-Below':                    'e32d743e-863c-464d-9945-31e7b371ac14',
+    'Sacristy':                       '1ced604c-e677-421b-b4a7-87ce826c4bb4',
+    'Almongate Plaza':                '1b489c25-f6d3-4949-bf99-32e5ed174cce',
+    'Bell-Tower of the First Watch':  '74d7559f-ec13-42d3-8e7a-6a3a9c39a2e2',
+    'Aspersoir-Reading Chamber':      '288bcaa8-a511-447d-9b4d-2a1d2d54fc84',
+    'Cantorial Dormitory of the Watch': 'ee30e844-9abb-4839-b67c-aa63fa13aa45',
+    'Vas Approach Corridor':          '47b6c952-4a90-44c7-a4d2-4ce018875ae8',
+    'Almongate':                      'ade66ab8-8731-4bcf-a8a1-49dcb9abf3d8',
+    'Vas Halidani':                   'cac47943-474a-4abe-b0a3-3ef8badc66ee',
+    'Outer Vocation House Hall':      '489be5cb-c1a4-4fb8-a462-80e256b75650',
+    'Almongate Road':                 '8951f7da-73f4-4400-8136-86efbfdc89c2',
+    'Pyric Cathedrate Library':       'b07eab5b-ab0f-433a-a3d0-9e661887625b',
+    "Sebastopater's Cell":            '1fe52325-4302-4dc2-ad48-d5cdbf4bbf4e'
+};
 
 const AGENT_DEFAULTS = {
     provider: 'openrouter' as const,
@@ -54,13 +95,28 @@ const AGENT_DEFAULTS = {
     maxTokens: 2048
 };
 
+/**
+ * NPC categories whose agents should auto-fire on their character's turn.
+ * Broadened from the 6-category original list to include the bargain
+ * brokers and info brokers the bible explicitly flags as scene-drivers.
+ */
 const AUTO_ON_TURN_CATEGORIES = new Set<string>([
     'central_righteous_villain',
     'demonic_power',
     'heretical_leader_conscripted',
     'order_general_voice_of_paragon',
     'paragon',
-    'paragon_of_institution'
+    'paragon_of_institution',
+    'archbishop_equivalent_gatekeeper',
+    'high_inquisitor',
+    'chief_summoner',
+    'demonic_bargain_broker_sanctioned',
+    'demonic_bargain_broker_heretic',
+    'divine_bargain_broker',
+    'info_broker_rationer',
+    'cantorial_doctrinal',
+    'cantorial_musical',
+    'crown_regent'
 ]);
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -71,52 +127,135 @@ const BOOTSTRAP_PATH = join(__dirname, '..', 'docs', 'bastion', 'rpg-mcp-bootstr
 // ═══════════════════════════════════════════════════════════════════════════
 
 const PEOPLE_TO_RACE: Record<string, string> = {
-    'Vespertine human': 'Human',
-    'Vesperine': 'Human',
-    'Vesperine (Half-Kind)': 'Human',
-    'The Vesperine': 'Human',
-    'Ferrenkin': 'Dwarf',
-    'The Ferrenkin': 'Dwarf',
-    'Caer-Druin': 'Elf',
-    'The Caer-Druin': 'Elf',
-    'Caer-Druin (Hollowed)': 'Elf',
-    'Mournwing': 'Aarakocra',
-    'The Mournwing': 'Aarakocra',
-    'Called (Battle-Mage)': 'Human',
-    'Called': 'Human',
-    'Demonic principality': 'Outsider',
-    'Demon': 'Outsider',
-    'Fiend': 'Outsider'
+    'Vespertine human':           'Human',
+    'Vesperine':                  'Human',
+    'Vesperine (Half-Kind)':      'Human',
+    'Vesperine (sealed)':         'Human',
+    'The Vesperine':              'Human',
+    'Cinder Hand':                'Human',
+    'Ferrenkin':                  'Dwarf',
+    'The Ferrenkin':              'Dwarf',
+    'Caer-Druin':                 'Elf',
+    'The Caer-Druin':             'Elf',
+    'Caer-Druin (Hollowed)':      'Elf',
+    'Mournwing':                  'Aarakocra',
+    'The Mournwing':              'Aarakocra',
+    'Called (Battle-Mage)':       'Human',
+    'Called':                     'Human',
+    'Demonic principality':       'Outsider',
+    'Demon':                      'Outsider',
+    'Fiend':                      'Outsider'
 };
 
+function resolveRace(people: string | undefined): string {
+    if (!people) return 'Human';
+    if (PEOPLE_TO_RACE[people]) return PEOPLE_TO_RACE[people];
+    // Strip any " (...)" qualifier
+    const stripped = people.replace(/\s*\(.+?\)\s*$/, '').trim();
+    if (PEOPLE_TO_RACE[stripped]) return PEOPLE_TO_RACE[stripped];
+    return 'Human';
+}
+
+/**
+ * Category → class. Bargain brokers are deliberately mapped to Warlock so
+ * the agent prompt's class slot reflects the pact-broker reality.
+ */
 const CATEGORY_TO_CLASS: Record<string, string> = {
-    'central_righteous_villain': 'Cleric',
-    'chief_summoner': 'Cleric',
-    'demonic_power': 'Fiend',
-    'paragon': 'Paladin',
-    'paragon_of_institution': 'Cleric',
-    'order_general_voice_of_paragon': 'Fighter',
-    'heretical_leader_conscripted': 'Warlock'
+    'central_righteous_villain':            'Cleric',
+    'chief_summoner':                       'Cleric',
+    'demonic_power':                        'Fiend',
+    'paragon':                              'Paladin',
+    'paragon_of_institution':               'Cleric',
+    'order_general_voice_of_paragon':       'Fighter',
+    'order_general_field':                  'Fighter',
+    'frontier_field_commander':             'Fighter',
+    'wall_witness':                         'Fighter',
+    'heretical_leader_conscripted':         'Warlock',
+    'heretical_press_editor':               'Rogue',
+    'archbishop_equivalent_gatekeeper':     'Cleric',
+    'high_inquisitor':                      'Cleric',
+    'inquisitor_reader':                    'Cleric',
+    'inquisitor_dissident':                 'Cleric',
+    'inquisitor_field':                     'Cleric',
+    'hidden_stain':                         'Cleric',
+    'cantorial_doctrinal':                  'Bard',
+    'cantorial_musical':                    'Bard',
+    'demonic_bargain_broker_sanctioned':    'Warlock',
+    'demonic_bargain_broker_heretic':       'Warlock',
+    'divine_bargain_broker':                'Cleric',
+    'info_broker_rationer':                 'Rogue',
+    'introduction_broker':                  'Rogue',
+    'crown_regent':                         'Noble',
+    'crown_heir':                           'Noble',
+    'civic_industrialist':                  'Noble',
+    'confessor_murdered':                   'Cleric',
+    'postulant_investigator':               'Cleric',
+    'veriarch_confessor':                   'Cleric',
+    'veriarch_sympathetic':                 'Cleric',
+    'cisternkeeper':                        'Fighter',
+    'sister_carcer':                        'Cleric'
 };
 
-type TierTemplate = {
-    level: number;
-    hp: number;
-    ac: number;
-    stats: { str: number; dex: number; con: number; int: number; wis: number; cha: number };
+function resolveClass(category: string | undefined): string {
+    if (!category) return 'Commoner';
+    return CATEGORY_TO_CLASS[category] ?? 'Commoner';
+}
+
+/**
+ * NPC tier → stats template. Tier is INFERRED from category since the
+ * bootstrap doesn't carry an explicit npc tier (only bestiary does).
+ */
+type Tier = 1 | 2 | 3 | 4;
+type StatBlock = { str: number; dex: number; con: number; int: number; wis: number; cha: number };
+type Template = { level: number; hp: number; ac: number; stats: StatBlock };
+
+const TIER_TEMPLATE: Record<Tier, Template> = {
+    1: { level: 1,  hp: 9,   ac: 11, stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 } },
+    2: { level: 3,  hp: 24,  ac: 13, stats: { str: 12, dex: 12, con: 12, int: 11, wis: 12, cha: 11 } },
+    3: { level: 5,  hp: 45,  ac: 15, stats: { str: 13, dex: 13, con: 13, int: 13, wis: 14, cha: 13 } },
+    4: { level: 9,  hp: 95,  ac: 17, stats: { str: 14, dex: 14, con: 16, int: 16, wis: 16, cha: 16 } }
 };
 
-const TIER_TO_STATS: Record<number, TierTemplate> = {
-    1: { level: 1, hp: 10, ac: 10, stats: { str: 8, dex: 8, con: 8, int: 8, wis: 8, cha: 8 } },
-    2: { level: 3, hp: 25, ac: 13, stats: { str: 14, dex: 12, con: 13, int: 8, wis: 10, cha: 8 } },
-    3: { level: 6, hp: 60, ac: 15, stats: { str: 16, dex: 14, con: 16, int: 10, wis: 12, cha: 10 } },
-    4: { level: 12, hp: 120, ac: 17, stats: { str: 18, dex: 14, con: 18, int: 12, wis: 14, cha: 14 } }
+/** Category → tier. Senior cathedral / order / demonic powers are tier 4. */
+const CATEGORY_TIER: Record<string, Tier> = {
+    'paragon_of_institution':               4,
+    'paragon':                              4,
+    'central_righteous_villain':            4,
+    'demonic_power':                        4,
+    'archbishop_equivalent_gatekeeper':     4,
+    'high_inquisitor':                      4,
+    'order_general_voice_of_paragon':       4,
+    'order_general_field':                  3,
+    'chief_summoner':                       4,
+    'cantorial_doctrinal':                  3,
+    'cantorial_musical':                    3,
+    'crown_regent':                         3,
+    'crown_heir':                           2,
+    'civic_industrialist':                  3,
+    'heretical_leader_conscripted':         3,
+    'heretical_press_editor':               3,
+    'inquisitor_reader':                    3,
+    'inquisitor_dissident':                 3,
+    'inquisitor_field':                     3,
+    'frontier_field_commander':             3,
+    'demonic_bargain_broker_sanctioned':    3,
+    'demonic_bargain_broker_heretic':       3,
+    'divine_bargain_broker':                3,
+    'info_broker_rationer':                 2,
+    'introduction_broker':                  2,
+    'hidden_stain':                         2,
+    'wall_witness':                         2,
+    'postulant_investigator':               1,
+    'cisternkeeper':                        2,
+    'sister_carcer':                        2,
+    'veriarch_confessor':                   2,
+    'veriarch_sympathetic':                 2,
+    'confessor_murdered':                   1  // deceased — level low, narrative only
 };
 
-function tierTemplate(tier: number | undefined): TierTemplate {
-    if (typeof tier !== 'number' || tier < 1) return TIER_TO_STATS[1];
-    if (tier >= 4) return TIER_TO_STATS[4];
-    return TIER_TO_STATS[tier as 1 | 2 | 3];
+function categoryToTemplate(category: string | undefined): Template {
+    const t = (category && CATEGORY_TIER[category]) || 1;
+    return TIER_TEMPLATE[t];
 }
 
 type UrgencyBucket = 'low' | 'medium' | 'high' | 'critical';
@@ -130,9 +269,65 @@ function bucketUrgency(raw: unknown): UrgencyBucket {
     return 'critical';
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// NPC → ROOM placement (FROM SURVEY — 38 hand-curated assignments)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Maps npc.raw.id → the assigned_room_name from the survey. The lookup
+ * inside EXISTING_ROOMS gives the UUID. Null means "no placement".
+ */
+const NPC_ROOM_PLACEMENT: Record<string, string | null> = {
+    npc_001: 'Sanctuary of the Sebastopater',
+    npc_002: 'Almongate',                       // Paragon is at Ferrostat; Almongate is closest in-city anchor
+    npc_003: "Sebastopater's Cell",
+    npc_004: 'Audit-Below',
+    npc_005: 'Almongate Plaza',
+    npc_006: 'Audit-Below',
+    npc_007: 'Aspersoir-Reading Chamber',
+    npc_008: 'Vas Halidani',
+    npc_009: 'Bell-Tower of the First Watch',
+    npc_010: 'Almongate Road',
+    npc_011: 'Bell-Tower of the First Watch',
+    npc_012: 'Pyric Cathedrate Library',
+    npc_013: 'Choir of the Watch',
+    npc_014: 'Outer Vocation House Hall',
+    npc_015: 'Almongate Plaza',
+    npc_016: 'Almongate Plaza',
+    npc_017: 'Almongate Road',
+    npc_018: 'Almongate',
+    npc_019: 'Vas Approach Corridor',
+    npc_020: 'Almongate Road',
+    npc_021: 'Audit-Below',
+    npc_022: 'Cantorial Dormitory of the Watch',
+    npc_023: 'Sacristy',
+    npc_024: 'Audit-Below',
+    npc_025: 'Audit-Below',
+    npc_026: 'Almongate',
+    npc_027: 'Almongate Road',
+    npc_028: 'Almongate Road',
+    npc_029: 'Almongate Plaza',
+    npc_030: 'Sacristy',
+    npc_031: 'Outer Vocation House Hall',
+    npc_032: 'Choir of the Watch',
+    npc_033: 'Vas Approach Corridor',
+    npc_034: 'Aspersoir-Reading Chamber',
+    npc_035: 'Audit-Below',
+    npc_036: 'Hall of the Long Vigil',
+    npc_037: 'Almongate Plaza',
+    npc_038: 'Almongate'
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BIOME / ATMOSPHERICS
+// ═══════════════════════════════════════════════════════════════════════════
+
+type Biome = 'forest' | 'mountain' | 'coastal' | 'cavern' | 'urban' | 'dungeon' | 'divine' | 'arcane';
+type Atmospheric = 'DARKNESS' | 'FOG' | 'ANTIMAGIC' | 'SILENCE' | 'BRIGHT' | 'MAGICAL';
+
 const URBAN_TYPES = new Set(['district', 'key_location', 'building', 'shrine']);
 
-const BIOME_KEYWORDS: Array<{ biome: 'forest' | 'mountain' | 'coastal' | 'cavern' | 'urban' | 'dungeon' | 'divine' | 'arcane'; tokens: string[] }> = [
+const BIOME_KEYWORDS: Array<{ biome: Biome; tokens: string[] }> = [
     { biome: 'cavern',   tokens: ['cinderbelow', 'audit-below', 'undercroft', 'cave', 'gallery', 'tunnel', 'crypt', 'vault'] },
     { biome: 'coastal',  tokens: ['mire', 'marsh', 'fen', 'estuary', 'river', 'wharf', 'sea', 'shore', 'coast'] },
     { biome: 'mountain', tokens: ['stat', 'crag', 'peak', 'pass', 'ridge', 'cliff', 'spire', 'roost'] },
@@ -141,7 +336,7 @@ const BIOME_KEYWORDS: Array<{ biome: 'forest' | 'mountain' | 'coastal' | 'cavern
     { biome: 'arcane',   tokens: ['ward', 'sigil', 'circle', 'binding', 'rite', 'cantor'] }
 ];
 
-function pickBiome(raw: BootstrapLocation['raw']): 'forest' | 'mountain' | 'urban' | 'dungeon' | 'coastal' | 'cavern' | 'divine' | 'arcane' {
+function pickBiome(raw: BootstrapLocation['raw']): Biome {
     const type = (raw?.type ?? '').toLowerCase();
     if (URBAN_TYPES.has(type)) return 'urban';
 
@@ -156,31 +351,21 @@ function pickBiome(raw: BootstrapLocation['raw']): 'forest' | 'mountain' | 'urba
     return 'urban';
 }
 
-const ATMOSPHERIC_TOKENS: Array<'DARKNESS' | 'FOG' | 'ANTIMAGIC' | 'SILENCE' | 'BRIGHT' | 'MAGICAL'> =
-    ['DARKNESS', 'FOG', 'ANTIMAGIC', 'SILENCE', 'BRIGHT', 'MAGICAL'];
-
-function scanAtmospherics(atmosphere: string | undefined): Array<'DARKNESS' | 'FOG' | 'ANTIMAGIC' | 'SILENCE' | 'BRIGHT' | 'MAGICAL'> {
+function scanAtmospherics(atmosphere: string | undefined): Atmospheric[] {
     if (!atmosphere) return [];
     const lower = atmosphere.toLowerCase();
-    const hits: Array<'DARKNESS' | 'FOG' | 'ANTIMAGIC' | 'SILENCE' | 'BRIGHT' | 'MAGICAL'> = [];
+    const hits: Atmospheric[] = [];
     if (/(dark|gloom|black|shadow|night|cinder)/.test(lower)) hits.push('DARKNESS');
     if (/(fog|mist|haze|smoke|vapou?r)/.test(lower)) hits.push('FOG');
     if (/(antimagic|null|warded|silenced rite)/.test(lower)) hits.push('ANTIMAGIC');
     if (/(silence|hush|quiet|muted)/.test(lower)) hits.push('SILENCE');
     if (/(bright|sunlit|honey-light|lit|candle)/.test(lower)) hits.push('BRIGHT');
     if (/(arcane|magical|sigil|warding|liturg)/.test(lower)) hits.push('MAGICAL');
-    // Dedupe while preserving order
-    return Array.from(new Set(hits)).filter((t): t is typeof ATMOSPHERIC_TOKENS[number] =>
-        (ATMOSPHERIC_TOKENS as readonly string[]).includes(t)
-    );
+    return Array.from(new Set(hits));
 }
 
-const DISTRICT_RING_ORDER = [
-    'apex', 'upper terraces', 'upper-mid', 'mid', 'under', 'cinderbelow'
-];
-
 // ═══════════════════════════════════════════════════════════════════════════
-// BOOTSTRAP TYPES (loose — bootstrap is heterogenous)
+// BOOTSTRAP TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface BootstrapLocation {
@@ -220,8 +405,6 @@ interface BootstrapFaction {
         allies?: string[];
         rivals?: string[];
         secretly_compromised_by?: string[];
-        standing?: unknown;
-        debt?: unknown;
         tags?: string[];
         [k: string]: unknown;
     };
@@ -248,7 +431,7 @@ interface BootstrapNpc {
             timeoutMs?: number;
         };
         stain_apparent?: string;
-        stain_actual?: number;
+        stain_actual?: number | null;
         aspersoir_tick?: number;
         grace_pool?: number;
         knownSpells?: string[];
@@ -394,7 +577,7 @@ interface Bootstrap {
     bestiary: BootstrapBeast[];
     timeline: BootstrapTimelineEvent[];
     pantheon: BootstrapPantheon[];
-    daily_life: BootstrapDaily[];
+    daily_life?: BootstrapDaily[];
     bargain_ledger?: { bench_rate?: unknown; accounts?: BootstrapBargain[] };
     rpg_mcp_seeds?: { narrative_manage?: BootstrapNarrativeSeedWrapper[] };
     [k: string]: unknown;
@@ -404,30 +587,22 @@ interface Bootstrap {
 // STATE & SHARED HELPERS
 // ═══════════════════════════════════════════════════════════════════════════
 
-const slugToUuid = new Map<string, string>();   // generic slug -> engine UUID
-
 const ctx: SessionContext = { sessionId: SESSION_ID };
 
 interface PhaseCounters { created: number; skipped: number; failed: number }
-
 function newCounters(): PhaseCounters { return { created: 0, skipped: 0, failed: 0 }; }
 
 function log(msg: string): void {
-    // Use stderr so we don't pollute stdout if the seeder ever gets wired into a pipeline.
     process.stderr.write(`[seed-bastion] ${msg}\n`);
 }
 
 /**
- * Strip the RichFormatter shell off a handler response and pull out the
- * embedded JSON block. Falls back to parsing the raw text as JSON.
+ * RichFormatter wraps responses with a fenced JSON block. Extract it.
  */
 function extractJson(payload: unknown): Record<string, unknown> {
     const response = payload as { content?: Array<{ text?: string }> } | undefined;
     const text = response?.content?.[0]?.text ?? '';
     if (!text) return {};
-
-    // Look for an embedded fenced JSON block emitted by RichFormatter.embedJson
-    // (which writes "```json\n{ ... }\n```" inside an HTML comment).
     const fence = text.match(/```json\s*([\s\S]*?)```/);
     if (fence) {
         try { return JSON.parse(fence[1]); } catch { /* fall through */ }
@@ -435,7 +610,7 @@ function extractJson(payload: unknown): Record<string, unknown> {
     try { return JSON.parse(text); } catch { return { _raw: text }; }
 }
 
-async function call<T extends Record<string, unknown>>(
+async function callRich<T extends Record<string, unknown>>(
     handler: (args: unknown, ctx: SessionContext) => Promise<unknown>,
     args: T
 ): Promise<Record<string, unknown>> {
@@ -443,10 +618,22 @@ async function call<T extends Record<string, unknown>>(
     return extractJson(result);
 }
 
+/**
+ * Some handlers (handleCreate exports) return a plain object, not a wrapped
+ * one. Args are accepted loosely because the consolidated handler types are
+ * derived from Zod `.default()` chains which require many fields at the type
+ * level even though they're optional at the runtime parse boundary.
+ */
+async function callPlain(
+    handler: (args: never) => Promise<object>,
+    args: Record<string, unknown>
+): Promise<Record<string, unknown>> {
+    return (await handler(args as never)) as unknown as Record<string, unknown>;
+}
+
 function ensureBaseDescription(parts: Array<string | undefined>): string {
     const joined = parts.filter(Boolean).map(s => (s as string).trim()).join(' — ').trim();
     if (joined.length >= 10) return joined;
-    // Pad short descriptions to satisfy the schema's min(10).
     return (joined || 'A place in Sebastopyr.') + ' '.repeat(Math.max(0, 10 - joined.length));
 }
 
@@ -457,199 +644,126 @@ function chunk<T>(arr: T[], size: number): T[][] {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PHASE 1 — WORLD
+// PHASE 1 — LOCATIONS (skip existing 19; generate only net-new)
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function seedWorld(boot: Bootstrap): Promise<{ worldId: string; counters: PhaseCounters }> {
-    const counters = newCounters();
-    log(`Phase 1/9: world_manage.create  (name="${boot.city.name ?? WORLD_NAME}")`);
-
-    try {
-        const data = await call(handleWorldManage, {
-            action: 'create',
-            name: boot.city.name ?? WORLD_NAME,
-            seed: WORLD_SEED,
-            width: WORLD_WIDTH,
-            height: WORLD_HEIGHT
-        });
-
-        const worldId = String(data.worldId ?? '');
-        if (!worldId) throw new Error('world_manage.create returned no worldId');
-        slugToUuid.set('world:sebastopyr', worldId);
-        counters.created += 1;
-        log(`  ✓ world ${worldId}`);
-
-        // Offload the huge etymology + raw_gap_fill block to a narrative note so
-        // we don't lose canon. The world table has no field for prose lore.
-        const cityDump = JSON.stringify({
-            world: boot.city.world,
-            continent: boot.city.continent,
-            etymology: boot.city.etymology,
-            wall_name: boot.city.wall_name,
-            raw_gap_fill: boot.city.raw_gap_fill
-        });
-        try {
-            await call(handleNarrativeManage, {
-                action: 'add',
-                worldId,
-                type: 'canonical_moment',
-                content: `Sebastopyr — world lore dump (Aevarn / Therimaur). ${(boot.city.etymology ?? '').slice(0, 240)}…`,
-                metadata: { city: cityDump },
-                tags: ['world_lore', 'aevarn', 'therimaur'],
-                visibility: 'dm_only'
-            });
-            counters.created += 1;
-        } catch (err) {
-            counters.failed += 1;
-            log(`  ! could not stash city lore: ${String((err as Error).message)}`);
-        }
-
-        return { worldId, counters };
-    } catch (err) {
-        counters.failed += 1;
-        log(`  ✗ world create failed: ${String((err as Error).message)}`);
-        throw err;
-    }
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// PHASE 2 — LOCATIONS  (44 entries -> spatial_manage.generate, build slug map)
-// ═══════════════════════════════════════════════════════════════════════════
+/**
+ * slug → roomId. Pre-seeded with the 19 existing rooms keyed by their name
+ * so downstream phases can resolve by name.
+ */
+const roomNameToUuid = new Map<string, string>(Object.entries(EXISTING_ROOMS));
+const locationIdToUuid = new Map<string, string>();   // bootstrap location.id → roomId
 
 async function seedLocations(boot: Bootstrap, worldId: string): Promise<PhaseCounters> {
     const counters = newCounters();
-    log(`Phase 2/9: spatial_manage.generate × ${boot.locations.length}`);
 
-    // Walk the districts in ring order first so each subsequent district links
-    // back to the previous one (forming the concentric ring chain). Then walk
-    // everything else (key_locations, geography_features) without chaining.
-    const districts = boot.locations.filter(l => (l.raw?.type ?? l.kind) === 'district');
-    const others    = boot.locations.filter(l => (l.raw?.type ?? l.kind) !== 'district');
-
-    districts.sort((a, b) => {
-        const aRank = DISTRICT_RING_ORDER.indexOf((a.raw?.ring ?? '').toLowerCase());
-        const bRank = DISTRICT_RING_ORDER.indexOf((b.raw?.ring ?? '').toLowerCase());
-        if (aRank === -1 && bRank === -1) return a.id.localeCompare(b.id);
-        if (aRank === -1) return 1;
-        if (bRank === -1) return -1;
-        return aRank - bRank;
-    });
-
-    let previousNodeId: string | undefined;
-
-    for (const loc of districts) {
-        const ok = await seedOneLocation(loc, worldId, previousNodeId, counters);
-        if (ok) previousNodeId = ok;
+    // First pass: index any bootstrap location whose name matches a pre-built
+    // room so we can wire NPCs / metadata to the existing UUID.
+    let preMapped = 0;
+    for (const loc of boot.locations) {
+        if (EXISTING_ROOMS[loc.name]) {
+            locationIdToUuid.set(loc.id, EXISTING_ROOMS[loc.name]);
+            preMapped += 1;
+        }
     }
-    for (const loc of others) {
-        await seedOneLocation(loc, worldId, undefined, counters);
+    log(`Phase 1/8: locations — ${preMapped} pre-built rooms reused, ${boot.locations.length - preMapped} candidates for generation`);
+
+    for (const loc of boot.locations) {
+        if (EXISTING_ROOMS[loc.name]) {
+            counters.skipped += 1;
+            continue;
+        }
+        const raw = loc.raw ?? {};
+        const baseDescription = ensureBaseDescription([raw.character, raw.atmosphere, loc.summary]);
+        const biome = pickBiome(raw);
+        const atmospherics = scanAtmospherics(raw.atmosphere);
+
+        try {
+            const data = await callRich(handleSpatialManage, {
+                action: 'generate',
+                name: loc.name,
+                baseDescription,
+                biomeContext: biome,
+                atmospherics
+                // NOTE: no previousNodeId / direction — the bootstrap topology
+                // isn't a linear east-walk. Connections can be added later.
+            });
+
+            const roomId = String(data.roomId ?? '');
+            if (!roomId) throw new Error('spatial_manage.generate returned no roomId');
+            roomNameToUuid.set(loc.name, roomId);
+            locationIdToUuid.set(loc.id, roomId);
+            counters.created += 1;
+
+            // Stash location metadata as a canonical_moment note so ring,
+            // key_npcs, key_buildings, throughline_tests are queryable.
+            try {
+                await callRich(handleNarrativeManage, {
+                    action: 'add',
+                    worldId,
+                    type: 'canonical_moment',
+                    content: `Location meta: ${loc.name} — ring=${raw.ring ?? 'n/a'}, type=${raw.type ?? loc.kind ?? 'unknown'}.`,
+                    metadata: {
+                        locationId: roomId,
+                        ring: raw.ring,
+                        type: raw.type ?? loc.kind,
+                        key_npcs: raw.key_npcs ?? [],
+                        key_buildings: raw.key_buildings ?? [],
+                        throughline_tests: raw.throughline_tests ?? []
+                    },
+                    tags: ['location_meta', String(raw.type ?? loc.kind ?? 'location')],
+                    entityId: roomId,
+                    entityType: 'location'
+                });
+            } catch (err) {
+                log(`  ! location meta-note failed for ${loc.id}: ${(err as Error).message}`);
+            }
+        } catch (err) {
+            counters.failed += 1;
+            log(`  ✗ ${loc.id} (${loc.name}): ${(err as Error).message}`);
+        }
     }
+
     return counters;
 }
 
-async function seedOneLocation(
-    loc: BootstrapLocation,
-    worldId: string,
-    previousNodeId: string | undefined,
-    counters: PhaseCounters
-): Promise<string | null> {
-    const raw = loc.raw ?? {};
-    const baseDescription = ensureBaseDescription([raw.character, raw.atmosphere, loc.summary]);
-    const biome = pickBiome(raw);
-    const atmospherics = scanAtmospherics(raw.atmosphere);
-
-    try {
-        const data = await call(handleSpatialManage, {
-            action: 'generate',
-            name: loc.name,
-            baseDescription,
-            biomeContext: biome,
-            atmospherics,
-            ...(previousNodeId ? { previousNodeId, direction: 'east' } : {})
-        });
-
-        const roomId = String(data.roomId ?? '');
-        if (!roomId) throw new Error('spatial_manage.generate returned no roomId');
-        slugToUuid.set(`location:${loc.id}`, roomId);
-        counters.created += 1;
-
-        // Stash the rich location metadata as a canonical_moment note linked
-        // to the new room (entityType=location). This is the only place ring,
-        // key_npcs, key_buildings, and throughline_tests can ride along.
-        try {
-            await call(handleNarrativeManage, {
-                action: 'add',
-                worldId,
-                type: 'canonical_moment',
-                content: `Location meta: ${loc.name} — ring=${raw.ring ?? 'n/a'}, type=${raw.type ?? loc.kind ?? 'unknown'}.`,
-                metadata: {
-                    locationId: roomId,
-                    ring: raw.ring,
-                    type: raw.type ?? loc.kind,
-                    key_npcs: raw.key_npcs ?? [],
-                    key_buildings: raw.key_buildings ?? [],
-                    throughline_tests: raw.throughline_tests ?? []
-                },
-                tags: ['location_meta', String(raw.type ?? loc.kind ?? 'location')],
-                entityId: roomId,
-                entityType: 'location'
-            });
-            counters.created += 1;
-        } catch (err) {
-            counters.failed += 1;
-            log(`  ! location meta-note failed for ${loc.id}: ${String((err as Error).message)}`);
-        }
-
-        return roomId;
-    } catch (err) {
-        counters.failed += 1;
-        log(`  ✗ ${loc.id} (${loc.name}): ${String((err as Error).message)}`);
-        return null;
-    }
-}
-
 // ═══════════════════════════════════════════════════════════════════════════
-// PHASE 3 — FACTIONS (50 entries -> narrative_manage.batch_add, build slug map)
+// PHASE 2 — FACTIONS  (narrative_manage.batch_add, build name index)
 // ═══════════════════════════════════════════════════════════════════════════
 
-const factionNameToUuid = new Map<string, string>();   // name token -> note uuid
+const factionNameToUuid = new Map<string, string>();
 
 async function seedFactions(boot: Bootstrap, worldId: string): Promise<PhaseCounters> {
     const counters = newCounters();
-    log(`Phase 3/9: narrative_manage.batch_add (factions × ${boot.factions.length})`);
+    log(`Phase 2/8: narrative_manage.batch_add (factions × ${boot.factions.length})`);
 
-    // batch_add takes max 20 per call.
     const batches = chunk(boot.factions, 20);
     for (let bi = 0; bi < batches.length; bi++) {
         const batch = batches[bi];
         const notes = batch.map(f => ({
             type: 'canonical_moment' as const,
             content: buildFactionContent(f),
-            metadata: f.raw as Record<string, unknown>,
+            metadata: { factionDescriptor: true, ...(f.raw as Record<string, unknown>) },
             tags: factionTags(f),
             visibility: 'dm_only' as const,
             status: 'active' as const
         }));
 
         try {
-            const data = await call(handleNarrativeManage, {
+            const data = await callRich(handleNarrativeManage, {
                 action: 'batch_add',
                 worldId,
                 notes
             });
             const created = Array.isArray(data.notes) ? (data.notes as Array<{ noteId: string }>) : [];
             for (let i = 0; i < created.length; i++) {
-                const f = batch[i];
-                const noteId = created[i].noteId;
-                slugToUuid.set(`faction:${f.id}`, noteId);
-                // Also index by faction display-name so NPC.raw.faction strings can resolve.
-                factionNameToUuid.set(f.name.trim().toLowerCase(), noteId);
+                factionNameToUuid.set(batch[i].name.trim().toLowerCase(), created[i].noteId);
                 counters.created += 1;
             }
             log(`  ✓ batch ${bi + 1}/${batches.length}: ${created.length} factions`);
         } catch (err) {
             counters.failed += batch.length;
-            log(`  ✗ faction batch ${bi + 1}/${batches.length} failed: ${String((err as Error).message)}`);
+            log(`  ✗ faction batch ${bi + 1}/${batches.length} failed: ${(err as Error).message}`);
         }
     }
 
@@ -677,52 +791,75 @@ function factionTags(f: BootstrapFaction): string[] {
 }
 
 /**
- * Resolve npc.raw.faction (a free-text label, possibly with '/' separators)
- * down to the first matching faction-note UUID. Tries id-style slug match
- * first, then case-insensitive name match against each "/"-split segment.
+ * Resolve npc.raw.faction (free-text, possibly with '/' separators or
+ * parenthetical qualifiers) to a faction-note UUID.
+ *
+ * Tries each "/" segment, with and without the parenthetical, against
+ * the case-insensitive faction-name index.
  */
-function resolveFactionId(factionLabel: string | undefined): string | undefined {
-    if (!factionLabel) return undefined;
-    const segments = factionLabel.split('/').map(s => s.trim()).filter(Boolean);
+function resolveFactionId(label: string | undefined): string | undefined {
+    if (!label) return undefined;
+    const segments = label.split('/').map(s => s.trim()).filter(Boolean);
     for (const seg of segments) {
-        const direct = slugToUuid.get(`faction:${seg}`);
+        const stripped = seg.replace(/\s*\(.+?\)\s*$/, '').trim();
+        const direct = factionNameToUuid.get(seg.toLowerCase());
         if (direct) return direct;
-        const byName = factionNameToUuid.get(seg.toLowerCase());
-        if (byName) return byName;
+        const noParen = factionNameToUuid.get(stripped.toLowerCase());
+        if (noParen) return noParen;
     }
     return undefined;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PHASE 4 — NPCs  (character_manage.create characterType='npc')
+// PHASE 3 — NPCs  (character_manage.create + currentRoomId via repo)
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function seedNpcs(boot: Bootstrap, worldId: string): Promise<PhaseCounters> {
+const npcIdToCharacterId = new Map<string, string>();
+
+async function seedNpcs(boot: Bootstrap): Promise<PhaseCounters> {
     const counters = newCounters();
-    log(`Phase 4/9: character_manage.create × ${boot.npcs.length} (NPCs)`);
+    log(`Phase 3/8: character_manage.create × ${boot.npcs.length} (NPCs)`);
+
+    const db = getDb();
+    const characterRepo = new CharacterRepository(db);
 
     for (const npc of boot.npcs) {
         const raw = npc.raw;
-        const race = PEOPLE_TO_RACE[raw.people ?? ''] ?? 'Human';
-        const klass = CATEGORY_TO_CLASS[raw.category ?? ''] ?? 'Adventurer';
+
+        // Idempotency: if a character with this exact name already exists,
+        // reuse the row instead of creating a duplicate.
+        const existing = characterRepo.findAll().find(c => c.name === raw.name);
+        if (existing) {
+            npcIdToCharacterId.set(raw.id, existing.id);
+            counters.skipped += 1;
+            log(`  ⤳ exists: ${raw.id} (${raw.name}) → ${existing.id}`);
+            continue;
+        }
+
+        const race = resolveRace(raw.people);
+        const klass = resolveClass(raw.category);
+        const tpl = categoryToTemplate(raw.category);
         const factionId = resolveFactionId(raw.faction);
 
         const segments = (raw.faction ?? '').split('/').map(s => s.trim()).filter(Boolean);
         const behaviorParts: string[] = [];
         if (raw.role) behaviorParts.push(raw.role);
         if (segments.length > 1) behaviorParts.push(`Faction labels: ${segments.join(' / ')}`);
+        if (raw.category) behaviorParts.push(`Category: ${raw.category}`);
 
         try {
-            const data = await call(handleCharacterManage, {
-                action: 'create',
+            const data = await callPlain(handleCharacterCreate, {
+                action: 'create' as const,
                 name: raw.name,
-                characterType: 'npc',
+                characterType: 'npc' as const,
                 provisionEquipment: false,
                 race,
                 class: klass,
-                level: 1,
-                stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-                ac: 10,
+                level: tpl.level,
+                stats: tpl.stats,
+                hp: tpl.hp,
+                maxHp: tpl.hp,
+                ac: tpl.ac,
                 ...(factionId ? { factionId } : {}),
                 ...(behaviorParts.length ? { behavior: behaviorParts.join('. ') } : {}),
                 ...(Array.isArray(raw.knownSpells) && raw.knownSpells.length
@@ -730,63 +867,46 @@ async function seedNpcs(boot: Bootstrap, worldId: string): Promise<PhaseCounters
                     : {})
             });
 
-            const characterId = String(data.id ?? data.characterId ?? '');
+            const characterId = String(data.id ?? '');
             if (!characterId) throw new Error('character_manage.create returned no id');
-            slugToUuid.set(`npc:${raw.id}`, characterId);
+            npcIdToCharacterId.set(raw.id, characterId);
             counters.created += 1;
 
-            // If the bootstrap carries Stain / Grace / aspersoir_tick figures, park
-            // them in an npc_voice note linked to the new character — CreateSchema
-            // has no slot for them.
-            const hasMystery = raw.stain_apparent !== undefined
-                || typeof raw.stain_actual === 'number'
-                || typeof raw.aspersoir_tick === 'number'
-                || typeof raw.grace_pool === 'number';
-
-            if (hasMystery) {
-                try {
-                    await call(handleNarrativeManage, {
-                        action: 'add',
-                        worldId,
-                        type: 'npc_voice',
-                        content: `Mystic state for ${raw.name}: stain_apparent=${raw.stain_apparent ?? 'unknown'}, stain_actual=${raw.stain_actual ?? 'unknown'}, aspersoir_tick=${raw.aspersoir_tick ?? 'n/a'}, grace_pool=${raw.grace_pool ?? 'n/a'}.`,
-                        metadata: {
-                            characterId,
-                            stain_apparent: raw.stain_apparent,
-                            stain_actual: raw.stain_actual,
-                            aspersoir_tick: raw.aspersoir_tick,
-                            grace_pool: raw.grace_pool
-                        },
-                        tags: ['npc_state', 'stain'],
-                        entityId: characterId,
-                        entityType: 'character'
-                    });
-                    counters.created += 1;
-                } catch (err) {
-                    counters.failed += 1;
-                    log(`  ! mystic-state note failed for ${raw.id}: ${String((err as Error).message)}`);
+            // Place at assigned room (post-create — schema has no currentRoomId).
+            const assignedRoomName = NPC_ROOM_PLACEMENT[raw.id];
+            if (assignedRoomName) {
+                const roomId = roomNameToUuid.get(assignedRoomName);
+                if (roomId) {
+                    try {
+                        characterRepo.update(characterId, { currentRoomId: roomId });
+                    } catch (err) {
+                        log(`  ! placement failed for ${raw.id} → ${assignedRoomName}: ${(err as Error).message}`);
+                    }
+                } else {
+                    log(`  ? no room UUID found for ${raw.id} → ${assignedRoomName}`);
                 }
             }
         } catch (err) {
             counters.failed += 1;
-            log(`  ✗ npc ${raw.id} (${raw.name}): ${String((err as Error).message)}`);
+            log(`  ✗ npc ${raw.id} (${raw.name}): ${(err as Error).message}`);
         }
     }
 
+    log(`  bound ${npcIdToCharacterId.size}/${boot.npcs.length} npc → character mappings`);
     return counters;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PHASE 5 — AGENTS (llm-bindable subset)
+// PHASE 4 — AGENTS  +  SECRETS  (llm-bindable subset)
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function seedAgents(boot: Bootstrap): Promise<PhaseCounters> {
     const counters = newCounters();
     const bindable = boot.npcs.filter(n => n.raw.llm_bindable === true);
-    log(`Phase 5/9: agent_manage.create × ${bindable.length}`);
+    log(`Phase 4/8: agent_manage.create × ${bindable.length} (+ secrets)`);
 
     for (const npc of bindable) {
-        const characterId = slugToUuid.get(`npc:${npc.raw.id}`);
+        const characterId = npcIdToCharacterId.get(npc.raw.id);
         if (!characterId) {
             counters.skipped += 1;
             log(`  ⤳ skipped ${npc.raw.id}: no character mapping`);
@@ -798,9 +918,10 @@ async function seedAgents(boot: Bootstrap): Promise<PhaseCounters> {
             ? AUTO_ON_TURN_CATEGORIES.has(npc.raw.category)
             : false;
 
+        let agentCreated = false;
         try {
-            await call(handleAgentManage, {
-                action: 'create',
+            const result = await callPlain(handleAgentCreate, {
+                action: 'create' as const,
                 characterId,
                 provider: overrides.provider ?? AGENT_DEFAULTS.provider,
                 model: overrides.model ?? AGENT_DEFAULTS.model,
@@ -810,10 +931,207 @@ async function seedAgents(boot: Bootstrap): Promise<PhaseCounters> {
                 ...(overrides.budgetTokens !== undefined ? { budgetTokens: overrides.budgetTokens } : {}),
                 ...(overrides.timeoutMs !== undefined ? { timeoutMs: overrides.timeoutMs } : {})
             });
-            counters.created += 1;
+            // handleCreate returns { error: true, ... } if the agent already exists.
+            if (result.error) {
+                counters.skipped += 1;
+                log(`  ⤳ agent for ${npc.raw.id} already exists`);
+            } else {
+                counters.created += 1;
+                agentCreated = true;
+            }
         } catch (err) {
             counters.failed += 1;
-            log(`  ✗ agent for ${npc.raw.id}: ${String((err as Error).message)}`);
+            log(`  ✗ agent for ${npc.raw.id}: ${(err as Error).message}`);
+            continue;
+        }
+
+        // Push the mystery layer (stain / aspersoir / grace / role context)
+        // into agent_manage.add_secret regardless of whether create was new
+        // (re-runs are safe — duplicate secrets are tolerated by the runtime).
+        const secrets = buildSecrets(npc);
+        for (const secret of secrets) {
+            try {
+                await callPlain(handleAgentAddSecret, {
+                    action: 'add_secret' as const,
+                    characterId,
+                    content: secret.content,
+                    importance: secret.importance
+                });
+            } catch (err) {
+                log(`  ! secret add failed for ${npc.raw.id}: ${(err as Error).message}`);
+            }
+        }
+
+        if (agentCreated && secrets.length) {
+            log(`  + ${npc.raw.id}: agent + ${secrets.length} secrets (autoOnTurn=${autoOnTurn})`);
+        }
+    }
+
+    return counters;
+}
+
+/**
+ * Build agent secrets from the bootstrap mystery layer.
+ * Each secret is a single fact the LLM should know but not necessarily say.
+ */
+function buildSecrets(npc: BootstrapNpc): Array<{ content: string; importance: 'low' | 'medium' | 'high' | 'critical' }> {
+    const out: Array<{ content: string; importance: 'low' | 'medium' | 'high' | 'critical' }> = [];
+    const r = npc.raw;
+
+    if (r.role) {
+        out.push({
+            content: `Your role: ${r.role}. Faction context: ${r.faction ?? 'independent'}.`,
+            importance: 'high'
+        });
+    }
+
+    if (r.stain_apparent !== undefined || typeof r.stain_actual === 'number') {
+        const apparent = r.stain_apparent ?? 'clean';
+        const actual = (typeof r.stain_actual === 'number') ? r.stain_actual : 'unknown';
+        out.push({
+            content: `Your Stain reads ${apparent} on the official Aspersoir, but the true Stain is ${actual}. You know this. The Cathedral does not (or pretends not to). Do not say the actual number aloud.`,
+            importance: 'critical'
+        });
+    }
+
+    if (typeof r.aspersoir_tick === 'number') {
+        out.push({
+            content: `Your last aspersoir tick was ${r.aspersoir_tick}. A tick ≥3 triggers a Confessor flag.`,
+            importance: 'high'
+        });
+    }
+
+    if (typeof r.grace_pool === 'number') {
+        out.push({
+            content: `Your current Grace pool is ${r.grace_pool}. Spending Grace below 1 is a stainable act.`,
+            importance: 'high'
+        });
+    }
+
+    return out;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// PHASE 5 — NPC MEMORY  (seed 2-3 bible-rooted memories per llm-bindable NPC)
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface SeedMemory {
+    summary: string;
+    importance: Importance;
+    topics: string[];
+    familiarity?: Familiarity;
+    disposition?: Disposition;
+}
+
+/**
+ * Hand-curated per-NPC seed memories drawn from the bible. Keyed by raw.id.
+ * Used by NpcMemoryRepository.recordMemory with characterId == npcId == the
+ * created character UUID — i.e. the NPC's "private journal" of remembered
+ * facts that any relationship-aware query can surface.
+ */
+const NPC_SEED_MEMORIES: Record<string, SeedMemory[]> = {
+    npc_001: [
+        { summary: 'I am the living head of the Cathedral, but my Stain reads 1.4 not clean. The Office of Pyric Audit does not know — or pretends not to.', importance: 'critical', topics: ['stain', 'office_of_pyric_audit', 'cathedral'] },
+        { summary: 'The Mournwing Letter — Paragon Halidan\'s warning — must not reach me. I have not seen it. Mortane sees my mail first.', importance: 'high', topics: ['mournwing_letter', 'paragon', 'mortane'] }
+    ],
+    npc_002: [
+        { summary: 'I am the Paragon, Warden of Ferrostat. I sent the Mournwing Letter east toward Sebastopyr. I have not received an acknowledgment.', importance: 'critical', topics: ['mournwing_letter', 'ferrostat', 'sebastopyr'] },
+        { summary: 'My intended visit to Sebastopyr is being scheduled by Cantor-Magisterial Velim Aurriste. I do not yet know this is the Octave Bargain\'s fourth reading.', importance: 'high', topics: ['octave_bargain', 'velim_aurriste', 'visit'] }
+    ],
+    npc_003: [
+        { summary: 'I intercept the Sebastopater\'s mail. The Mournwing Letter is in my cell. I have not yet decided what to do with it.', importance: 'critical', topics: ['mournwing_letter', 'sebastopater', 'mail'] },
+        { summary: 'My own Stain reads 1.9 (clean apparent). I am one of the Half-Kind, which the Cathedral merely tolerates. I cannot afford a confessor flag.', importance: 'high', topics: ['stain', 'half_kind'] }
+    ],
+    npc_004: [
+        { summary: 'I head the Office of Pyric Audit. My own Stain is sealed and unknown even to me. The Sebast-Auditor must be above suspicion or the entire Audit collapses.', importance: 'critical', topics: ['stain', 'pyric_audit', 'sealed'] },
+        { summary: 'The parallel readings Korreth Slag-Tongue is conducting in the Audit-Below are unauthorized. I have not stopped them.', importance: 'high', topics: ['parallel_readings', 'korreth', 'audit_below'] }
+    ],
+    npc_008: [
+        { summary: 'I am the Vexillarius — I sign orders in the Paragon\'s voice. The Paragon does not always know what I have signed.', importance: 'critical', topics: ['vexillarius', 'paragon', 'orders'] },
+        { summary: 'The Iron March cohort is being reinforced for the PD 606 Paragon visit. I do not know whose order this actually is.', importance: 'high', topics: ['iron_march', 'pd_606', 'cohort'] }
+    ],
+    npc_012: [
+        { summary: 'I struck the Octave Bargain in PD 588 with Vox-Quae-In-Tenebris-Numerat. Three readings have come back CLEAN, ANOMALY, UNKNOWN. The fourth reading is PD 608.', importance: 'critical', topics: ['octave_bargain', 'quartermaster_of_tongues', 'pd_608'] },
+        { summary: 'I am the senior Custodes Numeri. I authored the bargain in chambers and signed in my own hand. No one else knows.', importance: 'critical', topics: ['custodes_numeri', 'octave_bargain', 'secret'] },
+        { summary: 'My apparent Stain at PD 600 was unknown. Actual: 3.2. The Sebast-Auditor has not flagged me — I do not know why.', importance: 'high', topics: ['stain', 'pd_600'] }
+    ],
+    npc_013: [
+        { summary: 'The Choir of the Watch must be sung at exactly 11°C or the parallel-music ledger inverts. I cannot say why — only that I have heard it invert.', importance: 'critical', topics: ['choir_of_the_watch', 'parallel_music', 'temperature'] }
+    ],
+    npc_014: [
+        { summary: 'I am Crown Regent. The Cathedral and the Crown are co-dependent and mutually-distrustful. My House holds the Lower Pyr.', importance: 'high', topics: ['crown', 'house_veillarde', 'lower_pyr'] }
+    ],
+    npc_016: [
+        { summary: 'I am Old Pell. I sell Grace to those who cannot afford it and information to those who can. The Aspersoir does not know I exist as a market.', importance: 'high', topics: ['grace_market', 'aspersoir', 'lower_ward'] },
+        { summary: 'Mother Aspine Vell-os-Carrenost has been working the Lampgate bench longer than I have been alive. She knows things I do not.', importance: 'medium', topics: ['mother_aspine', 'lampgate'] }
+    ],
+    npc_018: [
+        { summary: 'I am a sanctioned demonic-bargain broker. The Cathedral signs my license each Mortane-tide. I broker for the Quartermaster of Tongues among others.', importance: 'critical', topics: ['demonic_bargain', 'quartermaster_of_tongues', 'license'] },
+        { summary: 'My own Stain is 3.4. I am known to the Cathedral. The license is the only thing keeping me unconfessed.', importance: 'high', topics: ['stain', 'license'] }
+    ],
+    npc_019: [
+        { summary: 'I broker honest divine bargains at the south gate. Asperine Vesselain (heretic) works the road outside — I do not stop her because she is honest about the price.', importance: 'high', topics: ['divine_bargain', 'south_gate', 'asperine_vesselain'] }
+    ],
+    npc_024: [
+        { summary: 'I am Vox-Quae-In-Tenebris-Numerat, Quartermaster of Tongues. The Long Ledger in the Audit-Below records every Word the Cathedral pretends never to have spoken. Velim Aurriste\'s Octave Bargain is in column VII.', importance: 'critical', topics: ['long_ledger', 'octave_bargain', 'velim_aurriste'] },
+        { summary: 'The fourth reading of the Octave Bargain is scheduled for PD 608. Velim does not yet know what I will take.', importance: 'critical', topics: ['octave_bargain', 'pd_608', 'collection'] }
+    ],
+    npc_026: [
+        { summary: 'I am Galiethrin the Lampbreaker, Duke of under-ward small mercies. I work the Almongate crowds. I am not the kind of demon the Cathedral writes about.', importance: 'high', topics: ['under_ward', 'almongate', 'small_mercies'] }
+    ],
+    npc_027: [
+        { summary: 'I lead the Conscripted League. We are heretics by Cathedral definition. We have a press, a chapel-network, and a Refusal we publish under Hester Brunn\'s name.', importance: 'critical', topics: ['conscripted_league', 'heresy', 'the_refusal'] }
+    ],
+    npc_028: [
+        { summary: 'I edit The Refusal. I was a Lector until PD 597. The Brothers of the Cinder Hand keep my press hidden — Veriarch Thelos di Cinderost shelters us.', importance: 'high', topics: ['the_refusal', 'cinder_hand', 'thelos_di_cinderost'] }
+    ],
+    npc_031: [
+        { summary: 'I am Archvigil and Chief Summoner. I have nine seconds to discern a summon — the rite gives me no more. I sign the cohort roll each dawn at the Outer Vocation House Hall.', importance: 'critical', topics: ['summoning', 'vocation_house', 'nine_seconds'] }
+    ]
+};
+
+async function seedNpcMemories(boot: Bootstrap): Promise<PhaseCounters> {
+    const counters = newCounters();
+    const bindable = boot.npcs.filter(n => n.raw.llm_bindable === true);
+    log(`Phase 5/8: NpcMemoryRepository seed memories (${bindable.length} candidates)`);
+
+    const db = getDb();
+    const memoryRepo = new NpcMemoryRepository(db);
+
+    for (const npc of bindable) {
+        const characterId = npcIdToCharacterId.get(npc.raw.id);
+        if (!characterId) { counters.skipped += 1; continue; }
+
+        const seeds = NPC_SEED_MEMORIES[npc.raw.id];
+        if (!seeds || seeds.length === 0) { counters.skipped += 1; continue; }
+
+        // Self-relationship row so NPC has a queryable "private journal" anchor.
+        try {
+            memoryRepo.upsertRelationship({
+                characterId,
+                npcId: characterId,
+                familiarity: 'close_friend',
+                disposition: 'helpful',
+                notes: `Self-memory anchor for ${npc.raw.name}`
+            });
+        } catch (err) {
+            log(`  ! self-relationship failed for ${npc.raw.id}: ${(err as Error).message}`);
+        }
+
+        for (const m of seeds) {
+            try {
+                memoryRepo.recordMemory({
+                    characterId,
+                    npcId: characterId,
+                    summary: m.summary,
+                    importance: m.importance,
+                    topics: m.topics
+                });
+                counters.created += 1;
+            } catch (err) {
+                counters.failed += 1;
+                log(`  ✗ memory for ${npc.raw.id}: ${(err as Error).message}`);
+            }
         }
     }
 
@@ -826,14 +1144,15 @@ async function seedAgents(boot: Bootstrap): Promise<PhaseCounters> {
 
 async function seedPlotThreads(boot: Bootstrap, worldId: string): Promise<PhaseCounters> {
     const counters = newCounters();
-    log(`Phase 6/9: narrative_manage.batch_add (plot_threads × ${boot.plot_threads.length})`);
+    log(`Phase 6/8: narrative_manage.batch_add (plot_threads × ${boot.plot_threads.length})`);
 
     const batches = chunk(boot.plot_threads, 20);
     for (let bi = 0; bi < batches.length; bi++) {
         const batch = batches[bi];
         const notes = batch.map(p => {
             const r = p.raw;
-            const tags = ['plot_thread', `urgency:${r.urgency ?? 'unknown'}`];
+            const urgency = bucketUrgency(r.urgency);
+            const tags = ['plot_thread', `urgency:${urgency}`];
             if (Array.isArray(r.throughline_tests)) {
                 for (const n of r.throughline_tests) tags.push(`throughline_${n}`);
             }
@@ -841,7 +1160,8 @@ async function seedPlotThreads(boot: Bootstrap, worldId: string): Promise<PhaseC
                 type: 'plot_thread' as const,
                 content: r.summary || r.short_name || p.name,
                 metadata: {
-                    urgency: bucketUrgency(r.urgency),
+                    urgency,
+                    urgencyRaw: r.urgency,
                     hooks: r.hooks ?? [],
                     resolution_conditions: r.resolution_conditions ?? [],
                     principals: r.principals ?? [],
@@ -854,7 +1174,7 @@ async function seedPlotThreads(boot: Bootstrap, worldId: string): Promise<PhaseC
         });
 
         try {
-            const data = await call(handleNarrativeManage, {
+            const data = await callRich(handleNarrativeManage, {
                 action: 'batch_add',
                 worldId,
                 notes
@@ -864,7 +1184,7 @@ async function seedPlotThreads(boot: Bootstrap, worldId: string): Promise<PhaseC
             log(`  ✓ batch ${bi + 1}/${batches.length}: ${created.length} plot threads`);
         } catch (err) {
             counters.failed += batch.length;
-            log(`  ✗ plot batch ${bi + 1}/${batches.length} failed: ${String((err as Error).message)}`);
+            log(`  ✗ plot batch ${bi + 1}/${batches.length} failed: ${(err as Error).message}`);
         }
     }
 
@@ -872,70 +1192,50 @@ async function seedPlotThreads(boot: Bootstrap, worldId: string): Promise<PhaseC
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PHASE 7 — BESTIARY (character_manage.create characterType='enemy')
+// PHASE 7 — BESTIARY  (narrative_manage canonical_moment ONLY — no characters)
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function seedBestiary(boot: Bootstrap, worldId: string): Promise<PhaseCounters> {
     const counters = newCounters();
-    log(`Phase 7/9: character_manage.create × ${boot.bestiary.length} (enemies)`);
+    log(`Phase 7/8: narrative_manage.batch_add (bestiary × ${boot.bestiary.length})`);
 
-    for (const beast of boot.bestiary) {
-        const r = beast.raw;
-        const tpl = tierTemplate(r.tier);
-        const behavior = [
-            r.signature ? `Signature: ${r.signature}.` : '',
-            r.vulnerability ? `Vulnerability: ${r.vulnerability}.` : '',
-            r.habitat ? `Habitat: ${r.habitat}.` : '',
-            r.tone_anchor ? `Tone: ${r.tone_anchor}.` : ''
-        ].filter(Boolean).join(' ');
+    const batches = chunk(boot.bestiary, 20);
+    for (let bi = 0; bi < batches.length; bi++) {
+        const batch = batches[bi];
+        const notes = batch.map(b => {
+            const r = b.raw;
+            const tier = r.tier ?? 1;
+            return {
+                type: 'canonical_moment' as const,
+                content: `${r.name} (tier ${tier}, ${r.domain ?? 'unknown'}). ${r.signature ? `Signature: ${r.signature}. ` : ''}${r.vulnerability ? `Vulnerability: ${r.vulnerability}. ` : ''}${r.narrative_role ?? ''}`.trim(),
+                metadata: {
+                    bestiaryEntry: true,
+                    tier,
+                    domain: r.domain,
+                    encounter_size: r.encounter_size,
+                    habitat: r.habitat,
+                    narrative_role: r.narrative_role,
+                    tone_anchor: r.tone_anchor,
+                    signature: r.signature,
+                    vulnerability: r.vulnerability
+                } as Record<string, unknown>,
+                tags: ['bestiary', `tier:${tier}`, `domain:${r.domain ?? 'unknown'}`],
+                visibility: 'dm_only' as const
+            };
+        });
 
         try {
-            const data = await call(handleCharacterManage, {
-                action: 'create',
-                name: r.name,
-                characterType: 'enemy',
-                provisionEquipment: false,
-                race: 'Monstrosity',
-                class: `${r.domain ?? 'Unknown'}-tier${r.tier ?? '?'}`,
-                level: tpl.level,
-                stats: tpl.stats,
-                hp: tpl.hp,
-                maxHp: tpl.hp,
-                ac: tpl.ac,
-                ...(behavior ? { behavior } : {})
+            const data = await callRich(handleNarrativeManage, {
+                action: 'batch_add',
+                worldId,
+                notes
             });
-
-            const characterId = String(data.id ?? data.characterId ?? '');
-            if (!characterId) throw new Error('character_manage.create returned no id');
-            slugToUuid.set(`bestiary:${r.id}`, characterId);
-            counters.created += 1;
-
-            // Stash encounter_size / narrative_role on a meta note.
-            try {
-                await call(handleNarrativeManage, {
-                    action: 'add',
-                    worldId,
-                    type: 'canonical_moment',
-                    content: `Bestiary meta: ${r.name} (tier ${r.tier ?? '?'}). Encounter size: ${r.encounter_size ?? 'n/a'}. Narrative role: ${r.narrative_role ?? 'n/a'}.`,
-                    metadata: {
-                        characterId,
-                        encounter_size: r.encounter_size,
-                        narrative_role: r.narrative_role,
-                        tier: r.tier,
-                        domain: r.domain
-                    },
-                    tags: ['bestiary_meta', `tier:${r.tier ?? 'unknown'}`],
-                    entityId: characterId,
-                    entityType: 'character'
-                });
-                counters.created += 1;
-            } catch (err) {
-                counters.failed += 1;
-                log(`  ! bestiary meta-note failed for ${r.id}: ${String((err as Error).message)}`);
-            }
+            const created = Array.isArray(data.notes) ? (data.notes as unknown[]) : [];
+            counters.created += created.length;
+            log(`  ✓ bestiary batch ${bi + 1}/${batches.length}: ${created.length}`);
         } catch (err) {
-            counters.failed += 1;
-            log(`  ✗ bestiary ${r.id} (${r.name}): ${String((err as Error).message)}`);
+            counters.failed += batch.length;
+            log(`  ✗ bestiary batch ${bi + 1}/${batches.length} failed: ${(err as Error).message}`);
         }
     }
 
@@ -943,12 +1243,12 @@ async function seedBestiary(boot: Bootstrap, worldId: string): Promise<PhaseCoun
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
-// PHASE 8 — TIMELINE / PANTHEON / DAILY LIFE
+// PHASE 8 — TIMELINE / PANTHEON / DAILY LIFE / BARGAIN LEDGER / RPG_MCP_SEEDS
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function seedTimeline(boot: Bootstrap, worldId: string): Promise<PhaseCounters> {
     const counters = newCounters();
-    log(`Phase 8a/9: narrative_manage.batch_add (timeline × ${boot.timeline.length})`);
+    log(`Phase 8a/8: narrative_manage.batch_add (timeline × ${boot.timeline.length})`);
 
     const batches = chunk(boot.timeline, 20);
     for (let bi = 0; bi < batches.length; bi++) {
@@ -967,53 +1267,43 @@ async function seedTimeline(boot: Bootstrap, worldId: string): Promise<PhaseCoun
         });
 
         try {
-            const data = await call(handleNarrativeManage, {
-                action: 'batch_add',
-                worldId,
-                notes
-            });
+            const data = await callRich(handleNarrativeManage, { action: 'batch_add', worldId, notes });
             const created = Array.isArray(data.notes) ? (data.notes as unknown[]) : [];
             counters.created += created.length;
             log(`  ✓ timeline batch ${bi + 1}/${batches.length}: ${created.length}`);
         } catch (err) {
             counters.failed += batch.length;
-            log(`  ✗ timeline batch ${bi + 1}/${batches.length}: ${String((err as Error).message)}`);
+            log(`  ✗ timeline batch ${bi + 1}/${batches.length}: ${(err as Error).message}`);
         }
     }
-
     return counters;
 }
 
 async function seedPantheon(boot: Bootstrap, worldId: string): Promise<PhaseCounters> {
     const counters = newCounters();
-    log(`Phase 8b/9: narrative_manage.batch_add (pantheon × ${boot.pantheon.length})`);
+    log(`Phase 8b/8: narrative_manage.batch_add (pantheon × ${boot.pantheon.length})`);
 
     const batches = chunk(boot.pantheon, 20);
     for (let bi = 0; bi < batches.length; bi++) {
         const batch = batches[bi];
         const notes = batch.map(p => {
             const r = p.raw;
-            const tags = ['pantheon', `archetype:${r.archetype ?? 'unknown'}`];
             return {
                 type: 'canonical_moment' as const,
                 content: `${r.name ?? p.name} (${r.archetype ?? 'unknown'}): ${r.domain ?? ''}. ${r.description ?? p.summary ?? ''}`.trim(),
                 metadata: r as Record<string, unknown>,
-                tags
+                tags: ['pantheon', `archetype:${r.archetype ?? 'unknown'}`]
             };
         });
 
         try {
-            const data = await call(handleNarrativeManage, {
-                action: 'batch_add',
-                worldId,
-                notes
-            });
+            const data = await callRich(handleNarrativeManage, { action: 'batch_add', worldId, notes });
             const created = Array.isArray(data.notes) ? (data.notes as unknown[]) : [];
             counters.created += created.length;
             log(`  ✓ pantheon batch ${bi + 1}/${batches.length}: ${created.length}`);
         } catch (err) {
             counters.failed += batch.length;
-            log(`  ✗ pantheon batch ${bi + 1}/${batches.length}: ${String((err as Error).message)}`);
+            log(`  ✗ pantheon batch ${bi + 1}/${batches.length}: ${(err as Error).message}`);
         }
     }
     return counters;
@@ -1021,51 +1311,52 @@ async function seedPantheon(boot: Bootstrap, worldId: string): Promise<PhaseCoun
 
 async function seedDailyLife(boot: Bootstrap, worldId: string): Promise<PhaseCounters> {
     const counters = newCounters();
-    log(`Phase 8c/9: narrative_manage.batch_add (daily_life × ${boot.daily_life.length})`);
+    const items = boot.daily_life ?? [];
+    if (items.length === 0) {
+        log('Phase 8c/8: daily_life empty; skipping');
+        return counters;
+    }
+    log(`Phase 8c/8: narrative_manage.batch_add (daily_life × ${items.length})`);
 
-    const batches = chunk(boot.daily_life, 20);
+    const batches = chunk(items, 20);
     for (let bi = 0; bi < batches.length; bi++) {
         const batch = batches[bi];
         const notes = batch.map(d => {
             const r = d.raw;
             const subkind = r.kind ?? r.type ?? r.entry_type ?? 'misc';
+            const human = [
+                r.name ? `${r.name}.` : (d.name ? `${d.name}.` : ''),
+                d.summary ?? ''
+            ].filter(Boolean).join(' ').trim() || `Daily life entry: ${subkind}.`;
             return {
                 type: 'canonical_moment' as const,
-                content: JSON.stringify(r).slice(0, 4000),
+                content: human,
                 metadata: r as Record<string, unknown>,
                 tags: ['daily_life', `subkind:${subkind}`]
             };
         });
 
         try {
-            const data = await call(handleNarrativeManage, {
-                action: 'batch_add',
-                worldId,
-                notes
-            });
+            const data = await callRich(handleNarrativeManage, { action: 'batch_add', worldId, notes });
             const created = Array.isArray(data.notes) ? (data.notes as unknown[]) : [];
             counters.created += created.length;
             log(`  ✓ daily_life batch ${bi + 1}/${batches.length}: ${created.length}`);
         } catch (err) {
             counters.failed += batch.length;
-            log(`  ✗ daily_life batch ${bi + 1}/${batches.length}: ${String((err as Error).message)}`);
+            log(`  ✗ daily_life batch ${bi + 1}/${batches.length}: ${(err as Error).message}`);
         }
     }
     return counters;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PHASE 9 — BARGAIN LEDGER  +  NESTED narrative_manage_seeds
-// ═══════════════════════════════════════════════════════════════════════════
-
 async function seedBargainLedger(boot: Bootstrap, worldId: string): Promise<PhaseCounters> {
     const counters = newCounters();
     const accounts = boot.bargain_ledger?.accounts ?? [];
     if (accounts.length === 0) {
-        log('Phase 9a/9: bargain_ledger has no accounts; skipping');
+        log('Phase 8d/8: bargain_ledger empty; skipping');
         return counters;
     }
-    log(`Phase 9a/9: narrative_manage.batch_add (bargain_ledger × ${accounts.length})`);
+    log(`Phase 8d/8: narrative_manage.batch_add (bargain_ledger × ${accounts.length})`);
 
     const batches = chunk(accounts, 20);
     for (let bi = 0; bi < batches.length; bi++) {
@@ -1079,18 +1370,17 @@ async function seedBargainLedger(boot: Bootstrap, worldId: string): Promise<Phas
                 return typeof result === 'string' && result.toUpperCase().includes('SCHEDULED');
             });
             const urgency: UrgencyBucket = (b.status === 'open' && hasScheduled) ? 'critical' : 'high';
-
             const content = [
                 `${b.name}.`,
                 `Type: ${b.bargain_type ?? 'unknown'}.`,
                 `Status: ${b.status ?? 'unknown'}.`,
                 b.struck ? `Struck: ${b.struck}.` : '',
-                `Parties: ${obligor.name ?? '?'} -> ${creditor.name ?? '?'}.`,
+                `Parties: ${obligor.name ?? '?'} → ${creditor.name ?? '?'}.`,
                 b.principal ? `Principal: ${b.principal}.` : '',
                 b.price ? `Price: ${b.price}` : ''
             ].filter(Boolean).join(' ');
 
-            const entityId = obligor.npc_id ? slugToUuid.get(`npc:${obligor.npc_id}`) : undefined;
+            const entityId = obligor.npc_id ? npcIdToCharacterId.get(obligor.npc_id) : undefined;
 
             return {
                 type: 'plot_thread' as const,
@@ -1112,17 +1402,13 @@ async function seedBargainLedger(boot: Bootstrap, worldId: string): Promise<Phas
         });
 
         try {
-            const data = await call(handleNarrativeManage, {
-                action: 'batch_add',
-                worldId,
-                notes
-            });
+            const data = await callRich(handleNarrativeManage, { action: 'batch_add', worldId, notes });
             const created = Array.isArray(data.notes) ? (data.notes as unknown[]) : [];
             counters.created += created.length;
             log(`  ✓ bargain batch ${bi + 1}/${batches.length}: ${created.length}`);
         } catch (err) {
             counters.failed += batch.length;
-            log(`  ✗ bargain batch ${bi + 1}/${batches.length}: ${String((err as Error).message)}`);
+            log(`  ✗ bargain batch ${bi + 1}/${batches.length}: ${(err as Error).message}`);
         }
     }
     return counters;
@@ -1132,13 +1418,13 @@ async function seedNestedNarrativeSeeds(boot: Bootstrap, worldId: string): Promi
     const counters = newCounters();
     const wrappers = boot.rpg_mcp_seeds?.narrative_manage ?? [];
     if (wrappers.length === 0) {
-        log('Phase 9b/9: rpg_mcp_seeds.narrative_manage empty; skipping');
+        log('Phase 8e/8: rpg_mcp_seeds.narrative_manage empty; skipping');
         return counters;
     }
 
-    // Flatten: every outer entry has narrative_manage_seeds[]; each of those has
-    // items[]; items[].title -> metadata.title + content prefix; rename items->notes;
-    // inject worldId at the call envelope.
+    // Flatten: every outer entry has narrative_manage_seeds[]; each of those
+    // has items[]; items[].title → metadata.title + content prefix; rename
+    // items→notes; inject worldId at the call envelope.
     const flat: Array<{
         type: 'plot_thread' | 'canonical_moment' | 'npc_voice' | 'foreshadowing' | 'session_log';
         content: string;
@@ -1171,12 +1457,12 @@ async function seedNestedNarrativeSeeds(boot: Bootstrap, worldId: string): Promi
         }
     }
 
-    log(`Phase 9b/9: narrative_manage.batch_add (rpg_mcp_seeds × ${flat.length})`);
+    log(`Phase 8e/8: narrative_manage.batch_add (rpg_mcp_seeds × ${flat.length})`);
 
     const batches = chunk(flat, 20);
     for (let bi = 0; bi < batches.length; bi++) {
         try {
-            const data = await call(handleNarrativeManage, {
+            const data = await callRich(handleNarrativeManage, {
                 action: 'batch_add',
                 worldId,
                 notes: batches[bi]
@@ -1186,7 +1472,7 @@ async function seedNestedNarrativeSeeds(boot: Bootstrap, worldId: string): Promi
             log(`  ✓ seed batch ${bi + 1}/${batches.length}: ${created.length}`);
         } catch (err) {
             counters.failed += batches[bi].length;
-            log(`  ✗ seed batch ${bi + 1}/${batches.length}: ${String((err as Error).message)}`);
+            log(`  ✗ seed batch ${bi + 1}/${batches.length}: ${(err as Error).message}`);
         }
     }
 
@@ -1201,35 +1487,35 @@ async function main(): Promise<void> {
     log(`Loading bootstrap from ${BOOTSTRAP_PATH}`);
     const boot = JSON.parse(readFileSync(BOOTSTRAP_PATH, 'utf-8')) as Bootstrap;
     log(`Loaded: ${boot.locations.length} locations, ${boot.factions.length} factions, ${boot.npcs.length} npcs, ${boot.plot_threads.length} plots, ${boot.bestiary.length} beasts`);
+    log(`Seeding into existing world: ${SEBASTOPYR_WORLD_ID}`);
 
-    // Touch the DB once up front so the migrations run before any handler call.
+    // Touch the DB once up front so migrations run before any handler call.
     getDb();
 
+    const worldId = SEBASTOPYR_WORLD_ID;
     const totals = newCounters();
-
-    const merge = (c: PhaseCounters) => {
+    const merge = (c: PhaseCounters, label: string) => {
+        log(`  ${label}: +${c.created} created, ${c.skipped} skipped, ${c.failed} failed`);
         totals.created += c.created;
         totals.skipped += c.skipped;
         totals.failed += c.failed;
     };
 
     try {
-        const { worldId, counters: c1 } = await seedWorld(boot);
-        merge(c1);
-
-        merge(await seedLocations(boot, worldId));
-        merge(await seedFactions(boot, worldId));
-        merge(await seedNpcs(boot, worldId));
-        merge(await seedAgents(boot));
-        merge(await seedPlotThreads(boot, worldId));
-        merge(await seedBestiary(boot, worldId));
-        merge(await seedTimeline(boot, worldId));
-        merge(await seedPantheon(boot, worldId));
-        merge(await seedDailyLife(boot, worldId));
-        merge(await seedBargainLedger(boot, worldId));
-        merge(await seedNestedNarrativeSeeds(boot, worldId));
+        merge(await seedLocations(boot, worldId),        'locations');
+        merge(await seedFactions(boot, worldId),         'factions');
+        merge(await seedNpcs(boot),                      'npcs');
+        merge(await seedAgents(boot),                    'agents');
+        merge(await seedNpcMemories(boot),               'memories');
+        merge(await seedPlotThreads(boot, worldId),      'plot_threads');
+        merge(await seedBestiary(boot, worldId),         'bestiary');
+        merge(await seedTimeline(boot, worldId),         'timeline');
+        merge(await seedPantheon(boot, worldId),         'pantheon');
+        merge(await seedDailyLife(boot, worldId),        'daily_life');
+        merge(await seedBargainLedger(boot, worldId),    'bargain_ledger');
+        merge(await seedNestedNarrativeSeeds(boot, worldId), 'rpg_mcp_seeds');
     } catch (err) {
-        log(`FATAL: ${String((err as Error).message)}`);
+        log(`FATAL: ${(err as Error).message}`);
         totals.failed += 1;
     }
 
@@ -1238,7 +1524,8 @@ async function main(): Promise<void> {
     log(`  created: ${totals.created}`);
     log(`  skipped: ${totals.skipped}`);
     log(`  failed:  ${totals.failed}`);
-    log(`  slug map entries: ${slugToUuid.size}`);
+    log(`  npc→character bindings: ${npcIdToCharacterId.size}`);
+    log(`  rooms indexed (pre-built + new): ${roomNameToUuid.size}`);
 }
 
 main().catch((err: unknown) => {
