@@ -1020,6 +1020,27 @@ function runMigrations(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_perception_assessments_target
       ON perception_assessments(target_ref_kind, target_ref_id);
 
+    -- SCENES: DM-committed shared narrative state.
+    -- Each scene is the "current frame" for all participants. Agent invokes
+    -- auto-inject the latest scene the character is a participant in.
+    -- Append-only in spirit — DM advances by calling set_scene again with
+    -- a new id; old scenes remain for transcript/audit.
+    CREATE TABLE IF NOT EXISTS scenes (
+      id TEXT PRIMARY KEY,
+      world_id TEXT NOT NULL,
+      title TEXT,
+      when_label TEXT,
+      place_label TEXT,
+      narration TEXT NOT NULL,
+      engine_state TEXT NOT NULL DEFAULT '{}',
+      participants TEXT NOT NULL DEFAULT '[]',
+      previous_scene_id TEXT,
+      created_at TEXT NOT NULL,
+      FOREIGN KEY(world_id) REFERENCES worlds(id) ON DELETE CASCADE
+    );
+    CREATE INDEX IF NOT EXISTS idx_scenes_world_time
+      ON scenes(world_id, created_at DESC);
+
     -- Audit + replay log of every LLM call
     CREATE TABLE IF NOT EXISTS agent_calls (
       id TEXT PRIMARY KEY,

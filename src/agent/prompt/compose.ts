@@ -27,6 +27,7 @@ import { CharacterRepository } from '../../storage/repos/character.repo.js';
 import { ConcentrationRepository } from '../../storage/repos/concentration.repo.js';
 import { InventoryRepository } from '../../storage/repos/inventory.repo.js';
 import { NpcMemoryRepository } from '../../storage/repos/npc-memory.repo.js';
+import { SceneRepository } from '../../storage/repos/scene.repo.js';
 
 import { buildPersonaSlice } from './slices/persona.js';
 import { buildDirectiveSlice } from './slices/directive.js';
@@ -34,6 +35,7 @@ import { buildSecretsSlice } from './slices/secrets.js';
 import { buildCharacterStateSlice } from './slices/character_state.js';
 import { buildRecentSlice } from './slices/recent.js';
 import { buildNarrativeFeedSlice } from './slices/narrative_feed.js';
+import { buildSceneSlice } from './slices/scene.js';
 
 export interface ComposeDeps {
     agentRepo: AgentRepository;
@@ -41,6 +43,7 @@ export interface ComposeDeps {
     concentrationRepo: ConcentrationRepository;
     inventoryRepo: InventoryRepository;
     npcMemoryRepo: NpcMemoryRepository;
+    sceneRepo?: SceneRepository;
 }
 
 export interface ComposeInput {
@@ -110,6 +113,18 @@ export function composePrompt(input: ComposeInput, deps: ComposeDeps): ComposeRe
 
         const narrative = buildNarrativeFeedSlice(input.agentId, deps.agentRepo);
         if (narrative) { systemParts.push(narrative); slicesIncluded.push('narrative_feed'); } else { slicesSkipped.push('narrative_feed'); }
+
+        // Scene slice: the DM-committed shared narrative frame for THIS character.
+        // Renders the current scene (and optional prior context) so every
+        // party-mate reads the same world state. Goes LAST in the system
+        // assembly so it sits closest to the user message — the freshest
+        // foreground for the agent's intent declaration.
+        if (deps.sceneRepo) {
+            const scene = buildSceneSlice(input.characterId, deps.sceneRepo, deps.characterRepo);
+            if (scene) { systemParts.push(scene); slicesIncluded.push('scene'); } else { slicesSkipped.push('scene'); }
+        } else {
+            slicesSkipped.push('scene');
+        }
     }
 
     const messages: ChatMessage[] = [];

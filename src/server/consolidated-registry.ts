@@ -68,6 +68,7 @@ const TOOL_CATEGORIES: Record<string, ToolCategory> = {
     batch_manage: 'meta',
     agent_manage: 'agent',
     perception_manage: 'meta',
+    scene_manage: 'narrative',
 };
 
 // Map tool names to keywords
@@ -102,6 +103,7 @@ const TOOL_KEYWORDS: Record<string, string[]> = {
     batch_manage: ['batch', 'bulk', 'create', 'workflow', 'template'],
     agent_manage: ['agent', 'llm', 'npc', 'ai', 'persona', 'invoke', 'prompt', 'memory', 'autonomous'],
     perception_manage: ['perception', 'hazard', 'control', 'safety', 'sight', 'blind-spot', 'attention', 'operator'],
+    scene_manage: ['scene', 'set_scene', 'frame', 'dm', 'narration', 'shared', 'state', 'context'],
 };
 
 // Map tool names to capabilities
@@ -136,6 +138,7 @@ const TOOL_CAPABILITIES: Record<string, string[]> = {
     batch_manage: ['Bulk character creation', 'Workflows', 'Templates'],
     agent_manage: ['LLM-driven NPC minds', 'Modular prompt slices', 'Plain-text intent declarations', 'Auto-invoke on initiative'],
     perception_manage: ['Hierarchy-of-Controls hazard scanning', 'Attentional-capacity metering', 'Blind-spot detection (§3.5)', 'Disposition discipline'],
+    scene_manage: ['DM-committed shared scenes', 'Auto-injected into agent prompts', 'Engine-side source of truth for "what is happening now"'],
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

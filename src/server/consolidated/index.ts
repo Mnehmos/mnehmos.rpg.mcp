@@ -55,6 +55,9 @@ export { AgentManageTool, handleAgentManage } from './agent-manage.js';
 // Batch 8 - Constraint-Perception (Layer-1 Operator subsystem)
 export { PerceptionManageTool, handlePerceptionManage } from './perception-manage.js';
 
+// Batch 9 - Scene (DM-committed shared narrative state, auto-injected into agent prompts)
+export { SceneManageTool, handleSceneManage } from './scene-manage.js';
+
 /**
  * Array of all consolidated tool definitions for easy iteration
  */
@@ -88,6 +91,7 @@ import { TravelManageTool, handleTravelManage } from './travel-manage.js';
 import { BatchManageTool, handleBatchManage } from './batch-manage.js';
 import { AgentManageTool, handleAgentManage } from './agent-manage.js';
 import { PerceptionManageTool, handlePerceptionManage } from './perception-manage.js';
+import { SceneManageTool, handleSceneManage } from './scene-manage.js';
 
 export const ConsolidatedTools = [
     { tool: SecretManageTool, handler: handleSecretManage },
@@ -120,4 +124,5 @@ export const ConsolidatedTools = [
     { tool: BatchManageTool, handler: handleBatchManage },
     { tool: AgentManageTool, handler: handleAgentManage },
     { tool: PerceptionManageTool, handler: handlePerceptionManage },
+    { tool: SceneManageTool, handler: handleSceneManage },
 ];
