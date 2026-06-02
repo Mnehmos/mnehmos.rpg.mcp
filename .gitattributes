@@ -1,0 +1,27 @@
+# Normalize line endings: store as LF in the repo, check out native on each OS.
+# This prevents the entire tree from showing as "modified" on Windows checkouts.
+* text=auto
+
+# Source and config files are always LF in the repository
+*.ts   text eol=lf
+*.tsx  text eol=lf
+*.js   text eol=lf
+*.mjs  text eol=lf
+*.cjs  text eol=lf
+*.json text eol=lf
+*.md   text eol=lf
+*.yml  text eol=lf
+*.yaml text eol=lf
+
+# Windows-specific scripts keep CRLF
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+*.ps1  text eol=crlf
+
+# Binary files: never normalize
+*.db    binary
+*.sqlite binary
+*.exe   binary
+*.png   binary
+*.jpg   binary
+*.ico   binary
