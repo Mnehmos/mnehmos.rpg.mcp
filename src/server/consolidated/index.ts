@@ -52,6 +52,9 @@ export { BatchManageTool, handleBatchManage } from './batch-manage.js';
 // Batch 7 - Agent (LLM-driven NPCs)
 export { AgentManageTool, handleAgentManage } from './agent-manage.js';
 
+// Batch 8 - Constraint-Perception (Layer-1 Operator subsystem)
+export { PerceptionManageTool, handlePerceptionManage } from './perception-manage.js';
+
 /**
  * Array of all consolidated tool definitions for easy iteration
  */
@@ -84,6 +87,7 @@ import { SessionManageTool, handleSessionManage } from './session-manage.js';
 import { TravelManageTool, handleTravelManage } from './travel-manage.js';
 import { BatchManageTool, handleBatchManage } from './batch-manage.js';
 import { AgentManageTool, handleAgentManage } from './agent-manage.js';
+import { PerceptionManageTool, handlePerceptionManage } from './perception-manage.js';
 
 export const ConsolidatedTools = [
     { tool: SecretManageTool, handler: handleSecretManage },
@@ -115,4 +119,5 @@ export const ConsolidatedTools = [
     { tool: TravelManageTool, handler: handleTravelManage },
     { tool: BatchManageTool, handler: handleBatchManage },
     { tool: AgentManageTool, handler: handleAgentManage },
+    { tool: PerceptionManageTool, handler: handlePerceptionManage },
 ];

@@ -84,6 +84,15 @@ export const CharacterSchema = z.object({
     immunities: z.array(z.string()).optional().default([])
         .describe('Damage types that deal no damage'),
 
+    // §10.3 forward-compat: generalized resource pools.
+    // Operator's attentional_capacity lives here (resourcePools.attentional_capacity).
+    // Backwards-compatible — existing 5e characters keep spellSlots untouched.
+    resourcePools: z.record(z.string(), z.object({
+        current: z.number(),
+        max: z.number(),
+        lastRefilledAt: z.string().optional(),
+    })).optional().default({}),
+
     // Skill and Save Proficiencies
     skillProficiencies: z.array(z.enum([
         'acrobatics', 'animal_handling', 'arcana', 'athletics', 'deception',

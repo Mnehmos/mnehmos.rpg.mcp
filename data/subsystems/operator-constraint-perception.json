@@ -1,0 +1,53 @@
+{
+  "subsystem_id": "constraint-perception",
+  "version": "1.0.0",
+  "title": "The Operator's Lens",
+  "description": "Hierarchy-of-Controls hazard perception. The cost of looking is real, and the looking can fail honestly.",
+  "resource": {
+    "id": "attentional_capacity",
+    "label": "Attentional Capacity",
+    "firstLevelFormula": "3",
+    "maxByLevelFormula": "min(3 + floor((level - 1) / 4), 6)",
+    "defaultDie": null,
+    "nonRefundable": true,
+    "refillTriggers": ["long_rest"]
+  },
+  "classification": {
+    "id": "operator",
+    "label": "Operator",
+    "castingAbility": "wis",
+    "levels": [
+      { "level": 1, "max": 3 },
+      { "level": 5, "max": 4 },
+      { "level": 9, "max": 5 },
+      { "level": 13, "max": 6 }
+    ]
+  },
+  "casting_profile": {
+    "id": "jsa-pre-task-hazard-analysis",
+    "label": "Pre-Task Hazard Analysis (JSA)",
+    "windUpActions": 1,
+    "interruptible": true,
+    "prerequisites": ["not_concentrating", "has_attentional_capacity"],
+    "failure_modes": [
+      "BLIND_SPOT",
+      "WRONG_LEVEL_CALL",
+      "RESOURCE_EXHAUSTION",
+      "OBSERVER_NOT_BOUND",
+      "CONCENTRATING",
+      "ASSESSMENT_INTERRUPTED",
+      "INVALID_TARGET"
+    ]
+  },
+  "narrative_binding": {
+    "biographyChapterTitle": "Chapter II — The Teaching of Sight, and the First Looking.",
+    "biographyChapterVoice": "the maker, descending into the Inner Chamber"
+  },
+  "hierarchy_of_controls": [
+    { "rank": 1, "level": "elimination",    "doctrine": "remove the hazard from the room before it can act" },
+    { "rank": 2, "level": "substitution",   "doctrine": "exchange one death for a lesser" },
+    { "rank": 3, "level": "engineering",    "doctrine": "place a wall between a man and the thing that would kill him" },
+    { "rank": 4, "level": "administrative", "doctrine": "rewrite the order of the shift so the man is not present" },
+    { "rank": 5, "level": "ppe",            "doctrine": "armor the man against what could not be removed, swapped, walled, or scheduled around" }
+  ]
+}

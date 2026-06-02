@@ -2,9 +2,13 @@
 
 ## This Repository
 
-The backend game engine for Quest Keeper AI. **33 MCP tools** (29 consolidated action-routed + 4 meta/event) for complete RPG mechanics, including LLM-driven NPCs via `agent_manage`.
+The backend game engine for Quest Keeper AI. **34 MCP tools** (30 consolidated action-routed + 4 meta/event) for complete RPG mechanics, including LLM-driven NPCs via `agent_manage` and the Operator's constraint-perception lens via `perception_manage`.
 **Philosophy:** "LLM describes, engine validates" - Database is source of truth.
 **Status:** Alpha - 2214 tests passing, 136 test files, MCP Protocol fully integrated
+
+## Bastion subsystems
+
+Layer-1 SubsystemDefs live in `data/subsystems/`. The first installed is the Operator's `constraint-perception` (Hierarchy of Controls as engine primitive) — the first ceremony, the first DLC, the first page of Biography #1, the first build, all the same act.
 
 ## Key Commands
 

@@ -826,6 +826,14 @@ function runMigrations(db: Database.Database) {
     db.exec(`ALTER TABLE characters ADD COLUMN xp INTEGER NOT NULL DEFAULT 0;`);
   }
 
+  // §10.3 forward-compat: generalized resource pools (JSON).
+  // Operator's attentional_capacity lives here.
+  const hasResourcePools = charColumns.some(col => col.name === 'resource_pools');
+  if (!hasResourcePools) {
+    console.error('[Migration] Adding resource_pools column to characters table');
+    db.exec(`ALTER TABLE characters ADD COLUMN resource_pools TEXT DEFAULT '{}';`);
+  }
+
   // Migration: Rename world_x/world_y to local_x/local_y if needed
   const hasWorldX = roomColumns.some(col => col.name === 'world_x');
   const hasWorldY = roomColumns.some(col => col.name === 'world_y');
@@ -950,6 +958,43 @@ function runMigrations(db: Database.Database) {
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_journal_agent_time ON agent_journal(agent_id, created_at DESC);
+
+    -- CONSTRAINT-PERCEPTION: Layer-1 subsystem bindings.
+    -- Single-row bootstrap binds the Operator to constraint-perception.
+    CREATE TABLE IF NOT EXISTS subsystem_bindings (
+      character_id TEXT NOT NULL,
+      subsystem_id TEXT NOT NULL,
+      bound_at TEXT NOT NULL,
+      PRIMARY KEY (character_id, subsystem_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_subsystem_bindings_subsystem
+      ON subsystem_bindings(subsystem_id);
+
+    -- CONSTRAINT-PERCEPTION: Ledger of every assessment attempt.
+    -- INSERT-only — disposition encodes whether the row reflects a
+    -- commit, a refused petition, a spent-but-empty looking, or fog.
+    CREATE TABLE IF NOT EXISTS perception_assessments (
+      id TEXT PRIMARY KEY,
+      seq INTEGER NOT NULL,
+      prev_seq INTEGER,
+      event_hash TEXT NOT NULL,
+      intent_id TEXT NOT NULL,
+      observer_id TEXT NOT NULL,
+      target_ref_kind TEXT NOT NULL CHECK (target_ref_kind IN ('room','encounter','scene')),
+      target_ref_id TEXT NOT NULL,
+      hazards TEXT NOT NULL DEFAULT '[]',
+      applicable_controls TEXT NOT NULL DEFAULT '[]',
+      blind_spots TEXT NOT NULL DEFAULT '[]',
+      disposition TEXT NOT NULL CHECK (disposition IN ('commit','reject_inert','no_op_spoken','unknown')),
+      reject_reason TEXT,
+      cost_paid INTEGER NOT NULL DEFAULT 0,
+      capacity_remaining_after INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_perception_assessments_observer
+      ON perception_assessments(observer_id, seq DESC);
+    CREATE INDEX IF NOT EXISTS idx_perception_assessments_target
+      ON perception_assessments(target_ref_kind, target_ref_id);
 
     -- Audit + replay log of every LLM call
     CREATE TABLE IF NOT EXISTS agent_calls (

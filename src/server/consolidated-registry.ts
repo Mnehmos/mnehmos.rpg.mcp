@@ -67,6 +67,7 @@ const TOOL_CATEGORIES: Record<string, ToolCategory> = {
     travel_manage: 'party',
     batch_manage: 'meta',
     agent_manage: 'agent',
+    perception_manage: 'meta',
 };
 
 // Map tool names to keywords
@@ -100,6 +101,7 @@ const TOOL_KEYWORDS: Record<string, string[]> = {
     travel_manage: ['travel', 'move', 'rest', 'loot', 'journey', 'party'],
     batch_manage: ['batch', 'bulk', 'create', 'workflow', 'template'],
     agent_manage: ['agent', 'llm', 'npc', 'ai', 'persona', 'invoke', 'prompt', 'memory', 'autonomous'],
+    perception_manage: ['perception', 'hazard', 'control', 'safety', 'sight', 'blind-spot', 'attention', 'operator'],
 };
 
 // Map tool names to capabilities
@@ -133,6 +135,7 @@ const TOOL_CAPABILITIES: Record<string, string[]> = {
     travel_manage: ['Party travel', 'Encounter looting', 'Camp/rest'],
     batch_manage: ['Bulk character creation', 'Workflows', 'Templates'],
     agent_manage: ['LLM-driven NPC minds', 'Modular prompt slices', 'Plain-text intent declarations', 'Auto-invoke on initiative'],
+    perception_manage: ['Hierarchy-of-Controls hazard scanning', 'Attentional-capacity metering', 'Blind-spot detection (§3.5)', 'Disposition discipline'],
 };
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -16,13 +16,13 @@ export class CharacterRepository {
                               cantrips_known, max_spell_level, concentrating_on, conditions,
                               legendary_actions, legendary_actions_remaining, legendary_resistances,
                               legendary_resistances_remaining, has_lair_actions, resistances, vulnerabilities, immunities,
-                              current_room_id, perception_bonus, stealth_bonus, created_at, updated_at)
+                              current_room_id, perception_bonus, stealth_bonus, resource_pools, created_at, updated_at)
       VALUES (@id, @name, @stats, @hp, @maxHp, @ac, @level, @factionId, @behavior, @characterType,
               @characterClass, @race, @spellSlots, @pactMagicSlots, @knownSpells, @preparedSpells,
               @cantripsKnown, @maxSpellLevel, @concentratingOn, @conditions,
               @legendaryActions, @legendaryActionsRemaining, @legendaryResistances,
               @legendaryResistancesRemaining, @hasLairActions, @resistances, @vulnerabilities, @immunities,
-              @currentRoomId, @perceptionBonus, @stealthBonus, @createdAt, @updatedAt)
+              @currentRoomId, @perceptionBonus, @stealthBonus, @resourcePools, @createdAt, @updatedAt)
     `);
 
         stmt.run({
@@ -61,6 +61,8 @@ export class CharacterRepository {
             // PHASE-2: Social hearing mechanics skill bonuses
             perceptionBonus: validChar.perceptionBonus || 0,
             stealthBonus: validChar.stealthBonus || 0,
+            // §10.3: Generalized resource pools (attentional_capacity et al.)
+            resourcePools: JSON.stringify(validChar.resourcePools || {}),
             createdAt: validChar.createdAt,
             updatedAt: validChar.updatedAt,
         });
@@ -118,7 +120,8 @@ export class CharacterRepository {
                 legendary_actions = ?, legendary_actions_remaining = ?,
                 legendary_resistances = ?, legendary_resistances_remaining = ?,
                 has_lair_actions = ?, resistances = ?, vulnerabilities = ?, immunities = ?,
-                current_room_id = ?, perception_bonus = ?, stealth_bonus = ?, updated_at = ?
+                current_room_id = ?, perception_bonus = ?, stealth_bonus = ?,
+                resource_pools = ?, updated_at = ?
             WHERE id = ?
         `);
 
@@ -157,6 +160,8 @@ export class CharacterRepository {
             // PHASE-2: Social hearing mechanics skill bonuses
             validChar.perceptionBonus || 0,
             validChar.stealthBonus || 0,
+            // §10.3: Generalized resource pools
+            JSON.stringify(validChar.resourcePools || {}),
             validChar.updatedAt,
             id
         );
@@ -205,6 +210,8 @@ export class CharacterRepository {
             // PHASE-2: Social hearing mechanics skill bonuses
             perceptionBonus: row.perception_bonus ?? 0,
             stealthBonus: row.stealth_bonus ?? 0,
+            // §10.3: Generalized resource pools (attentional_capacity et al.)
+            resourcePools: row.resource_pools ? JSON.parse(row.resource_pools) : {},
             createdAt: row.created_at,
             updatedAt: row.updated_at,
         };
@@ -257,6 +264,8 @@ interface CharacterRow {
     // PHASE-2: Social hearing mechanics skill bonuses
     perception_bonus: number | null;
     stealth_bonus: number | null;
+    // §10.3: Generalized resource pools
+    resource_pools: string | null;
     created_at: string;
     updated_at: string;
 }
