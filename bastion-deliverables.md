@@ -120,7 +120,7 @@ Steps 1–3 are cheap and unblock everything. Step 4 is the keystone engine work
 
 1. ✅ **RESOLVED — Website repo location.** Own repo at `F:/Github/mnehmos.bastion`; engine-as-moat / publication-as-product split preserved (resolution I).
 2. ✅ **RESOLVED — The cohort.** Drawn from popular LitRPG tropes; cap of max-2 concurrent writers (resolution II).
-3. 🔒 **Mnehmos selection weight.** Resolved in the prompt (he *chooses*). Remaining nuance: does the reader learn *why* he chose the Operator early, or is the reason withheld? Affects how much the first rite reveals.
+3. ✅ **RESOLVED — Mnehmos selection weight.** Not an authoring decision — writing-determined per SPEC §11. The reader learns *why* (or doesn't) when Chapter 1's prose itself decides. Discovered by running, not specified (resolution IV).
 
 Decisions already settled (do not reopen): the player/character contract; Mnehmos chooses and summons a cohort; the engine-as-feature website position; the four deferred "discovered by running" questions stay open.
 

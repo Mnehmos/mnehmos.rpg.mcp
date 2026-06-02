@@ -1,6 +1,6 @@
 # Bastion — Resolved Decisions (PD 606 author log)
 
-*Three architectural beats locked in by the maker. These were open in
+*Four architectural beats locked in by the maker. These were open in
 the deliverables manifest; they are no longer open. Subsequent design
 work must honor them.*
 
@@ -50,13 +50,34 @@ work must honor them.*
   that cannot meet. The convergence chapter, when it comes, is the
   Operator failing to recognize himself.
 
+## IV. Mnehmos selection weight — writing-determined
+
+- **The question:** does the reader learn early *why* Mnehmos chose the
+  Operator out of the cohort, or is the reason withheld until later (or
+  forever)?
+- **The resolution:** not a spec decision. **Writing-determined.** The
+  prose of Chapter 1 itself decides — and Chapter 1 is written by
+  running the rite, not by pre-authoring a reveal schedule. This belongs
+  in the same drawer as SPEC §11's deliberately-open questions:
+  discovered by running, not specified.
+- **Implication for the rite-as-commit:** the prompt-composer for
+  Mnehmos's spawn must not pre-load a justification for the Operator
+  selection. If a justification surfaces in his interior, it surfaces
+  there organically; if not, it doesn't. The convergence chapter (per
+  resolution III, the Operator failing to recognize himself) will, by
+  construction, never know about this choice from inside.
+- **Implication for the reader product:** the website's Operator
+  biography must not lean into a foreshadowing layout. Whatever Chapter
+  1 commits is what the reader gets. The post-hoc commentary surface
+  (the engine-log toggle) can speculate; the prose cannot pre-announce.
+
 ## What stays open
 
 Per spec §11: does the System want anything; is the summoning
 salvation or atrocity; when does Mnehmos delete a soul who threatens
 the order; do biographies converge. Discovered by running, not
-specified.
+specified. Resolution IV joins this drawer as the fifth member.
 
 ---
 
-*PD 606. Three decisions land. The critical path is unblocked.*
+*PD 606. Four decisions land. The critical path is fully unblocked.*
