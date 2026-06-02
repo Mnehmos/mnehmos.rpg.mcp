@@ -13,6 +13,8 @@
 Public pitch (above the fold, never the backend):
 > **Bastion is the last city. It summons heroes from every kind of world. Their powers arrive intact. Nothing is balanced. The city only records what survives.**
 
+**Genre & crunch.** Bastion is **LitRPG** — stat boxes and rolls run inline, marked `[OOC]` (§6.4) — with Progression-Fantasy / GameLit DNA (multiverse clash, intact powers, steady scaling). The differentiator is not *how much* crunch but *that the crunch is honest*: every number is real, committed, and verifiable, and the inline rolls are pulled from the same ledger as the audit trail — neither typed by hand. The cover claim is the one no LitRPG author can make: **every number is real; the dice are honest; the protagonist can actually lose — and did. Read it as a novel, or check the math yourself.** That honesty is the moat; competitors cannot copy it without building the engine.
+
 The unit of production is **committed-world-state change per author-hour** (spec §5). One committed event fans out into many surfaces: an Operator chapter, a cohort-member chapter, an antagonist interlude, the Mnehmos devlog, a ledger appendix, a recap, TTS. The website is where that fan-out lands.
 
 ---
@@ -162,11 +164,29 @@ Query received. Ask precisely.
 GROAN—
 :::
 
-:::roll
-Constraint read — DC 14 — rolled 17. The east arch is bearing what three should.
+[OOC] :::roll
+Constraint Read — WIS (Hazard Sense) — DC 14 — rolled 17 (+5) = 22. SUCCESS.
+The east arch is bearing what three should. Committed.
+:::
+
+[OOC] :::statbox
+THE OPERATOR · HP 18/22 · Stress 3 · Hazard Sense +5
+New read unlocked: "load path." Charges 1/1.
 :::
 ```
-The generator maps `panel/bubble/sfx/roll/cap` to the shared component CSS. Authors (and agents emitting chapter content) write the DSL; the build owns the HTML.
+The generator maps `panel/bubble/sfx/cap` to the in-character manga components, and the **`[OOC]` block types** (`roll`, `statbox`, and any mechanical readout) to a visually distinct out-of-character treatment (see §6.4). Authors (and agents emitting chapter content) write the DSL; the build owns the HTML.
+
+### 6.4 Inline crunch — the `[OOC]` convention (the LitRPG layer)
+Bastion is **LitRPG**: stat boxes and rolls appear **inline, in the chapter**, not only in an appendix. The mechanical layer is marked out-of-character with an **`[OOC]`** label so the reader's eye learns the register in one chapter: unmarked text is the world (in-character prose); `[OOC]` is the engine speaking (the numbers).
+
+- **What `[OOC]` carries:** the stat box when it matters, the roll as it happens, the committed result. The blue-box experience hardcore readers expect — on the page, not behind a click.
+- **Why this preserves the oracle design:** the System still doesn't narrate the character's interiority. The character lives in the prose; the numbers live in `[OOC]` blocks. The register separator is what lets both share one column of text without confusion — the same move actual-play transcripts use, and LitRPG readers are fluent in it.
+- **The honesty edge (exploit this):** an inline `[OOC]` roll is **pulled from the committed ledger** — the SAME value that's in the chapter's Engine Log (§5), because both read the same committed state. Neither was typed by hand. So a reader can cross-check the inline roll against the audit trail and find they match, every time. Ordinary LitRPG inline crunch is the author typing a number; Bastion's is a window onto real committed state placed in the prose. "The dice are honest" becomes checkable at the sentence level.
+- **Two tiers, distinct jobs (do not make them redundant):**
+  - **Inline `[OOC]`** = *reading-level* crunch: the curated, narratively-placed mechanics — the beats that matter, in flow, part of the chapter you read.
+  - **Collapsible Engine Log** (§5) = *audit-level* crunch: the exhaustive deterministic trace behind the whole chapter, for the reader who wants to verify everything, not just the surfaced beats.
+  One is for reading; one is for auditing. They show consistent numbers because they read the same ledger — and that consistency is itself a verifiable claim.
+- **Styling:** `[OOC]` blocks render in the biography's theme but visually set apart from the prose (a system-panel treatment — the "blue box," themed) so the eye sorts them instantly. They are NOT hidden and NOT collapsed; they are part of the read.
 
 ### 6.3 Biography theme token set (per biography)
 ```yaml
@@ -238,12 +258,13 @@ Build the **front door now, structured so the rest grows out of it** — same le
 
 ## 9. Non-negotiables (carried from the project's spine)
 
-- **Reader-first.** A reader who never opens an Engine Log gets a clean novel. The engine layer is always opt-in.
-- **The story is the transcript.** Site content is generated from committed state, not authored ahead of it. "Narrate from state, never ahead of it" (Naruto's law) applies to the website too — a chapter cannot claim an outcome the ledger didn't commit.
+- **LitRPG with honest crunch.** Stat boxes and rolls run inline, marked `[OOC]` (§6.4) — the blue-box experience is on the page, not opt-in. Two registers share one column: prose is the world, `[OOC]` is the engine. The read still flows for someone skimming the `[OOC]` blocks, but the crunch is present, not hidden.
+- **The crunch is real, and that is the differentiator.** Inline rolls and stat boxes are pulled from the committed ledger — the same numbers as the Engine Log, neither typed by hand. The selling claim is the one no LitRPG author can make: every number is real, the dice are honest, the protagonist can actually lose — and the reader can check.
+- **The story is the transcript.** Site content is generated from committed state, not authored ahead of it. "Narrate from state, never ahead of it" (Naruto's law) applies to the website too — a chapter cannot claim an outcome the ledger didn't commit, and an inline `[OOC]` roll cannot show a number the engine didn't roll.
 - **Generated, not hand-built.** `docs/` is build output. Content + theme + templates are the editable surface.
-- **Per-biography skin, shared bones.** Every life looks like its source-world; every life runs on the same frame.
+- **Per-biography skin, shared bones.** Every life looks (§3) and sounds (§5.5) like its source-world; every life runs on the same frame.
 - **Convergence is structural, not bolted on.** The data model knows that events can belong to many biographies, from the start.
-- **The moat is a feature, never the foreground.** "Every event committed by the System" is the strongest thing we have to say — say it where the curious will find it, never where it interrupts the read.
+- **Two tiers of crunch, distinct jobs.** Inline `[OOC]` = reading-level (curated, in-flow). Engine Log = audit-level (exhaustive, collapsible). Same ledger → consistent numbers → a verifiable claim.
 - **Audio is first-class but cheap.** Narration is a primary output (audiobook episodes), voiced per biography via OpenAI TTS — but generated incrementally and hash-gated so it never re-renders an unchanged chapter. The read never depends on the audio; the audio never blocks the build.
 
 ---
