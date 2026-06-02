@@ -252,6 +252,7 @@ export const ItemManageTool = {
 
 Actions: ${ACTIONS.join(', ')}
 Aliases: new→create, fetch→get, query→search`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe(`Action to perform: ${ACTIONS.join(', ')}`),
         itemId: z.string().optional().describe('Item ID (for get, update, delete)'),

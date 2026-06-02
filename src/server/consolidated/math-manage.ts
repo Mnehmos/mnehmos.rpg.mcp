@@ -338,6 +338,7 @@ Calculate ranged attack trajectories:
 - gravity: Default 32.2 ft/s²
 
 Actions: roll, probability, solve, simplify, projectile`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe(`Action: ${ACTIONS.join(', ')}`),
         // Roll params

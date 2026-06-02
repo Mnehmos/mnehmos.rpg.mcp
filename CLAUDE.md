@@ -4,7 +4,7 @@
 
 The backend game engine for Quest Keeper AI. **33 MCP tools** (29 consolidated action-routed + 4 meta/event) for complete RPG mechanics, including LLM-driven NPCs via `agent_manage`.
 **Philosophy:** "LLM describes, engine validates" - Database is source of truth.
-**Status:** Alpha - 2140 tests passing, 95+ test files, MCP Protocol fully integrated
+**Status:** Alpha - 2214 tests passing, 136 test files, MCP Protocol fully integrated
 
 ## Key Commands
 
@@ -41,7 +41,7 @@ src/
 ├── utils/        # Action router, fuzzy matching
 └── math/         # Dice, algebra, physics
 
-tests/            # Mirror of src/ structure (85+ files)
+tests/            # Mirror of src/ structure (136 files)
 docs/             # White paper, ADRs, LLM spatial guide
 ```
 

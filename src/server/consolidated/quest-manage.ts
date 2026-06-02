@@ -534,6 +534,7 @@ Each objective requires a "type" field. Valid values:
 - explore: visit a location
 - interact: talk to / interact with an entity
 - custom: anything else (escape, escort, survive, etc.)`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe(`Action: ${ACTIONS.join(', ')}`),
         questId: z.string().optional().describe('Quest ID'),

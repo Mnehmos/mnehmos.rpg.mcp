@@ -458,6 +458,7 @@ mainhand, offhand, armor, head, feet, accessory
 
 Actions: ${ACTIONS.join(', ')}
 Aliases: add→give, take→remove, trade→transfer, consume→use, wield→equip`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe(`Action to perform: ${ACTIONS.join(', ')}`),
         characterId: z.string().optional().describe('Character ID'),

@@ -118,4 +118,68 @@ describe('WebSocket Transport', () => {
         await Promise.all([p1, p2]);
         client2.close();
     });
+
+    it('should route id responses only to the requesting client', async () => {
+        const client2 = new WebSocket(`ws://localhost:${PORT}`);
+        client = new WebSocket(`ws://localhost:${PORT}`);
+
+        await new Promise<void>((resolve) => {
+            let connected = 0;
+            const checkConnected = () => {
+                connected++;
+                if (connected === 2) resolve();
+            };
+            client.on('open', checkConnected);
+            client2.on('open', checkConnected);
+        });
+
+        const unexpectedMessages: unknown[] = [];
+        client2.on('message', (data) => {
+            unexpectedMessages.push(JSON.parse(data.toString()));
+        });
+
+        const responsePromise = new Promise<void>((resolve, reject) => {
+            client.on('message', (data) => {
+                try {
+                    expect(JSON.parse(data.toString())).toEqual({
+                        jsonrpc: '2.0',
+                        id: 42,
+                        result: { ok: true }
+                    });
+                    resolve();
+                } catch (e) {
+                    reject(e);
+                }
+            });
+        });
+
+        transport.onmessage = (msg) => {
+            expect(msg).toEqual({
+                jsonrpc: '2.0',
+                id: 42,
+                method: 'ping',
+                params: {}
+            });
+        };
+
+        client.send(JSON.stringify({
+            jsonrpc: '2.0',
+            id: 42,
+            method: 'ping',
+            params: {}
+        }));
+
+        await new Promise(resolve => setTimeout(resolve, 10));
+        await transport.send({
+            jsonrpc: '2.0',
+            id: 42,
+            result: { ok: true }
+        });
+
+        await responsePromise;
+        await new Promise(resolve => setTimeout(resolve, 25));
+
+        expect(unexpectedMessages).toEqual([]);
+        client2.close();
+    });
 });

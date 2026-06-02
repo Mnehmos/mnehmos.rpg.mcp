@@ -714,6 +714,7 @@ export const PartyManageTool = {
 
 Actions: create, get, list, update, delete, add_member, remove_member, update_member, set_leader, set_active, get_members, get_context, get_unassigned, move, get_position, get_in_region
 Aliases: new/form->create, join/recruit->add_member, leader->set_leader, active/pov->set_active, roster->get_members, travel/goto->move`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe('Action to perform'),
         // Party identifiers

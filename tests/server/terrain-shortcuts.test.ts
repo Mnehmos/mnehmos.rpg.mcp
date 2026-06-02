@@ -237,6 +237,21 @@ describe('Terrain Range Shortcuts', () => {
             expect(state.terrain.obstacles).toContain('9,9');
             expect(state.terrain.obstacles.length).toBe(10);
         });
+
+        it('should reject executable JavaScript in algebraic ranges', async () => {
+            delete (globalThis as any).__rpgTerrainPwned;
+
+            await expect(handleUpdateTerrain({
+                encounterId,
+                operation: 'add',
+                terrainType: 'obstacles',
+                ranges: ['y=globalThis.__rpgTerrainPwned=1:0:0'],
+                gridWidth: 10,
+                gridHeight: 10
+            }, mockCtx)).rejects.toThrow(/Invalid|number|position/i);
+
+            expect((globalThis as any).__rpgTerrainPwned).toBeUndefined();
+        });
     });
 });
 

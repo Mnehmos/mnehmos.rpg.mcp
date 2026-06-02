@@ -170,6 +170,71 @@ const BatchManageInputSchema = z.object({
 
 type BatchManageInput = z.infer<typeof BatchManageInputSchema>;
 
+const BatchManageActionSchemas = {
+    create_characters: {
+        schema: BatchManageInputSchema.extend({
+            action: z.literal('create_characters'),
+            characters: z.array(BatchCharacterSchema).min(1).max(20)
+                .describe('Array of characters to create (1-20)')
+        }),
+        aliases: ['characters', 'batch_characters', 'create_party', 'spawn_characters'],
+        description: 'Create multiple characters'
+    },
+    create_npcs: {
+        schema: BatchManageInputSchema.extend({
+            action: z.literal('create_npcs'),
+            npcs: z.array(BatchNpcSchema).min(1).max(50)
+                .describe('Array of NPCs to create (1-50)')
+        }),
+        aliases: ['npcs', 'batch_npcs', 'populate', 'spawn_npcs'],
+        description: 'Create multiple NPCs'
+    },
+    distribute_items: {
+        schema: BatchManageInputSchema.extend({
+            action: z.literal('distribute_items'),
+            distributions: z.array(z.object({
+                characterId: z.string().describe('Character ID'),
+                items: z.array(z.string()).min(1).describe('Items to give')
+            })).min(1).max(20)
+        }),
+        aliases: ['distribute', 'give_items', 'equip_all', 'batch_items'],
+        description: 'Give items to multiple characters'
+    },
+    execute_workflow: {
+        schema: BatchManageInputSchema.extend({
+            action: z.literal('execute_workflow'),
+            templateId: z.string().describe('Workflow template ID')
+        }),
+        aliases: ['workflow', 'execute', 'run_workflow', 'run'],
+        description: 'Prepare a predefined workflow template'
+    },
+    list_templates: {
+        schema: BatchManageInputSchema.extend({ action: z.literal('list_templates') }),
+        aliases: ['templates', 'list_workflows', 'available'],
+        description: 'List available workflow templates'
+    },
+    get_template: {
+        schema: BatchManageInputSchema.extend({
+            action: z.literal('get_template'),
+            templateId: z.string().describe('Workflow template ID')
+        }),
+        aliases: ['template', 'get_workflow', 'show_template'],
+        description: 'Get workflow template details'
+    },
+    execute_sequence: {
+        schema: BatchManageInputSchema.extend({
+            action: z.literal('execute_sequence'),
+            steps: z.array(z.object({
+                tool: z.string().describe('Tool name (e.g., "character_manage", "item_manage")'),
+                args: z.record(z.any()).describe('Tool arguments'),
+                id: z.string().optional().describe('Step ID for referencing results in later steps')
+            })).min(1).max(10)
+        }),
+        aliases: ['sequence', 'run_sequence', 'pipeline', 'chain', 'multi_tool'],
+        description: 'Chain multiple tools with parameter passing'
+    }
+};
+
 // Action handlers
 async function handleCreateCharacters(input: BatchManageInput, _ctx: SessionContext): Promise<McpResponse> {
     if (!input.characters || input.characters.length === 0) {
@@ -846,5 +911,6 @@ Examples:
   ]}
 - Create party: { action: "create_characters", characters: [{ name: "Valeros", class: "Fighter" }] }
 - Populate village: { action: "create_npcs", locationName: "Thornwood", npcs: [{ name: "Marta", role: "Innkeeper" }] }`,
+    actionSchemas: BatchManageActionSchemas,
     inputSchema: BatchManageInputSchema
 };

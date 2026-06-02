@@ -280,6 +280,7 @@ Hold Person, Bless, Haste, Hex, Hunter's Mark, Spirit Guardians
 
 Actions: check_save, break, get, check_duration, check_auto
 Aliases: save/damage→check_save, end/stop→break, state→get`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe('Action: check_save, break, get, check_duration, check_auto'),
         characterId: z.string().describe('Character ID'),

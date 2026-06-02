@@ -30,8 +30,6 @@ type WorldMapAction = typeof ACTIONS[number];
 // CONTEXT HOLDER
 // ═══════════════════════════════════════════════════════════════════════════
 
-let currentContext: SessionContext | null = null;
-
 // ═══════════════════════════════════════════════════════════════════════════
 // ACTION SCHEMAS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -91,47 +89,47 @@ const SuggestPoiSchema = z.object({
 // ACTION HANDLERS
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function handleOverview(args: z.infer<typeof OverviewSchema>): Promise<object> {
-    if (!currentContext) throw new Error('No session context');
-    const result = await handleGetWorldMapOverview({ worldId: args.worldId }, currentContext);
+async function handleOverview(args: z.infer<typeof OverviewSchema>, ctx?: SessionContext): Promise<object> {
+    if (!ctx) throw new Error('No session context');
+    const result = await handleGetWorldMapOverview({ worldId: args.worldId }, ctx);
     return extractResultData(result, 'overview');
 }
 
-async function handleRegion(args: z.infer<typeof RegionSchema>): Promise<object> {
-    if (!currentContext) throw new Error('No session context');
+async function handleRegion(args: z.infer<typeof RegionSchema>, ctx?: SessionContext): Promise<object> {
+    if (!ctx) throw new Error('No session context');
     const result = await handleGetRegionMap({
         worldId: args.worldId,
         regionId: args.regionId
-    }, currentContext);
+    }, ctx);
     return extractResultData(result, 'region');
 }
 
-async function handleTiles(args: z.infer<typeof TilesSchema>): Promise<object> {
-    if (!currentContext) throw new Error('No session context');
-    const result = await handleGetWorldTiles({ worldId: args.worldId }, currentContext);
+async function handleTiles(args: z.infer<typeof TilesSchema>, ctx?: SessionContext): Promise<object> {
+    if (!ctx) throw new Error('No session context');
+    const result = await handleGetWorldTiles({ worldId: args.worldId }, ctx);
     return extractResultData(result, 'tiles');
 }
 
-async function handlePatch(args: z.infer<typeof PatchSchema>): Promise<object> {
-    if (!currentContext) throw new Error('No session context');
+async function handlePatch(args: z.infer<typeof PatchSchema>, ctx?: SessionContext): Promise<object> {
+    if (!ctx) throw new Error('No session context');
     const result = await handleApplyMapPatch({
         worldId: args.worldId,
         script: args.script
-    }, currentContext);
+    }, ctx);
     return extractResultData(result, 'patch');
 }
 
-async function handlePreview(args: z.infer<typeof PreviewSchema>): Promise<object> {
-    if (!currentContext) throw new Error('No session context');
+async function handlePreview(args: z.infer<typeof PreviewSchema>, ctx?: SessionContext): Promise<object> {
+    if (!ctx) throw new Error('No session context');
     const result = await handlePreviewMapPatch({
         worldId: args.worldId,
         script: args.script
-    }, currentContext);
+    }, ctx);
     return extractResultData(result, 'preview');
 }
 
-async function handleFindPoi(args: z.infer<typeof FindPoiSchema>): Promise<object> {
-    if (!currentContext) throw new Error('No session context');
+async function handleFindPoi(args: z.infer<typeof FindPoiSchema>, ctx?: SessionContext): Promise<object> {
+    if (!ctx) throw new Error('No session context');
     const result = await handleFindValidPoiLocation({
         worldId: args.worldId,
         poiType: args.poiType,
@@ -141,16 +139,16 @@ async function handleFindPoi(args: z.infer<typeof FindPoiSchema>): Promise<objec
         minDistanceFromPOI: args.minDistanceFromPOI,
         regionId: args.regionId,
         count: args.count
-    }, currentContext);
+    }, ctx);
     return extractResultData(result, 'find_poi');
 }
 
-async function handleSuggestPoi(args: z.infer<typeof SuggestPoiSchema>): Promise<object> {
-    if (!currentContext) throw new Error('No session context');
+async function handleSuggestPoi(args: z.infer<typeof SuggestPoiSchema>, ctx?: SessionContext): Promise<object> {
+    if (!ctx) throw new Error('No session context');
     const result = await handleSuggestPoiLocations({
         worldId: args.worldId,
         requests: args.requests
-    }, currentContext);
+    }, ctx);
     return extractResultData(result, 'suggest_poi');
 }
 
@@ -237,6 +235,7 @@ Aliases: summary→overview, grid→tiles, apply→patch, dry_run→preview, loc
 6. preview - Preview changes before applying
 
 For world creation/management, use world_manage tool instead.`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe(`Action: ${ACTIONS.join(', ')}`),
         worldId: z.string().describe('World ID'),
@@ -253,10 +252,8 @@ For world creation/management, use world_manage tool instead.`,
 };
 
 export async function handleWorldMap(args: unknown, ctx: SessionContext): Promise<McpResponse> {
-    currentContext = ctx;
-
     try {
-        const result = await router(args as Record<string, unknown>);
+        const result = await router(args as Record<string, unknown>, ctx);
         const parsed = JSON.parse(result.content[0].text);
 
         let output = '';
@@ -352,7 +349,13 @@ export async function handleWorldMap(args: unknown, ctx: SessionContext): Promis
                 text: output
             }]
         };
-    } finally {
-        currentContext = null;
+    } catch (error) {
+        return {
+            content: [{
+                type: 'text' as const,
+                text: RichFormatter.header('Error', '') +
+                    RichFormatter.alert(error instanceof Error ? error.message : String(error), 'error')
+            }]
+        };
     }
 }

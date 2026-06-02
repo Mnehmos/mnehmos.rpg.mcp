@@ -136,6 +136,15 @@ describe('action-router utilities', () => {
                 expect(parsed.name).toBe('Test Entity');
             });
         });
+
+        describe('schema documentation', () => {
+            it('should expose action-specific schemas without handlers', () => {
+                expect(router.actionSchemas.create.schema).toBe(definitions.create.schema);
+                expect(router.actionSchemas.create.aliases).toEqual(['new', 'add']);
+                expect(router.actionSchemas.get.schema).toBe(definitions.get.schema);
+                expect(router.actionSchemas.create).not.toHaveProperty('handler');
+            });
+        });
     });
 
     describe('formatMcpSuccess', () => {

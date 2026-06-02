@@ -1,7 +1,7 @@
 /**
  * Consolidated Tools Index
  *
- * Exports all 28 consolidated tools for the v1.0 clean-break release.
+ * Exports all 29 consolidated tools for the v1.0 clean-break release.
  * Each tool uses action-based routing with fuzzy matching and guiding errors.
  */
 

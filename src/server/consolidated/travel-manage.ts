@@ -81,6 +81,37 @@ const TravelManageInputSchema = z.object({
 
 type TravelManageInput = z.infer<typeof TravelManageInputSchema>;
 
+const TravelManageActionSchemas = {
+    travel: {
+        schema: TravelManageInputSchema.extend({
+            action: z.literal('travel'),
+            partyId: z.string().describe('Party ID'),
+            poiId: z.string().describe('POI ID destination')
+        }),
+        aliases: ['move', 'goto', 'travel_to', 'go_to', 'travel_to_location'],
+        description: 'Move a party to a POI destination'
+    },
+    loot: {
+        schema: TravelManageInputSchema.extend({
+            action: z.literal('loot'),
+            encounterId: z.string().describe('Encounter ID to loot')
+        }).refine(args => Boolean(args.looterId || args.partyId), {
+            message: 'loot requires either looterId or partyId',
+            path: ['looterId']
+        }),
+        aliases: ['loot_encounter', 'loot_all', 'collect', 'gather_loot'],
+        description: 'Collect loot from an encounter; provide looterId or partyId'
+    },
+    rest: {
+        schema: TravelManageInputSchema.extend({
+            action: z.literal('rest'),
+            partyId: z.string().describe('Party ID')
+        }),
+        aliases: ['rest_party', 'long_rest', 'short_rest', 'camp'],
+        description: 'Rest the party'
+    }
+};
+
 // Action handlers
 async function handleTravel(input: TravelManageInput, _ctx: SessionContext): Promise<McpResponse> {
     if (!input.partyId || !input.poiId) {
@@ -573,5 +604,6 @@ combat_manage (end) → travel_manage (loot) → travel_manage (rest) → travel
 
 Actions: travel, loot, rest
 Aliases: move→travel, collect→loot, camp→rest`,
+    actionSchemas: TravelManageActionSchemas,
     inputSchema: TravelManageInputSchema
 };

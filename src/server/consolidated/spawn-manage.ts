@@ -229,6 +229,56 @@ const SpawnManageInputSchema = z.object({
 
 type SpawnManageInput = z.infer<typeof SpawnManageInputSchema>;
 
+const SpawnManageActionSchemas = {
+    spawn_character: {
+        schema: SpawnManageInputSchema.extend({
+            action: z.literal('spawn_character'),
+            template: z.string().describe('Creature template (e.g., "goblin", "orc_warrior")')
+        }),
+        aliases: ['character', 'create_character', 'spawn_equipped', 'equipped_character'],
+        description: 'Spawn an equipped character from a creature template'
+    },
+    spawn_location: {
+        schema: SpawnManageInputSchema.extend({ action: z.literal('spawn_location') }),
+        aliases: ['location', 'populated_location', 'spawn_populated'],
+        description: 'Spawn a populated location with optional NPCs and rooms'
+    },
+    spawn_encounter: {
+        schema: SpawnManageInputSchema.extend({
+            action: z.literal('spawn_encounter')
+        }).refine(args => Boolean(args.preset || args.random), {
+            message: 'spawn_encounter requires preset or random=true',
+            path: ['preset']
+        }),
+        aliases: ['encounter', 'preset_encounter', 'random_encounter'],
+        description: 'Spawn an encounter from a preset or random encounter filter'
+    },
+    spawn_preset_location: {
+        schema: SpawnManageInputSchema.extend({
+            action: z.literal('spawn_preset_location'),
+            worldId: z.string().describe('World ID for location spawning'),
+            preset: z.string().describe('Location preset ID'),
+            x: z.number().int().min(0).describe('X coordinate'),
+            y: z.number().int().min(0).describe('Y coordinate')
+        }),
+        aliases: ['preset_location', 'preset', 'location_preset'],
+        description: 'Spawn a preset location at world coordinates'
+    },
+    spawn_tactical: {
+        schema: SpawnManageInputSchema.extend({
+            action: z.literal('spawn_tactical'),
+            participants: z.array(z.object({
+                template: z.string().describe('Creature template'),
+                name: z.string().optional(),
+                position: z.string().describe('Position as "x,y"'),
+                isEnemy: z.boolean().optional().default(true)
+            })).min(1).describe('Combat participants')
+        }),
+        aliases: ['tactical', 'tactical_encounter', 'setup_tactical', 'combat_setup'],
+        description: 'Set up a tactical encounter with explicit participants'
+    }
+};
+
 // Action handlers
 async function handleSpawnCharacter(input: SpawnManageInput, _ctx: SessionContext): Promise<McpResponse> {
     const { charRepo } = ensureDb();
@@ -1021,5 +1071,6 @@ Terrain patterns: arena, canyon, river_valley, mountain_pass, maze
 3. Use corpse_manage after combat ends
 
 Actions: spawn_character, spawn_location, spawn_encounter, spawn_preset_location, spawn_tactical`,
+    actionSchemas: SpawnManageActionSchemas,
     inputSchema: SpawnManageInputSchema
 };

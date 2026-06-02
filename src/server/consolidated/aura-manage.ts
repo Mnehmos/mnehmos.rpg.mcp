@@ -419,6 +419,7 @@ WORKFLOW:
 1. create - Create aura when spell is cast
 2. process - Process effects on trigger events
 3. expire - Check for duration expiration each round`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe(`Action: ${ACTIONS.join(', ')}`),
         ownerId: z.string().optional(),

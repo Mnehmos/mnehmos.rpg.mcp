@@ -482,6 +482,7 @@ Always call get_context before generating NPC dialogue!
 Response includes formatted summary for prompt injection.
 
 Actions: get_relationship, update_relationship, record_memory, get_history, get_recent, get_context, interact`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe(`Action: ${ACTIONS.join(', ')}`),
         characterId: z.string().optional().describe('ID of the player character'),

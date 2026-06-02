@@ -83,7 +83,12 @@ const SessionLogMetadata = z.object({
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureDb() {
-    return getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const dbPath = process.env.NODE_ENV === 'test'
+        ? ':memory:'
+        : process.env.RPG_DATA_DIR
+            ? `${process.env.RPG_DATA_DIR}/rpg.db`
+            : 'rpg.db';
+    return getDb(dbPath);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -636,6 +641,7 @@ export const NarrativeManageTool = {
 
 Actions: add, batch_add, search, update, get, delete, get_context
 Aliases: add_many/bulk_add/log_session→batch_add, create→add, find→search, context→get_context`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe('Action: add, batch_add, search, update, get, delete, get_context'),
         worldId: z.string().optional().describe('World ID (required for add, search, get_context)'),

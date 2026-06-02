@@ -2623,17 +2623,94 @@ function bresenhamLine(x1: number, y1: number, x2: number, y2: number): string[]
  * Examples: "2*x+3", "x/2", "10", "x", "(x+5)/2"
  */
 function evaluateExpression(expr: string, x: number): number {
-    // Replace 'x' with the actual value
-    const substituted = expr.replace(/x/gi, `(${x})`);
-    // Safely evaluate basic math (no eval for security)
-    // Parse simple expressions: numbers, +, -, *, /, parentheses
-    try {
-        // Use Function constructor for safe math evaluation (no access to scope)
-        const result = new Function(`return ${substituted}`)();
-        return Math.round(result);
-    } catch {
+    if (expr.length > 100) {
+        throw new Error('Expression is too long');
+    }
+
+    let index = 0;
+
+    const skipWhitespace = () => {
+        while (/\s/.test(expr[index] || '')) index++;
+    };
+
+    const parseNumber = (): number => {
+        skipWhitespace();
+        const start = index;
+        while (/[0-9.]/.test(expr[index] || '')) index++;
+        const raw = expr.slice(start, index);
+        if (!raw || raw.split('.').length > 2) {
+            throw new Error(`Invalid number at position ${start}`);
+        }
+        return Number(raw);
+    };
+
+    const parseFactor = (): number => {
+        skipWhitespace();
+        const char = expr[index];
+
+        if (char === '+') {
+            index++;
+            return parseFactor();
+        }
+        if (char === '-') {
+            index++;
+            return -parseFactor();
+        }
+        if (char === '(') {
+            index++;
+            const value = parseExpression();
+            skipWhitespace();
+            if (expr[index] !== ')') {
+                throw new Error(`Missing closing parenthesis at position ${index}`);
+            }
+            index++;
+            return value;
+        }
+        if (char?.toLowerCase() === 'x') {
+            index++;
+            return x;
+        }
+        return parseNumber();
+    };
+
+    const parseTerm = (): number => {
+        let value = parseFactor();
+        while (true) {
+            skipWhitespace();
+            const op = expr[index];
+            if (op !== '*' && op !== '/') break;
+            index++;
+            const right = parseFactor();
+            if (op === '*') {
+                value *= right;
+            } else {
+                if (right === 0) throw new Error('Division by zero');
+                value /= right;
+            }
+        }
+        return value;
+    };
+
+    function parseExpression(): number {
+        let value = parseTerm();
+        while (true) {
+            skipWhitespace();
+            const op = expr[index];
+            if (op !== '+' && op !== '-') break;
+            index++;
+            const right = parseTerm();
+            value = op === '+' ? value + right : value - right;
+        }
+        return value;
+    }
+
+    const result = parseExpression();
+    skipWhitespace();
+    if (index !== expr.length || !Number.isFinite(result)) {
         throw new Error(`Invalid expression: ${expr}`);
     }
+
+    return Math.round(result);
 }
 
 /**

@@ -1,4 +1,4 @@
-import { Server } from 'net';
+import { Server, Socket } from 'net';
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import fs from 'fs';
@@ -9,19 +9,30 @@ import fs from 'fs';
  */
 export class UnixServerTransport implements Transport {
     private server: Server;
-    private socket: any = null;
+    private clients: Set<Socket> = new Set();
+    private requestClients: Map<string, Socket> = new Map();
     private _onclose?: () => void;
     private _onerror?: (error: Error) => void;
     private _onmessage?: (message: JSONRPCMessage) => void;
+    private readonly maxMessageBytes: number;
 
-    constructor(private path: string) {
+    constructor(private path: string, options: { maxMessageBytes?: number } = {}) {
+        this.maxMessageBytes = options.maxMessageBytes ?? 1024 * 1024;
+
         this.server = new Server((socket) => {
-            console.log('Client connected to socket');
-            this.socket = socket;
+            console.error('Client connected to socket');
+            this.clients.add(socket);
 
             let buffer = '';
             socket.on('data', (data) => {
                 buffer += data.toString();
+                if (buffer.length > this.maxMessageBytes) {
+                    const error = new Error('Unix socket message exceeded maximum size');
+                    this._onerror?.(error);
+                    socket.destroy(error);
+                    return;
+                }
+
                 const lines = buffer.split('\n');
                 buffer = lines.pop() || '';
 
@@ -29,6 +40,10 @@ export class UnixServerTransport implements Transport {
                     if (line.trim()) {
                         try {
                             const message = JSON.parse(line);
+                            const key = this.messageIdKey(message);
+                            if (key) {
+                                this.requestClients.set(key, socket);
+                            }
                             this._onmessage?.(message);
                         } catch (error) {
                             console.error('Failed to parse message:', error);
@@ -44,8 +59,14 @@ export class UnixServerTransport implements Transport {
             });
 
             socket.on('close', () => {
-                console.log('Client disconnected');
-                this._onclose?.();
+                console.error('Client disconnected');
+                this.clients.delete(socket);
+                for (const [id, client] of this.requestClients.entries()) {
+                    if (client === socket) this.requestClients.delete(id);
+                }
+                if (this.clients.size === 0) {
+                    this._onclose?.();
+                }
             });
         });
     }
@@ -58,7 +79,7 @@ export class UnixServerTransport implements Transport {
 
         return new Promise((resolve) => {
             this.server.listen(this.path, () => {
-                console.log(`Unix Server listening on ${this.path}`);
+                console.error(`Unix Server listening on ${this.path}`);
                 resolve();
             });
         });
@@ -74,10 +95,24 @@ export class UnixServerTransport implements Transport {
     }
 
     async send(message: JSONRPCMessage): Promise<void> {
-        if (!this.socket) {
+        if (this.clients.size === 0) {
             throw new Error('No client connected');
         }
-        this.socket.write(JSON.stringify(message) + '\n');
+
+        const payload = JSON.stringify(message) + '\n';
+        const key = this.messageIdKey(message);
+        if (key) {
+            const client = this.requestClients.get(key);
+            this.requestClients.delete(key);
+            if (client && !client.destroyed) {
+                client.write(payload);
+            }
+            return;
+        }
+
+        for (const client of this.clients) {
+            if (!client.destroyed) client.write(payload);
+        }
     }
 
     set onclose(handler: () => void) {
@@ -90,5 +125,11 @@ export class UnixServerTransport implements Transport {
 
     set onmessage(handler: (message: JSONRPCMessage) => void) {
         this._onmessage = handler;
+    }
+
+    private messageIdKey(message: JSONRPCMessage): string | null {
+        return 'id' in message && message.id !== undefined && message.id !== null
+            ? String(message.id)
+            : null;
     }
 }

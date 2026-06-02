@@ -17,7 +17,7 @@ export const SearchToolsSchema = z.object({
     'world', 'combat', 'character', 'inventory', 'quest', 'party',
     'math', 'strategy', 'secret', 'concentration', 'rest', 'scroll',
     'aura', 'npc', 'spatial', 'theft', 'corpse', 'improvisation',
-    'turn-management', 'meta'
+    'turn-management', 'meta', 'agent'
   ]).optional().describe('Filter by category'),
   maxResults: z.number().min(1).max(50).default(10).describe('Maximum results to return'),
   contextAwareOnly: z.boolean().optional().describe('Only return context-aware tools'),
@@ -164,10 +164,115 @@ export const LoadToolSchemaSchema = z.object({
 
 export type LoadToolSchemaArgs = z.infer<typeof LoadToolSchemaSchema>;
 
+function describeZodType(schema: any): any {
+  const def = schema?._def;
+  const typeName = def?.typeName;
+  const description = schema?.description;
+
+  if (!def) {
+    return { type: 'unknown', description };
+  }
+
+  switch (typeName) {
+    case z.ZodFirstPartyTypeKind.ZodString:
+      return { type: 'string', description };
+    case z.ZodFirstPartyTypeKind.ZodNumber:
+      return { type: 'number', description };
+    case z.ZodFirstPartyTypeKind.ZodBoolean:
+      return { type: 'boolean', description };
+    case z.ZodFirstPartyTypeKind.ZodEnum:
+      return { type: 'enum', values: def.values, description };
+    case z.ZodFirstPartyTypeKind.ZodLiteral:
+      return { type: 'literal', value: def.value, description };
+    case z.ZodFirstPartyTypeKind.ZodArray:
+      return { type: 'array', itemType: describeZodType(def.type), description };
+    case z.ZodFirstPartyTypeKind.ZodObject:
+      return { type: 'object', properties: summarizeZodShape(schema.shape), description };
+    case z.ZodFirstPartyTypeKind.ZodOptional:
+      return { ...describeZodType(def.innerType), optional: true, description };
+    case z.ZodFirstPartyTypeKind.ZodDefault:
+      return {
+        ...describeZodType(def.innerType),
+        optional: true,
+        default: typeof def.defaultValue === 'function' ? def.defaultValue() : def.defaultValue,
+        description
+      };
+    case z.ZodFirstPartyTypeKind.ZodNullable:
+      return { ...describeZodType(def.innerType), nullable: true, description };
+    case z.ZodFirstPartyTypeKind.ZodUnion:
+      return { type: 'union', options: def.options.map(describeZodType), description };
+    case z.ZodFirstPartyTypeKind.ZodIntersection:
+      return {
+        type: 'intersection',
+        left: describeZodType(def.left),
+        right: describeZodType(def.right),
+        description
+      };
+    case z.ZodFirstPartyTypeKind.ZodEffects:
+      return {
+        ...describeZodType(def.schema),
+        refinements: true,
+        description
+      };
+    case z.ZodFirstPartyTypeKind.ZodAny:
+      return { type: 'any', description };
+    case z.ZodFirstPartyTypeKind.ZodRecord:
+      return { type: 'record', valueType: describeZodType(def.valueType), description };
+    default:
+      return { type: String(typeName || 'unknown'), description };
+  }
+}
+
+function summarizeZodShape(shape: Record<string, any>): Record<string, any> {
+  return Object.fromEntries(
+    Object.entries(shape).map(([name, schema]) => [name, describeZodType(schema)])
+  );
+}
+
+function isOptionalZodType(schema: any): boolean {
+  const typeName = schema?._def?.typeName;
+  return typeName === z.ZodFirstPartyTypeKind.ZodOptional ||
+    typeName === z.ZodFirstPartyTypeKind.ZodDefault;
+}
+
+function unwrapZodEffects(schema: any): any {
+  let current = schema;
+  while (current?._def?.typeName === z.ZodFirstPartyTypeKind.ZodEffects) {
+    current = current._def.schema;
+  }
+  return current;
+}
+
+function getRequiredKeys(schema: any): string[] {
+  const shape = unwrapZodEffects(schema)?.shape;
+  if (!shape) return [];
+
+  return Object.entries(shape)
+    .filter(([, field]) => !isOptionalZodType(field))
+    .map(([name]) => name);
+}
+
+function summarizeActionSchemas(actionSchemas: any): any {
+  if (!actionSchemas || typeof actionSchemas !== 'object') return undefined;
+
+  return Object.fromEntries(
+    Object.entries(actionSchemas).map(([action, entry]: [string, any]) => [
+      action,
+      {
+        description: entry.description,
+        aliases: entry.aliases || [],
+        required: getRequiredKeys(entry.schema),
+        inputSchema: describeZodType(entry.schema)
+      }
+    ])
+  );
+}
+
 export async function handleLoadToolSchema(args: LoadToolSchemaArgs): Promise<{
   toolName: string;
   description: string;
   inputSchema: any;
+  actionSchemas?: any;
   metadata: ToolMetadata;
   note: string;
 } | {
@@ -206,9 +311,12 @@ export async function handleLoadToolSchema(args: LoadToolSchemaArgs): Promise<{
   return {
     toolName: args.toolName,
     description: tool.metadata.description,
-    inputSchema: fullSchema.shape || {},
+    inputSchema: fullSchema.shape ? summarizeZodShape(fullSchema.shape) : describeZodType(fullSchema),
+    actionSchemas: summarizeActionSchemas(tool.actionSchemas),
     metadata: tool.metadata,
-    note: `Schema loaded successfully. You can now call ${args.toolName} with these parameters.`
+    note: tool.actionSchemas
+      ? 'Schema loaded successfully. Use actionSchemas for action-specific required fields; the top-level inputSchema is the shared MCP registration surface.'
+      : 'Schema loaded successfully.'
   };
 }
 

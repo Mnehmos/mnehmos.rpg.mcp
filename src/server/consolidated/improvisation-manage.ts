@@ -691,6 +691,7 @@ ARCANE SYNTHESIS:
 - DC = 10 + (spell level x 2) + modifiers
 - Outcomes: mastery (learned!), success, fizzle, backfire, catastrophic
 - Mastery permanently adds spell to spellbook`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe(`Action: ${ACTIONS.join(', ')}`),
         // Stunt params

@@ -73,6 +73,19 @@ const SessionManageInputSchema = z.object({
 
 type SessionManageInput = z.infer<typeof SessionManageInputSchema>;
 
+const SessionManageActionSchemas = {
+    initialize: {
+        schema: SessionManageInputSchema.extend({ action: z.literal('initialize') }),
+        aliases: ['init', 'start', 'setup', 'initialize_session', 'start_session'],
+        description: 'Start or resume a session, optionally creating world and party resources'
+    },
+    get_context: {
+        schema: SessionManageInputSchema.extend({ action: z.literal('get_context') }),
+        aliases: ['context', 'narrative', 'narrative_context', 'get_narrative', 'summary'],
+        description: 'Get narrative context for AI game mastering'
+    }
+};
+
 // Action handlers
 async function handleInitialize(input: SessionManageInput, ctx: SessionContext): Promise<McpResponse> {
     const { worldRepo, partyRepo } = ensureDb();
@@ -386,5 +399,6 @@ Inject context into system prompt for informed storytelling.
 
 Actions: initialize, get_context
 Aliases: init/start→initialize, context/narrative→get_context`,
+    actionSchemas: SessionManageActionSchemas,
     inputSchema: SessionManageInputSchema
 };

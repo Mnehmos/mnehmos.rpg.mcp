@@ -524,6 +524,7 @@ export const CorpseManageTool = {
 
 Actions: ${ACTIONS.join(', ')}
 Aliases: spawn→create, take→loot, skin→harvest`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe(`Action to perform: ${ACTIONS.join(', ')}`),
         corpseId: z.string().optional().describe('Corpse ID'),

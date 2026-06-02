@@ -491,6 +491,7 @@ FENCE WORKFLOW:
 1. register_fence - Add fence NPC
 2. get_fence - Get fence info
 3. list_fences - List all fences`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe(`Action: ${ACTIONS.join(', ')}`),
         thiefId: z.string().optional(),

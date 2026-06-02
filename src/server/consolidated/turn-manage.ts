@@ -472,6 +472,7 @@ when ALL nations call mark_ready. Use get_status to see who's waiting.
 - Each turn triggers economy/conflict resolution
 
 Actions: init, get_status, submit_actions, mark_ready, poll_results`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe(`Action: ${ACTIONS.join(', ')}`),
         worldId: z.string().describe('World ID'),

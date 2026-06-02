@@ -405,6 +405,7 @@ Level 4-5: DC 15-17, +7-9 | Level 6+: DC 17+, +9+
 
 Actions: use, create, identify, get_dc, get, check
 Aliases: cast→use, craft→create, id→identify`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe('Action: use, create, identify, get_dc, get, check'),
         characterId: z.string().optional().describe('Character ID (for use, identify, get_dc, check)'),

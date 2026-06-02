@@ -485,6 +485,7 @@ Use get_context to inject secrets into system prompt for DM-aware responses.
 
 Actions: ${ACTIONS.join(', ')}
 Aliases: new→create, reveal→disclose, check→check_conditions`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe(`Action: ${ACTIONS.join(', ')}`),
         // All optional - validated per action

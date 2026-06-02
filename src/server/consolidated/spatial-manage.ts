@@ -28,8 +28,6 @@ type SpatialAction = typeof ACTIONS[number];
 // CONTEXT HOLDER
 // ═══════════════════════════════════════════════════════════════════════════
 
-let currentContext: SessionContext | null = null;
-
 // ═══════════════════════════════════════════════════════════════════════════
 // SCHEMAS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -83,14 +81,14 @@ const ListSchema = z.object({
 // ACTION HANDLERS
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function handleLook(args: z.infer<typeof LookSchema>): Promise<object> {
-    if (!currentContext) throw new Error('No session context');
-    const result = await handleLookAtSurroundings({ observerId: args.observerId }, currentContext);
+async function handleLook(args: z.infer<typeof LookSchema>, ctx?: SessionContext): Promise<object> {
+    if (!ctx) throw new Error('No session context');
+    const result = await handleLookAtSurroundings({ observerId: args.observerId }, ctx);
     return extractResultData(result, 'look');
 }
 
-async function handleGenerate(args: z.infer<typeof GenerateSchema>): Promise<object> {
-    if (!currentContext) throw new Error('No session context');
+async function handleGenerate(args: z.infer<typeof GenerateSchema>, ctx?: SessionContext): Promise<object> {
+    if (!ctx) throw new Error('No session context');
     const result = await handleGenerateRoomNode({
         name: args.name,
         baseDescription: args.baseDescription,
@@ -98,28 +96,28 @@ async function handleGenerate(args: z.infer<typeof GenerateSchema>): Promise<obj
         atmospherics: args.atmospherics,
         previousNodeId: args.previousNodeId,
         direction: args.direction
-    }, currentContext);
+    }, ctx);
     return extractResultData(result, 'generate');
 }
 
-async function handleGetExits(args: z.infer<typeof GetExitsSchema>): Promise<object> {
-    if (!currentContext) throw new Error('No session context');
-    const result = await handleGetRoomExits({ roomId: args.roomId }, currentContext);
+async function handleGetExits(args: z.infer<typeof GetExitsSchema>, ctx?: SessionContext): Promise<object> {
+    if (!ctx) throw new Error('No session context');
+    const result = await handleGetRoomExits({ roomId: args.roomId }, ctx);
     return extractResultData(result, 'get_exits');
 }
 
-async function handleMove(args: z.infer<typeof MoveSchema>): Promise<object> {
-    if (!currentContext) throw new Error('No session context');
+async function handleMove(args: z.infer<typeof MoveSchema>, ctx?: SessionContext): Promise<object> {
+    if (!ctx) throw new Error('No session context');
     const result = await handleMoveCharacterToRoom({
         characterId: args.characterId,
         roomId: args.roomId
-    }, currentContext);
+    }, ctx);
     return extractResultData(result, 'move');
 }
 
-async function handleList(args: z.infer<typeof ListSchema>): Promise<object> {
-    if (!currentContext) throw new Error('No session context');
-    const result = await handleListRooms({ biome: args.biome }, currentContext);
+async function handleList(args: z.infer<typeof ListSchema>, ctx?: SessionContext): Promise<object> {
+    if (!ctx) throw new Error('No session context');
+    const result = await handleListRooms({ biome: args.biome }, ctx);
     return extractResultData(result, 'list');
 }
 
@@ -194,6 +192,7 @@ Aliases: observe→look, create→generate, exits→get_exits, enter→move, roo
 
 Environmental effects: DARKNESS, FOG, ANTIMAGIC, SILENCE, BRIGHT, MAGICAL
 Biomes: forest, mountain, urban, dungeon, coastal, cavern, divine, arcane`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe(`Action: ${ACTIONS.join(', ')}`),
         observerId: z.string().optional().describe('Observer character ID (for look)'),
@@ -210,10 +209,8 @@ Biomes: forest, mountain, urban, dungeon, coastal, cavern, divine, arcane`,
 };
 
 export async function handleSpatialManage(args: unknown, ctx: SessionContext): Promise<McpResponse> {
-    currentContext = ctx;
-
     try {
-        const result = await router(args as Record<string, unknown>);
+        const result = await router(args as Record<string, unknown>, ctx);
         const parsed = JSON.parse(result.content[0].text);
 
         let output = '';
@@ -296,7 +293,13 @@ export async function handleSpatialManage(args: unknown, ctx: SessionContext): P
                 text: output
             }]
         };
-    } finally {
-        currentContext = null;
+    } catch (error) {
+        return {
+            content: [{
+                type: 'text' as const,
+                text: RichFormatter.header('Error', '') +
+                    RichFormatter.alert(error instanceof Error ? error.message : String(error), 'error')
+            }]
+        };
     }
 }

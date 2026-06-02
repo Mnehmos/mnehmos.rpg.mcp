@@ -381,6 +381,7 @@ Use turn_manage for turn lifecycle. resolve_turn processes:
 - Alliance effects
 
 Actions: create_nation, get_state, propose_alliance, claim_region, resolve_turn, list_nations`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe(`Action: ${ACTIONS.join(', ')}`),
         // Create nation params

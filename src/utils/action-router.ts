@@ -21,6 +21,7 @@ import {
     formatGuidingError,
     MatchResult
 } from './fuzzy-enum.js';
+import type { SessionContext } from '../server/types.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // TYPES
@@ -43,11 +44,24 @@ export interface ActionDefinition {
     /** Zod schema for action-specific parameters */
     schema: z.ZodType<any>;
     /** Handler function for this action (validated args from schema) */
-    handler: (args: any) => Promise<unknown> | unknown;
+    handler: (args: any, ctx?: SessionContext) => Promise<unknown> | unknown;
     /** Optional aliases for this action (e.g., 'new' -> 'create') */
     aliases?: string[];
     /** Description for documentation */
     description?: string;
+}
+
+export interface ActionSchemaDocumentation {
+    [action: string]: {
+        schema: z.ZodType<any>;
+        aliases: string[];
+        description?: string;
+    };
+}
+
+export interface ActionRouter {
+    (args: Record<string, unknown>, ctx?: SessionContext): Promise<McpResponse>;
+    actionSchemas: ActionSchemaDocumentation;
 }
 
 /**
@@ -114,7 +128,7 @@ export interface EnhancedResult<T> {
  */
 export function createActionRouter<TActions extends string>(
     config: ActionRouterConfig<TActions>
-): (args: Record<string, unknown>) => Promise<McpResponse> {
+): ActionRouter {
     const { actions, definitions, threshold = 0.6 } = config;
 
     // Build alias map from definitions if not provided
@@ -129,7 +143,7 @@ export function createActionRouter<TActions extends string>(
         }
     }
 
-    return async function route(args: Record<string, unknown>): Promise<McpResponse> {
+    const route = async function route(args: Record<string, unknown>, ctx?: SessionContext): Promise<McpResponse> {
         // ─────────────────────────────────────────────────────────────────────
         // STEP 1: Extract and validate action
         // ─────────────────────────────────────────────────────────────────────
@@ -175,7 +189,7 @@ export function createActionRouter<TActions extends string>(
         // STEP 4: Execute handler
         // ─────────────────────────────────────────────────────────────────────
         try {
-            const result = await definition.handler(parseResult.data);
+            const result = await definition.handler(parseResult.data, ctx);
 
             // ─────────────────────────────────────────────────────────────────
             // STEP 5: Format response with optional fuzzy match metadata
@@ -188,6 +202,24 @@ export function createActionRouter<TActions extends string>(
             );
         }
     };
+
+    route.actionSchemas = createActionSchemaDocumentation(definitions);
+    return route;
+}
+
+export function createActionSchemaDocumentation<TActions extends string>(
+    definitions: Record<TActions, ActionDefinition>
+): ActionSchemaDocumentation {
+    return Object.fromEntries(
+        Object.entries(definitions).map(([action, definition]) => [
+            action,
+            {
+                schema: (definition as ActionDefinition).schema,
+                aliases: (definition as ActionDefinition).aliases || [],
+                description: (definition as ActionDefinition).description
+            }
+        ])
+    );
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -554,6 +554,7 @@ export const CharacterManageTool = {
 
 Actions: create, get, update, list, delete, add_xp, get_progression, level_up
 Aliases: new/add/spawn->create, fetch/find->get, modify/edit->update`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe('Action: create, get, update, list, delete, add_xp, get_progression, level_up'),
         // Create fields

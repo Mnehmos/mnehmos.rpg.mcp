@@ -245,6 +245,7 @@ Cannot rest while in active combat encounter!
 
 Actions: long, short
 Aliases: long_rest/full→long, short_rest/quick→short`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe('Action: long, short'),
         characterId: z.string().describe('Character ID'),

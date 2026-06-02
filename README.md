@@ -4,8 +4,8 @@
 [![License: ISC](https://img.shields.io/badge/license-ISC-blue.svg)](LICENSE)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)]()
 [![MCP](https://img.shields.io/badge/MCP-Compatible-green.svg)]()
-[![Tests](https://img.shields.io/badge/tests-1889%20passing-brightgreen.svg)]()
-[![Tools](https://img.shields.io/badge/MCP%20tools-32-blue.svg)]()
+[![Tests](https://img.shields.io/badge/tests-2214%20passing-brightgreen.svg)]()
+[![Tools](https://img.shields.io/badge/MCP%20tools-33-blue.svg)]()
 
 **A rules-enforced RPG backend that turns any LLM into a game master who can't cheat.**
 
@@ -46,7 +46,7 @@ You talk to an AI (Claude, GPT, etc.) in natural language. You say things like "
 
 ## v1.0 Release (January 2026)
 
-### 85% Tool Reduction: 195 → 33 Tools (29 Consolidated + 4 Meta/Event)
+### 83% Tool Reduction: 195 → 33 Tools (29 Consolidated + 4 Meta/Event)
 
 This release consolidates 195 individual tools into **29 action-based tools** plus 4 standalone meta/event tools using:
 
@@ -61,8 +61,8 @@ This release consolidates 195 individual tools into **29 action-based tools** pl
 
 | Metric | Before | After | Change |
 |--------|--------|-------|--------|
-| MCP Tools | 195 | 32 | **83.6% reduction** |
-| Tests | 1,242 | 1,889 | +52% coverage |
+| MCP Tools | 195 | 33 | **83.1% reduction** |
+| Tests | 1,242 | 2,214 | +78% coverage |
 | Token overhead | ~50K | ~6-8K | **85% reduction** |
 
 ### Meta-Tools for Discovery
@@ -224,7 +224,7 @@ git clone https://github.com/Mnehmos/rpg-mcp.git
 cd rpg-mcp
 npm install
 npm run build
-npm test  # 1889 tests should pass
+npm test  # 2214 tests should pass
 ```
 
 ### MCP Client Configuration
@@ -318,7 +318,7 @@ src/
 │   ├── migrations.ts # SQLite schema definitions
 │   └── repos/        # Repository pattern for persistence
 ├── server/
-│   ├── consolidated/ # 28 action-based tools
+│   ├── consolidated/ # 29 action-based tools
 │   ├── handlers/     # Extracted handler implementations (combat, spatial)
 │   ├── consolidated-registry.ts  # Tool registration
 │   ├── meta-tools.ts # search_tools, load_tool_schema
@@ -327,7 +327,7 @@ src/
     ├── fuzzy-enum.ts      # Action matching with typo tolerance
     └── schema-shorthand.ts # Token-efficient parsing
 
-tests/                # 1889 tests mirroring src/ structure
+tests/                # 2214 tests mirroring src/ structure
 docs/                 # White paper and LLM spatial guide
 ```
 
@@ -354,7 +354,7 @@ docs/                 # White paper and LLM spatial guide
    LLMs cannot cast spells they don't know or claim damage they didn't roll.
 
 7. **Token efficiency**
-   28 consolidated tools with action routing reduce context overhead by 85%.
+   29 consolidated tools with action routing reduce context overhead by 85%.
 
 8. **Guiding errors**
    Invalid actions return suggestions, not just failures.
@@ -365,9 +365,9 @@ docs/                 # White paper and LLM spatial guide
 
 ```bash
 npm test
-# 1889 tests passing, 6 skipped
-# 85+ test files
-# Coverage across all 32 tools (28 consolidated + 4 meta/event)
+# 2214 tests passing, 7 skipped
+# 136 test files
+# Coverage across all 33 tools (29 consolidated + 4 meta/event)
 ```
 
 ---
@@ -391,7 +391,7 @@ Contributions welcome! Please:
 - [x] Corpse and loot mechanics
 - [x] NPC memory and relationships
 - [x] Improvisation engine
-- [x] Tool consolidation (195 → 32)
+- [x] Tool consolidation (195 → 33)
 - [x] Fuzzy action matching
 - [x] Preset systems (creatures, encounters, locations)
 - [ ] WebSocket real-time subscriptions

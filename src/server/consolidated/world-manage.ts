@@ -347,6 +347,7 @@ Aliases: new→create, fetch→get, all→list, remove→delete, set→update, g
 2. get_state - Check world status
 3. update - Set time/weather/season
 4. For map operations, use world_map tool instead`,
+    actionSchemas: router.actionSchemas,
     inputSchema: z.object({
         action: z.string().describe(`Action: ${ACTIONS.join(', ')}`),
         id: z.string().optional().describe('World ID'),
