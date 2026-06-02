@@ -205,6 +205,7 @@ These are *not* gaps in the spec. They are answered by spawning agents and watch
 - **Is the summoning salvation or atrocity?** (Answered by Mnehmos's character, revealed in the devlog one act at a time — embodied, not declared.)
 - **When an agent gets close enough to the truth to threaten the order, does Mnehmos (via an administrator) delete them, hesitate, or mistake the target?** (Tyrant-god / tragic-god-losing-faith / Horos-failure-as-moral-catastrophe — this recurring choice *is* his character.)
 - **Do any two biographies converge — and do they part again or not?** (The agents choose in the shared space; the instant they choose, it commits and is set in stone.)
+- **What does the reclaimed outpost mean — why now, after a century?** (The inciting fact: for the first time in a century of declared-permanent siege, an outpost beyond the wall has been retaken. Nobody knows what that means yet, and pre-deciding it would defuse the meaning.)
 
 ---
 

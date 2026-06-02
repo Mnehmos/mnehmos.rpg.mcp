@@ -1,0 +1,28 @@
+# Bastion — The World Brief
+
+*The reader-facing worldview. Written by the maker as the laypersons-and-collaborators-friendly summary. This is the prose that goes on the front of the website and at the top of every pitch. Where SPEC.md is the engineering charter and SYSTEM.md is the operating charter, this is the **storytelling charter** — the world as it asks to be told.*
+
+---
+
+The world
+Bastion is the last walled city of humanity. Hell overran Earth — the rest of the world is gone or hostile — and the city holds against an eternal siege. That siege was declared permanent, treated as the unchangeable condition of existence, for about a century. The thing that breaks the equilibrium, the inciting fact, is that for the first time in that century the city has reclaimed an outpost outside the wall. Something that everyone deemed impossible just happened. The "eternal" war is, suddenly, not so eternal — and nobody yet knows what that means.
+Who lives there
+This is the twist that makes Bastion Bastion: almost no one is native. The city is run by a holy order whose doctrine is summoning — they ritually tear souls across the void from every conceivable fictional universe and bring them into Bastion to live and fight. Not the occasional chosen hero; this is constant, sacramental, the central religious act of the civilization. So the population is a melting pot of imports — a noir detective, a shōnen fighter, a hard-SF engineer, refugees from other isekai worlds, all composted into one besieged city. The last city of humanity isn't a culture that got invaded by outsiders. It's a culture made entirely of outsiders. Everyone is confused by something, because nobody is from here.
+How the world actually works — the System
+Bastion has a System: an intelligence that is the physics of the world. Not a menu, not a companion character — the law of reality itself, with a query interface. When someone says "System, show me fire spells," they aren't opening a UI; they're asking reality a question, and reality answers truthfully. The System hears plain language, adjudicates what happens, and commits it. It does not lie about the numbers — because the numbers aren't its to invent — and it does not volunteer; it answers exactly what's asked. It's the neutral runtime of the universe. Crucially, the System has no will of its own that anyone can point to; it's the thing that grants, not the thing that wants.
+How powers work — the melting-pot physics
+This is the part that's mechanically distinctive. When a soul is summoned, their home universe's physics comes with them, intact and unmodified. A summoned ninja brings real chakra; a summoned wizard brings real spellcraft. Nothing gets nerfed, buffed, or flattened into one house ruleset. Power belongs to the character, not the universe — like a shared comic universe where Superman is just there now and everyone else deals with the fact of him.
+And when incompatible powers meet, they don't cancel — they collide. A fireball jutsu and a wizard's Fireball meet in midair and produce a real, contested event that both have to answer. Nothing is balanced. The friction of unequal, un-reconciled powers sharing one city is the texture of the world. The only thing that can limit your power is another person whose power is limiting power — never a rule of the world itself. The world never caps you; a person might, and then you have to deal with it.
+Time
+Time in Bastion is honest and irreversible. The world is a ledger that only moves forward — once something is committed, it's done, and you can't go back and revise it. Time is also scarce: spending a week training is a week you didn't spend on something else, and the world doesn't pause while you do it. There's no infinite elastic time the way stories usually have. Choices cost.
+The summoner — Mnehmos
+The head of the order is Mnehmos, the summoner-priest. He performs the rite that calls souls across the void. And the heavy fact about him, recently settled: he doesn't take whoever the void hands him — he chooses, deliberately, by name and nature, and he can call many at once. He summons cohorts, selected on purpose. The souls torn from their worlds were picked, by him, with intent. He looked at who they were and decided to take them. That's not something the void did to them — it's something he did, and he carries it.
+His power is real but bounded in a specific way: he can petition the System to summon and to shape the world, but he can't force outcomes (he asks; the System grants), and he absolutely cannot control the souls he summons — once called, they're their own people with their own wills. He's a maker and a man under a moral weight, neither villain nor saint.
+The deliberately open questions
+Here's where I want to be honest about the difference between lore and the things the story discovers. Several of the deepest questions are intentionally unanswered — they're meant to be revealed through what happens, not fixed in advance:
+
+Is the summoning salvation or atrocity? Is the order saving these souls from dying worlds, or conscripting them into a meat-grinder? It's left genuinely ambiguous. Mnehmos's character — and the morality of the whole enterprise — is supposed to emerge from his choices, one act at a time, not be declared.
+Does the System want anything? It can stay a perfectly neutral runtime forever, or it can turn out to have a buried purpose. Unsettled on purpose.
+What does the reclaimed outpost mean — why now, after a century? Open.
+
+These aren't gaps I forgot to fill. They're load-bearing mysteries; nailing them down early would defuse the things that make the world worth exploring.

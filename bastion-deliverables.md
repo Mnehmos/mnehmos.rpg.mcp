@@ -18,6 +18,7 @@ Bastion is **(1) a design** (four docs, complete), **(2) an engine** (rpg-mcp, e
 |---|---|---|---|
 | Architecture spec | `bastion-specification.md` | ✅ | the why; §11 keeps the open questions open |
 | System operating charter | `SYSTEM.md` | ✅ | how the adjudicating LLM behaves; two-tier, two-gate |
+| World brief | `docs/bastion/04-world-brief.md` | ✅ | the storytelling charter — what to tell people about Bastion in plain prose |
 | Opening spawn-prompts | `bastion-opening-prompts.md` | ✅ | Operator + Mnehmos, player/character contract, cohort + chooses |
 | Website spec | `bastion-website-spec.md` | ✅ | publishing surface; grounded against Naruto5e |
 | **Publishing convention doc** | `PUBLISHING.md` | ✅ | extracted from website-spec §7; canonical home for the publish workflow |
@@ -132,7 +133,8 @@ Per the project's spine, these are answered by *running*, not building, and must
 - whether the System wants anything;
 - whether the summoning is salvation or conscription;
 - whether/when Mnehmos deletes a soul who threatens the order;
-- whether any two biographies converge and part, or don't.
+- whether any two biographies converge and part, or don't;
+- what the reclaimed outpost means — why the equilibrium broke now, after a century;
 
 The deliverables above build the *stage*. These are the *play*, and the play is the point.
 
