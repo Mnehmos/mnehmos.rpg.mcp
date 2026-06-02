@@ -89,8 +89,8 @@ const EXISTING_ROOMS: Record<string, string> = {
 };
 
 const AGENT_DEFAULTS = {
-    provider: 'openrouter' as const,
-    model: 'anthropic/claude-sonnet-4-5',
+    provider: 'openai' as const,
+    model: 'gpt-5.4-mini',
     temperature: 0.7,
     maxTokens: 2048
 };
