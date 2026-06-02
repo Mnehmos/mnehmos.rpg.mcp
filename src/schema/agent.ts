@@ -111,7 +111,8 @@ export const AgentCallStatusSchema = z.enum([
     'circuit_open',
     'budget_exhausted',
     'incapable',
-    'paused'
+    'paused',
+    'skipped'
 ]);
 export type AgentCallStatus = z.infer<typeof AgentCallStatusSchema>;
 

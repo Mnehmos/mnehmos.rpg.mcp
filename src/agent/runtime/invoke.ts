@@ -19,6 +19,7 @@ import { Character, NPC } from '../../schema/character.js';
 import { AgentRuntimeDeps } from './deps.js';
 import { preflight } from './preflight.js';
 import { shouldTripCircuit } from './circuit.js';
+import { checkSceneScope, composeRemoteContactSituation, RemoteContact } from './scope.js';
 import { composePrompt } from '../prompt/compose.js';
 import { ProviderError, ChatMessage } from '../provider/types.js';
 
@@ -27,6 +28,10 @@ export interface InvokeInput {
     characterId?: string;
     situation?: string;
     encounterId?: string;
+    /** Room-anchored scene id; character.currentRoomId must match unless remoteContact is set. */
+    sceneId?: string;
+    /** Distance-magic override; honored regardless of presence (SYSTEM.md Rule 5). */
+    remoteContact?: RemoteContact;
     round?: number;
     systemOverride?: string;
     messagesOverride?: ChatMessage[];
@@ -109,6 +114,36 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
         };
     }
 
+    // 2b. Scene-scope gate — SYSTEM.md Rule 5. Out-of-scene agents skipped
+    // unless distance-magic (remoteContact) overrides. Skipped invokes
+    // persist an audit row but NEVER throw and NEVER call the provider.
+    const scope = checkSceneScope(
+        { encounterId: input.encounterId, sceneId: input.sceneId, remoteContact: input.remoteContact },
+        character,
+        deps
+    );
+    if (scope.skip) {
+        const call = deps.agentRepo.recordCall({
+            agentId: agent.id,
+            requestId: input.requestId ?? null,
+            provider: agent.provider,
+            model: agent.model,
+            messagesJson: '[]',
+            status: 'skipped',
+            errorMessage: scope.reason ?? 'out_of_scene'
+        });
+        return {
+            ...emptyResult(agent, character, 'skipped', scope.reason ?? 'out_of_scene'),
+            callId: call.id
+        };
+    }
+
+    // 2c. Distance-contact honored — synthesize a prefix so the agent's
+    // prompt makes the channel legible. Cannot pretend to see scene directly.
+    const effectiveSituation = input.remoteContact
+        ? composeRemoteContactSituation(input.remoteContact, input.situation)
+        : input.situation;
+
     // 3. Provider lookup
     let provider;
     try {
@@ -135,7 +170,7 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
         {
             agentId: agent.id,
             characterId: agent.characterId,
-            situation: input.situation,
+            situation: effectiveSituation,
             systemOverride: input.systemOverride,
             messagesOverride: input.messagesOverride
         },

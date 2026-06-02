@@ -963,7 +963,7 @@ function runMigrations(db: Database.Database) {
       prompt_tokens INTEGER,
       completion_tokens INTEGER,
       duration_ms INTEGER,
-      status TEXT NOT NULL CHECK (status IN ('ok', 'timeout', 'rate_limited', 'error', 'circuit_open', 'budget_exhausted', 'incapable', 'paused')),
+      status TEXT NOT NULL CHECK (status IN ('ok', 'timeout', 'rate_limited', 'error', 'circuit_open', 'budget_exhausted', 'incapable', 'paused', 'skipped')),
       error_message TEXT,
       created_at TEXT NOT NULL
     );
