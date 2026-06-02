@@ -14,40 +14,53 @@ When an agent is invoked, the runtime reads the bound character's `stats.int` an
 
 ## Two binding principles
 
-1. **No `pro` variants, anywhere.** The ladder uses base models and `mini` / `nano` cheaper variants only. Where the temptation would be to step up to `o3-pro` / `gpt-5.4-pro` / `gpt-5.5-pro`, the ladder instead bumps `reasoning_effort` on the non-pro model. Pro models are explicitly off the table.
-2. **Modulate through `reasoning_effort` within a tier.** When a tier covers more than one INT score, the floor INT uses the cheaper variant or lower effort; the ceiling INT uses the same variant at a higher effort. The mapping never reaches for a more expensive model when more reasoning effort on the same model still resolves cleanly.
+1. **No `pro` variants, anywhere.** Pro models are explicitly off the table. If capacity beyond `gpt-5.5` is ever needed, raise `reasoning_effort` on the non-pro model or wait for a new frontier model — never reach for `*-pro`.
+2. **`gpt-5.5` is the default model.** (User override, 2026-06-02.) **All biography-driving agents run on `gpt-5.5`.** The earlier-tier ladder below — `gpt-4o-mini`, `gpt-5-mini`, `gpt-5.4-mini`, etc. — is RETAINED AS REFERENCE for documenting the cognitive shape we *would* prefer per INT, but in practice the smaller models do not produce the register the project requires. Lower tiers are reserved for **non-driving NPCs** (extras the scene needs but who never speak in chapter prose).
 
-## The ladder
+**Where INT goes instead.** Character intelligence stays canon at the stat-sheet level. Its effect surfaces in PROSE DISCIPLINE rather than in model selection:
+- The persona slice frames the character's cognitive shape (low-INT characters are written with reactive surface-level cadence; high-INT with second-order observation).
+- `reasoning_effort` (none / low / medium / high / xhigh) still tracks INT — a low-INT character runs at `low` effort on gpt-5.5; a high-INT character runs at `xhigh`. The model is the same; the depth differs.
+- OOC stat readouts (`[OOC]` blocks) make INT visible to the reader: a character with INT 10 sees a smaller information surface in their `:::perception` than a character with INT 18, because the engine returns less detail at lower reasoning effort.
+- Authorial discipline does the rest. A low-INT character does not deliver a polymath aside in their interior; the agent's persona forbids it.
 
-| INT | RPG tier | Model | `reasoning_effort` | Note |
-|---:|---|---|---|---|
-|  1 | Mindless | `babbage-002` | n/a (legacy) | Reflex only. Sense response. No instruction-following expected. |
-|  2 | Mindless | `babbage-002` | n/a | Same; minor distinction is descriptive only. |
-|  3 | Creature | `davinci-002` | n/a | Slightly more capacity than babbage; still pre-instruction-tuned. |
-|  4 | Dull | `gpt-4` (legacy) | n/a | Functional surface automation; restricted depth. |
-|  5 | Uneducated | `gpt-oss-20b` | n/a | The Basic Framework — small open architecture. |
-|  6 | Uneducated | `gpt-oss-20b` | n/a | Same tier; ceiling on this rung. |
-|  7 | Below Average | `gpt-4o-mini` | n/a | The Fast Operator. Straightforward text tasks; no strategy. |
-|  8 | Below Average | `gpt-oss-120b` | n/a | Slightly more headroom; still no reasoning loop. |
-|  9 | Average | `gpt-4.1-mini` | n/a | Cheaper non-reasoning baseline. |
-| 10 | Average | `gpt-4.1` | n/a | **The Smartest Non-Reasoning Baseline.** Peak pure pattern-matching without internal reasoning. |
-| 11 | Clever | `o3` | `medium` | Early reasoning. First rung where the model can hold a multi-step plan. |
-| 12 | Scholar | `o3` | `high` | Same model, more effort — handles harder logic at higher cost. |
-| 13 | Gifted | `gpt-5-nano` | `medium` | Agentic core, smallest variant. |
-| 14 | Expert | `gpt-5-mini` | `high` | Cost-sensitive agentic execution at depth. |
-| 15 | Genius | `gpt-5.4-nano` | `medium` | Dense, efficient subagent rung. |
-| 16 | Master | `gpt-5.4-mini` | `high` | Subagent command tier — computer use, tool integration, nested orchestration. |
-| 17 | Archmage | `gpt-5.4` | `medium` | Elite professional reasoning at moderate effort. |
-| 18 | Archmage | `gpt-5.4` | `high` | Same model, harder thinking. |
-| 19 | God-like | `gpt-5.5` | `high` | Frontier non-pro variant; flawless code execution territory. |
-| 20 | Oracle | `gpt-5.5` | `xhigh` | **User-anchored.** Top of the ladder. Approaches what the System itself can adjudicate. |
+## The active ladder (post-2026-06-02 override)
 
-Implementation notes on the ladder:
-- The mapping is monotonic — higher INT never gets a strictly smaller model AND a strictly lower reasoning effort at the same time.
-- The ladder is **content**, not engine code. It lives in a YAML/JSON file (`config/competency-ladder.yaml` or similar) and the engine reads it at startup. Tune without redeploying.
+| INT | RPG tier | Model | `reasoning_effort` |
+|---:|---|---|---|
+|  1–6 | Mindless / Dull | `gpt-5.5` | `none` (or no agent — deterministic stub) |
+|  7–8 | Below Average | `gpt-5.5` | `low` |
+|  9–10 | Average | `gpt-5.5` | `low` |
+| 11–12 | Clever / Scholar | `gpt-5.5` | `medium` |
+| 13–14 | Gifted / Expert | `gpt-5.5` | `medium` |
+| 15–16 | Genius / Master | `gpt-5.5` | `high` |
+| 17–18 | Archmage | `gpt-5.5` | `high` |
+| 19–20 | God-like / Oracle | `gpt-5.5` | `xhigh` |
+
+**One model. Reasoning effort tiers. Persona and OOC discipline carry the rest.**
+
+## Reference ladder (cognitive shape per INT — descriptive, not active)
+
+For documentation: the original tier-by-tier model intent, retained so designers can recognize what cognitive shape each INT score represents.
+
+| INT | Cognitive shape | Reference model |
+|---:|---|---|
+|  1–3 | Reflex / sense response | babbage / davinci legacy |
+|  4–6 | Surface automation | gpt-4 legacy, gpt-oss-20b |
+|  7–8 | Fast operator | gpt-4o-mini, gpt-oss-120b |
+|  9–10 | Smartest non-reasoning baseline | gpt-4.1-mini, gpt-4.1 |
+| 11–12 | Early reasoning, multi-step plans | o3 |
+| 13–14 | Agentic core | gpt-5-mini, gpt-5-nano |
+| 15–16 | Subagent command | gpt-5.4-mini, gpt-5.4-nano |
+| 17–18 | Elite professional | gpt-5.4 |
+| 19–20 | Frontier non-pro | gpt-5.5 |
+
+The reference ladder is for understanding what an INT score *means* cognitively. The active ladder is what the engine binds.
+
+Implementation notes:
 - Per-agent **override** allowed via `agent.competencyOverride: { model?, reasoningEffort? }` for explicit DM control. Override is recorded in the audit log so the reader can see it was overridden.
-- For INT scores below 7 the agent runtime should consider whether to invoke at all — at very low INT the character may not have the cognitive shape for an LLM-driven persona, and the DM may prefer a deterministic stub. This is a future design question; the ladder records the model in case invocation is requested.
-- **Pro variants are out of scope.** If a future need pushes for capacity beyond INT 20, raise `reasoning_effort` on `gpt-5.5` or wait for a new frontier model — never reach for `*-pro`.
+- For INT scores below 7 the agent runtime should consider whether to invoke at all — at very low INT the character may not have the cognitive shape for an LLM-driven persona, and the DM may prefer a deterministic stub or `none` reasoning.
+- **Pro variants are out of scope.** If a future need pushes for capacity beyond gpt-5.5 xhigh, raise `reasoning_effort`, refine the persona, or wait for a new frontier model — never reach for `*-pro`.
+- **Non-driving NPCs (extras the scene needs but who never speak in chapter prose) may run on lower-tier models** as a cost optimization. Driving voices — anyone whose interior appears on a published page — runs on `gpt-5.5`.
 
 ## Why this is more than a flourish
 
