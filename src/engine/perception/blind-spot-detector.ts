@@ -17,7 +17,6 @@
  *   unknown + blind_spots[] = scanned, but the room itself isn't fully written.
  */
 
-import type Database from 'better-sqlite3';
 import { BlindSpot, Hazard, TargetRef } from '../../schema/perception.js';
 import { ScanDeps } from './hazard-detector.js';
 

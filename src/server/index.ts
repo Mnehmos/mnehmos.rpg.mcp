@@ -121,7 +121,7 @@ async function main() {
 
   const server = new McpServer({
     name: 'rpg-mcp',
-    version: '1.0.2'
+    version: '1.0.3'
   });
 
   // =========================================================================

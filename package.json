@@ -1,9 +1,12 @@
 {
   "name": "mnehmos.rpg.mcp",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "main": "dist/index.js",
-  "bin": "dist/cli.js",
+  "bin": {
+    "mnehmos-rpg-mcp": "dist/cli.js",
+    "mnehmos.rpg.mcp": "dist/cli.js"
+  },
   "files": [
     "dist",
     "config",

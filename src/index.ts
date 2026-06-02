@@ -1,5 +1,5 @@
 // Main entry point for the Unified MCP Simulation Server
-console.error('rpg-mcp-server v1.0.2');
+console.error('rpg-mcp-server v1.0.3');
 export * from './schema/index.js';
 export * from './storage/index.js';
 

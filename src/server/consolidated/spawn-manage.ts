@@ -109,6 +109,7 @@ function buildCharacter(data: {
         resistances: data.resistances || [],
         vulnerabilities: data.vulnerabilities || [],
         immunities: data.immunities || [],
+        resourcePools: {},
         skillProficiencies: [],
         saveProficiencies: [],
         expertise: [],

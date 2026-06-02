@@ -24,15 +24,12 @@ import {
     TargetRefSchema,
     TargetRef,
     Hazard,
-    BlindSpot,
-    ApplicableControl,
-    RejectReason,
     Disposition,
 } from '../../schema/perception.js';
 import { scanHazards, targetExists, ScanDeps } from '../../engine/perception/hazard-detector.js';
 import { detectBlindSpots } from '../../engine/perception/blind-spot-detector.js';
 import { rankControls, CommittedState } from '../../engine/perception/hierarchy-of-controls.js';
-import { debit, refill, read as readCap, ATTENTIONAL_CAPACITY_KEY } from '../../engine/perception/attentional-capacity.js';
+import { debit, refill, read as readCap } from '../../engine/perception/attentional-capacity.js';
 
 // ─────────────────────────────────────────────────────────────────
 // CONSTANTS
