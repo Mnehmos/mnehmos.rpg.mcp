@@ -37,10 +37,14 @@ function char(id: string, overrides: Partial<Character> = {}): Character {
 }
 
 /** Provider mock that lets each test script the response. */
-function fakeProvider(impl: (opts: { model: string; messages: unknown[] }) => Promise<ProviderCallResult>): LLMProvider {
+function fakeProvider(impl: (opts: { model: string; messages: unknown[]; reasoningEffort?: unknown }) => Promise<ProviderCallResult>): LLMProvider {
     return {
         name: 'openai',
-        call: async (opts) => impl({ model: opts.model, messages: opts.messages })
+        call: async (opts) => impl({
+            model: opts.model,
+            messages: opts.messages,
+            reasoningEffort: (opts as any).reasoningEffort
+        })
     };
 }
 
@@ -62,15 +66,26 @@ describe('invokeAgent', () => {
         cleanup();
     });
 
-    function setupAgent(opts: Partial<{ budgetTokens: number | null; status: 'active' | 'paused'; circuitState: 'closed' | 'open' | 'half_open'; consecutiveFailures: number }> = {}) {
+    function setupAgent(opts: Partial<{
+        budgetTokens: number | null;
+        status: 'active' | 'paused';
+        circuitState: 'closed' | 'open' | 'half_open';
+        consecutiveFailures: number;
+        characterInt: number;
+        competencyOverride: { model?: string; reasoningEffort?: string | null };
+    }> = {}) {
         const chars = new CharacterRepository(db);
-        chars.create(char('char-1'));
-        const agent = deps.agentRepo.create({
+        chars.create(char('char-1', opts.characterInt === undefined ? {} : {
+            stats: { str: 12, dex: 17, con: 14, int: opts.characterInt, wis: 14, cha: 12 }
+        }));
+        const createInput = {
             characterId: 'char-1',
             provider: 'openai',
             model: 'gpt-4o-mini',
-            budgetTokens: opts.budgetTokens ?? null
-        });
+            budgetTokens: opts.budgetTokens ?? null,
+            competencyOverride: opts.competencyOverride
+        };
+        const agent = deps.agentRepo.create(createInput as any);
         if (opts.status || opts.circuitState || opts.consecutiveFailures !== undefined) {
             deps.agentRepo.update(agent.id, {
                 status: opts.status,
@@ -102,6 +117,49 @@ describe('invokeAgent', () => {
         expect(result.completionTokens).toBe(20);
         expect(result.characterName).toBe('Kara');
         expect(result.callId).toBeTruthy();
+    });
+
+    it('derives provider model and reasoning effort from character INT', async () => {
+        const agent = setupAgent({ characterInt: 18 });
+        let observedModel = '';
+        let observedReasoningEffort: unknown;
+        factory.register('openai', fakeProvider(async ({ model, reasoningEffort }) => {
+            observedModel = model;
+            observedReasoningEffort = reasoningEffort;
+            return { text: 'I reason through the pressure points.', raw: '{}', durationMs: 1 };
+        }));
+
+        const result = await invokeAgent({ agentId: agent.id }, deps);
+
+        expect(result.status).toBe('ok');
+        expect(observedModel).toBe('gpt-5.4');
+        expect(observedReasoningEffort).toBe('high');
+        const call = deps.agentRepo.findCallById(result.callId!) as any;
+        expect(call.model).toBe('gpt-5.4');
+        expect(call.reasoningEffort).toBe('high');
+        expect(call.competencySource).toBe('stat_derived');
+    });
+
+    it('uses per-agent competency override and audits the override source', async () => {
+        const agent = setupAgent({
+            characterInt: 10,
+            competencyOverride: { model: 'gpt-5.5', reasoningEffort: 'xhigh' }
+        });
+        let observedModel = '';
+        let observedReasoningEffort: unknown;
+        factory.register('openai', fakeProvider(async ({ model, reasoningEffort }) => {
+            observedModel = model;
+            observedReasoningEffort = reasoningEffort;
+            return { text: 'override active', raw: '{}', durationMs: 1 };
+        }));
+
+        const result = await invokeAgent({ agentId: agent.id }, deps);
+
+        expect(result.status).toBe('ok');
+        expect(observedModel).toBe('gpt-5.5');
+        expect(observedReasoningEffort).toBe('xhigh');
+        const call = deps.agentRepo.findCallById(result.callId!) as any;
+        expect(call.competencySource).toBe('override');
     });
 
     it('increments tokens_used after a successful call', async () => {

@@ -62,7 +62,7 @@ function generateEncounterMap(encounterData: { state: { tokens?: Array<{ positio
 }
 import { parsePosition } from '../../utils/schema-shorthand.js';
 import { ENCOUNTER_PRESETS, EncounterPreset, getEncountersByTag, getEncountersForLevel, scaleEncounter } from '../../data/encounter-presets.js';
-import { Character } from '../../schema/character.js';
+import { Character, CharacterOriginSchema } from '../../schema/character.js';
 
 // Helper function to build a complete Character object
 function buildCharacter(data: {
@@ -79,6 +79,7 @@ function buildCharacter(data: {
     resistances?: string[];
     vulnerabilities?: string[];
     immunities?: string[];
+    origin?: z.infer<typeof CharacterOriginSchema>;
     position?: { x: number; y: number };
     inventory?: string[];
     createdAt: string;
@@ -111,6 +112,7 @@ function buildCharacter(data: {
         skillProficiencies: [],
         saveProficiencies: [],
         expertise: [],
+        origin: data.origin,
         hasLairActions: false,
         position: data.position,
         createdAt: data.createdAt,
@@ -174,6 +176,7 @@ const SpawnManageInputSchema = z.object({
     equipment: z.array(z.string()).optional().describe('Equipment to give the character'),
     position: z.string().optional().describe('Position as "x,y" string'),
     characterType: z.enum(['pc', 'npc', 'enemy', 'ally']).optional().default('enemy'),
+    origin: CharacterOriginSchema.optional(),
 
     // spawn_location fields (populated)
     locationType: z.string().optional().describe('Location type (tavern, shop, temple, etc.)'),
@@ -322,6 +325,7 @@ async function handleSpawnCharacter(input: SpawnManageInput, _ctx: SessionContex
         resistances: preset.resistances || [],
         vulnerabilities: preset.vulnerabilities || [],
         immunities: preset.immunities || [],
+        origin: input.origin,
         position: pos,
         inventory: input.equipment || [],
         createdAt: now,
@@ -355,7 +359,8 @@ async function handleSpawnCharacter(input: SpawnManageInput, _ctx: SessionContex
         maxHp: preset.maxHp,
         ac: preset.ac,
         position: pos,
-        equipment: input.equipment || []
+        equipment: input.equipment || [],
+        origin: input.origin
     };
 
     output += RichFormatter.embedJson(result, 'SPAWN_MANAGE');

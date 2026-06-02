@@ -22,6 +22,7 @@ import { shouldTripCircuit } from './circuit.js';
 import { checkSceneScope, composeRemoteContactSituation, RemoteContact } from './scope.js';
 import { composePrompt } from '../prompt/compose.js';
 import { ProviderError, ChatMessage } from '../provider/types.js';
+import { ResolvedCompetency, resolveCompetency } from './competency.js';
 
 export interface InvokeInput {
     agentId?: string;
@@ -88,12 +89,19 @@ function resolveAgent(deps: AgentRuntimeDeps, input: InvokeInput): Agent | null 
     return null;
 }
 
+function resolveInvocationCompetency(agent: Agent, character: Character | NPC | null): ResolvedCompetency | null {
+    if (!character) return null;
+    return resolveCompetency(character.stats.int, agent.competencyOverride);
+}
+
 export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): Promise<InvokeResult> {
     // 1. Resolve agent + character
     const agent = resolveAgent(deps, input);
     if (!agent) return notFound('agent_not_found');
 
     const character = deps.characterRepo.findById(agent.characterId);
+    const competency = resolveInvocationCompetency(agent, character);
+    const resolvedModel = competency?.model ?? agent.model;
 
     // 2. Preflight gates
     const pre = preflight({ agent, character });
@@ -103,9 +111,11 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
             agentId: agent.id,
             requestId: input.requestId ?? null,
             provider: agent.provider,
-            model: agent.model,
+            model: resolvedModel,
             messagesJson: '[]',
             status: pre.status,
+            reasoningEffort: competency?.reasoningEffort ?? null,
+            competencySource: competency?.source ?? null,
             errorMessage: pre.reason
         });
         return {
@@ -127,9 +137,11 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
             agentId: agent.id,
             requestId: input.requestId ?? null,
             provider: agent.provider,
-            model: agent.model,
+            model: resolvedModel,
             messagesJson: '[]',
             status: 'skipped',
+            reasoningEffort: competency?.reasoningEffort ?? null,
+            competencySource: competency?.source ?? null,
             errorMessage: scope.reason ?? 'out_of_scene'
         });
         return {
@@ -154,9 +166,11 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
             agentId: agent.id,
             requestId: input.requestId ?? null,
             provider: agent.provider,
-            model: agent.model,
+            model: resolvedModel,
             messagesJson: '[]',
             status: 'error',
+            reasoningEffort: competency?.reasoningEffort ?? null,
+            competencySource: competency?.source ?? null,
             errorMessage: message
         });
         return {
@@ -183,10 +197,11 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
 
     try {
         const result = await provider.call({
-            model: agent.model,
+            model: resolvedModel,
             messages: composed.messages,
             temperature: agent.temperature,
             maxTokens: agent.maxTokens,
+            reasoningEffort: competency?.reasoningEffort ?? null,
             signal: controller.signal
         });
         clearTimeout(timeout);
@@ -196,13 +211,15 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
             agentId: agent.id,
             requestId: input.requestId ?? null,
             provider: agent.provider,
-            model: agent.model,
+            model: resolvedModel,
             messagesJson: JSON.stringify(composed.messages),
             rawResponse: result.raw,
             promptTokens: result.promptTokens ?? null,
             completionTokens: result.completionTokens ?? null,
             durationMs: result.durationMs,
-            status: 'ok'
+            status: 'ok',
+            reasoningEffort: competency?.reasoningEffort ?? null,
+            competencySource: competency?.source ?? null
         });
 
         const tokensSpent = (result.promptTokens ?? 0) + (result.completionTokens ?? 0);
@@ -277,11 +294,13 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
             agentId: agent.id,
             requestId: input.requestId ?? null,
             provider: agent.provider,
-            model: agent.model,
+            model: resolvedModel,
             messagesJson: JSON.stringify(composed.messages),
             rawResponse: providerErr?.raw ?? null,
             durationMs: null,
             status,
+            reasoningEffort: competency?.reasoningEffort ?? null,
+            competencySource: competency?.source ?? null,
             errorMessage: message
         });
 

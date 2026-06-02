@@ -7,6 +7,27 @@ import {
     SpellcastingAbilitySchema
 } from './spell.js';
 
+/**
+ * Bastion world-brief origin tracker.
+ *
+ * The world's central conceit is that almost no one is native to Bastion —
+ * the population is summoned from every fictional universe (Forgotten Realms,
+ * Konoha, contemporary Earth, ...). origin records where a soul came from
+ * and when it arrived, so tools can enforce/expose that fact.
+ */
+export const CharacterOriginSchema = z.object({
+    universe: z.string().min(1)
+        .describe('Source universe (e.g. "Contemporary Earth — Arizona Mine", "Forgotten Realms", "Konoha")'),
+    native: z.boolean().default(false)
+        .describe('True iff born in Bastion; false for summoned souls'),
+    arrivedAt: z.string().optional()
+        .describe('PD-year or ISO date the soul arrived in Bastion'),
+    arrivedInCohortId: z.string().uuid().optional()
+        .describe('Optional cohort/wave ID the soul arrived with')
+});
+
+export type CharacterOrigin = z.infer<typeof CharacterOriginSchema>;
+
 export const CharacterSchema = z.object({
     id: z.string(),
     name: z.string()
@@ -104,6 +125,17 @@ export const CharacterSchema = z.object({
         .optional().default([]).describe('Saving throws the character is proficient in'),
     expertise: z.array(z.string()).optional().default([])
         .describe('Skills with double proficiency bonus (rogues, bards)'),
+
+    // Background and alignment — accepted previously but silently dropped on
+    // persistence (no migration column). See docs/bastion/05-world-brief-vs-tool-surface.md.
+    background: z.string().optional()
+        .describe('Character background (e.g. "Soldier", "Charlatan", "Folk Hero")'),
+    alignment: z.string().optional()
+        .describe('Character alignment (free-form string, e.g. "lawful_good", "chaotic_neutral")'),
+
+    // Bastion-world origin tracker (universe of origin, native-ness, arrival data).
+    origin: CharacterOriginSchema.optional()
+        .describe('Source universe / Bastion-arrival metadata'),
 
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),

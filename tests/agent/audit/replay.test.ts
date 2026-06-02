@@ -94,7 +94,7 @@ describe('replayCall', () => {
 
         expect(result.mode).toBe('dry');
         expect(result.callId).toBe(originalCallId);
-        expect(result.original.model).toBe('gpt-4o-mini');
+        expect(result.original.model).toBe('gpt-4.1');
         expect(result.original.status).toBe('ok');
         expect(result.replay).toBeUndefined();
         expect(result.diff).toBeUndefined();

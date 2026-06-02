@@ -12,11 +12,14 @@ export interface ChatMessage {
     content: string;
 }
 
+export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh';
+
 export interface ProviderCallOpts {
     model: string;
     messages: ChatMessage[];
     temperature?: number;
     maxTokens?: number;
+    reasoningEffort?: ReasoningEffort | null;
     /** AbortSignal — runtime sets this from agents.timeout_ms */
     signal?: AbortSignal;
 }

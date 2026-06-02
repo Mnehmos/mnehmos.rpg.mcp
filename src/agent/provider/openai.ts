@@ -92,6 +92,9 @@ export class OpenAIProvider implements LLMProvider {
         if (opts.temperature !== undefined && !reasoningModel) {
             body.temperature = opts.temperature;
         }
+        if (opts.reasoningEffort !== undefined && opts.reasoningEffort !== null && reasoningModel) {
+            body.reasoning_effort = opts.reasoningEffort;
+        }
 
         let response: Response;
         try {

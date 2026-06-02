@@ -12,16 +12,30 @@ import { RichFormatter } from '../utils/formatter.js';
 import {
     handleLookAtSurroundings,
     handleGenerateRoomNode,
+    handleUpdateRoomNode,
     handleGetRoomExits,
     handleMoveCharacterToRoom,
-    handleListRooms
+    handleListRooms,
+    handleCreateNodeNetwork,
+    handleGetNodeNetwork,
+    handleListNodeNetworks
 } from '../handlers/spatial-handlers.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-const ACTIONS = ['look', 'generate', 'get_exits', 'move', 'list'] as const;
+const ACTIONS = [
+    'look',
+    'generate',
+    'update',
+    'get_exits',
+    'move',
+    'list',
+    'network_create',
+    'network_get',
+    'network_list'
+] as const;
 type SpatialAction = typeof ACTIONS[number];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -46,6 +60,15 @@ const DirectionEnum = z.enum([
     'northeast', 'northwest', 'southeast', 'southwest'
 ]);
 
+const NetworkTypeEnum = z.enum(['cluster', 'linear']);
+
+const BoundingBoxSchema = z.object({
+    minX: z.number().int().min(0),
+    maxX: z.number().int().min(0),
+    minY: z.number().int().min(0),
+    maxY: z.number().int().min(0)
+});
+
 const LookSchema = z.object({
     action: z.literal('look'),
     observerId: z.string().uuid().describe('ID of the character observing')
@@ -58,7 +81,19 @@ const GenerateSchema = z.object({
     biomeContext: BiomeEnum.describe('Biome/environment type'),
     atmospherics: z.array(AtmosphericEnum).default([]).describe('Environmental effects'),
     previousNodeId: z.string().uuid().optional().describe('Link from this room'),
-    direction: DirectionEnum.optional().describe('Direction of exit from previous room')
+    direction: DirectionEnum.optional().describe('Direction of exit from previous room'),
+    networkId: z.string().uuid().optional().describe('Optional node network ID'),
+    localX: z.number().int().min(0).optional().describe('Optional local X coordinate within node network'),
+    localY: z.number().int().min(0).optional().describe('Optional local Y coordinate within node network')
+});
+
+const UpdateSchema = z.object({
+    action: z.literal('update'),
+    roomId: z.string().uuid().describe('Room ID'),
+    name: z.string().min(1).max(100).optional().describe('Room name'),
+    baseDescription: z.string().min(10).max(2000).optional().describe('Detailed description'),
+    biomeContext: BiomeEnum.optional().describe('Biome/environment type'),
+    atmospherics: z.array(AtmosphericEnum).optional().describe('Environmental effects')
 });
 
 const GetExitsSchema = z.object({
@@ -69,12 +104,35 @@ const GetExitsSchema = z.object({
 const MoveSchema = z.object({
     action: z.literal('move'),
     characterId: z.string().uuid().describe('Character ID'),
-    roomId: z.string().uuid().describe('Destination room ID')
+    roomId: z.string().uuid().describe('Destination room ID'),
+    networkId: z.string().uuid().optional().describe('Optional node network ID to assign to the room'),
+    localX: z.number().int().min(0).optional().describe('Optional local X coordinate within node network'),
+    localY: z.number().int().min(0).optional().describe('Optional local Y coordinate within node network')
 });
 
 const ListSchema = z.object({
     action: z.literal('list'),
     biome: BiomeEnum.optional().describe('Filter by biome')
+});
+
+const NetworkCreateSchema = z.object({
+    action: z.literal('network_create'),
+    name: z.string().min(1).max(100).describe('Network name'),
+    networkType: NetworkTypeEnum.describe('Network shape'),
+    worldId: z.string().min(1).describe('World ID'),
+    centerX: z.number().int().min(0).describe('Center X coordinate'),
+    centerY: z.number().int().min(0).describe('Center Y coordinate'),
+    boundingBox: BoundingBoxSchema.optional().describe('Optional world-map bounding box')
+});
+
+const NetworkGetSchema = z.object({
+    action: z.literal('network_get'),
+    networkId: z.string().uuid().describe('Node network ID')
+});
+
+const NetworkListSchema = z.object({
+    action: z.literal('network_list'),
+    worldId: z.string().min(1).optional().describe('Optional world filter')
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -95,9 +153,24 @@ async function handleGenerate(args: z.infer<typeof GenerateSchema>, ctx?: Sessio
         biomeContext: args.biomeContext,
         atmospherics: args.atmospherics,
         previousNodeId: args.previousNodeId,
-        direction: args.direction
+        direction: args.direction,
+        networkId: args.networkId,
+        localX: args.localX,
+        localY: args.localY
     }, ctx);
     return extractResultData(result, 'generate');
+}
+
+async function handleUpdate(args: z.infer<typeof UpdateSchema>, ctx?: SessionContext): Promise<object> {
+    if (!ctx) throw new Error('No session context');
+    const result = await handleUpdateRoomNode({
+        roomId: args.roomId,
+        name: args.name,
+        baseDescription: args.baseDescription,
+        biomeContext: args.biomeContext,
+        atmospherics: args.atmospherics
+    }, ctx);
+    return extractResultData(result, 'update');
 }
 
 async function handleGetExits(args: z.infer<typeof GetExitsSchema>, ctx?: SessionContext): Promise<object> {
@@ -110,7 +183,10 @@ async function handleMove(args: z.infer<typeof MoveSchema>, ctx?: SessionContext
     if (!ctx) throw new Error('No session context');
     const result = await handleMoveCharacterToRoom({
         characterId: args.characterId,
-        roomId: args.roomId
+        roomId: args.roomId,
+        networkId: args.networkId,
+        localX: args.localX,
+        localY: args.localY
     }, ctx);
     return extractResultData(result, 'move');
 }
@@ -119,6 +195,31 @@ async function handleList(args: z.infer<typeof ListSchema>, ctx?: SessionContext
     if (!ctx) throw new Error('No session context');
     const result = await handleListRooms({ biome: args.biome }, ctx);
     return extractResultData(result, 'list');
+}
+
+async function handleNetworkCreate(args: z.infer<typeof NetworkCreateSchema>, ctx?: SessionContext): Promise<object> {
+    if (!ctx) throw new Error('No session context');
+    const result = await handleCreateNodeNetwork({
+        name: args.name,
+        networkType: args.networkType,
+        worldId: args.worldId,
+        centerX: args.centerX,
+        centerY: args.centerY,
+        boundingBox: args.boundingBox
+    }, ctx);
+    return extractResultData(result, 'network_create');
+}
+
+async function handleNetworkGet(args: z.infer<typeof NetworkGetSchema>, ctx?: SessionContext): Promise<object> {
+    if (!ctx) throw new Error('No session context');
+    const result = await handleGetNodeNetwork({ networkId: args.networkId }, ctx);
+    return extractResultData(result, 'network_get');
+}
+
+async function handleNetworkList(args: z.infer<typeof NetworkListSchema>, ctx?: SessionContext): Promise<object> {
+    if (!ctx) throw new Error('No session context');
+    const result = await handleListNodeNetworks({ worldId: args.worldId }, ctx);
+    return extractResultData(result, 'network_list');
 }
 
 function extractResultData(result: McpResponse, actionType: string): Record<string, unknown> {
@@ -147,6 +248,12 @@ const definitions: Record<SpatialAction, ActionDefinition> = {
         aliases: ['create', 'room', 'new_room'],
         description: 'Create a persistent room with immutable description'
     },
+    update: {
+        schema: UpdateSchema,
+        handler: handleUpdate,
+        aliases: ['edit', 'patch'],
+        description: 'Partially update room description, biome, or atmospherics'
+    },
     get_exits: {
         schema: GetExitsSchema,
         handler: handleGetExits,
@@ -164,6 +271,24 @@ const definitions: Record<SpatialAction, ActionDefinition> = {
         handler: handleList,
         aliases: ['rooms', 'all_rooms'],
         description: 'List all rooms, optionally filtered by biome'
+    },
+    network_create: {
+        schema: NetworkCreateSchema,
+        handler: handleNetworkCreate,
+        aliases: ['create_network'],
+        description: 'Create a node network for a town, road, or dungeon'
+    },
+    network_get: {
+        schema: NetworkGetSchema,
+        handler: handleNetworkGet,
+        aliases: ['get_network'],
+        description: 'Get a node network by ID'
+    },
+    network_list: {
+        schema: NetworkListSchema,
+        handler: handleNetworkList,
+        aliases: ['networks'],
+        description: 'List node networks, optionally filtered by world'
     }
 };
 
@@ -180,15 +305,17 @@ const router = createActionRouter({
 export const SpatialManageTool = {
     name: 'spatial_manage',
     description: `Manage spatial graph - rooms, exits, and character locations.
-Actions: look, generate, get_exits, move, list
-Aliases: observe→look, create→generate, exits→get_exits, enter→move, rooms→list
+Actions: look, generate, update, get_exits, move, list, network_create, network_get, network_list
+Aliases: observe→look, create→generate, edit→update, exits→get_exits, enter→move, rooms→list, networks→network_list
 
 🏠 SPATIAL WORKFLOW:
-1. generate - Create a new room with description and atmospherics
-2. look - View room from character's perspective (perception-filtered)
-3. get_exits - Get all exits from a room
-4. move - Move character to a room
-5. list - List all rooms in the graph
+1. network_create - Create a spatial network for a town, dungeon, road, or region
+2. generate - Create a new room with description, atmospherics, and optional local coordinates
+3. update - Patch room description, biome, or atmospherics
+4. look - View room from character's perspective (perception-filtered)
+5. get_exits - Get all exits from a room
+6. move - Move character to a room
+7. list / network_list - List rooms or networks
 
 Environmental effects: DARKNESS, FOG, ANTIMAGIC, SILENCE, BRIGHT, MAGICAL
 Biomes: forest, mountain, urban, dungeon, coastal, cavern, divine, arcane`,
@@ -198,13 +325,21 @@ Biomes: forest, mountain, urban, dungeon, coastal, cavern, divine, arcane`,
         observerId: z.string().optional().describe('Observer character ID (for look)'),
         characterId: z.string().optional().describe('Character ID (for move)'),
         roomId: z.string().optional().describe('Room ID'),
-        name: z.string().optional().describe('Room name (for generate)'),
-        baseDescription: z.string().optional().describe('Room description (for generate)'),
+        name: z.string().optional().describe('Room or network name'),
+        baseDescription: z.string().optional().describe('Room description (for generate/update)'),
         biomeContext: BiomeEnum.optional().describe('Biome type'),
         atmospherics: z.array(AtmosphericEnum).optional(),
         previousNodeId: z.string().optional(),
         direction: DirectionEnum.optional(),
-        biome: BiomeEnum.optional().describe('Filter biome (for list)')
+        biome: BiomeEnum.optional().describe('Filter biome (for list)'),
+        networkId: z.string().optional().describe('Node network ID'),
+        networkType: NetworkTypeEnum.optional().describe('Network shape'),
+        worldId: z.string().optional().describe('World ID'),
+        centerX: z.number().optional().describe('Network center X'),
+        centerY: z.number().optional().describe('Network center Y'),
+        boundingBox: BoundingBoxSchema.optional().describe('Network bounding box'),
+        localX: z.number().optional().describe('Room local X within network'),
+        localY: z.number().optional().describe('Room local Y within network')
     })
 };
 
@@ -247,7 +382,17 @@ export async function handleSpatialManage(args: unknown, ctx: SessionContext): P
                         'ID': `\`${parsed.roomId}\``,
                         'Name': parsed.name,
                         'Biome': parsed.biomeContext,
+                        'Network': parsed.networkId ? `\`${parsed.networkId}\`` : 'None',
                         'Linked': parsed.linkedToPrevious ? '✅' : '❌'
+                    });
+                    break;
+                case 'update':
+                    output = RichFormatter.header('Room Updated', '🏠');
+                    output += RichFormatter.keyValue({
+                        'ID': `\`${parsed.roomId}\``,
+                        'Name': parsed.name,
+                        'Biome': parsed.biomeContext,
+                        'Atmospherics': parsed.atmospherics?.join(', ') || 'None'
                     });
                     break;
                 case 'get_exits':
@@ -277,6 +422,34 @@ export async function handleSpatialManage(args: unknown, ctx: SessionContext): P
                         });
                     } else {
                         output += 'No rooms found.\n';
+                    }
+                    break;
+                case 'network_create':
+                    output = RichFormatter.header('Network Created', '🗺️');
+                    output += RichFormatter.keyValue({
+                        'ID': `\`${parsed.networkId}\``,
+                        'Name': parsed.name,
+                        'Type': parsed.networkType,
+                        'World': parsed.worldId
+                    });
+                    break;
+                case 'network_get':
+                    output = RichFormatter.header(parsed.name || 'Network', '🗺️');
+                    output += RichFormatter.keyValue({
+                        'ID': `\`${parsed.networkId}\``,
+                        'Type': parsed.networkType,
+                        'World': parsed.worldId,
+                        'Center': `${parsed.centerX}, ${parsed.centerY}`
+                    });
+                    break;
+                case 'network_list':
+                    output = RichFormatter.header(`Networks (${parsed.count})`, '🗺️');
+                    if (parsed.networks?.length > 0) {
+                        parsed.networks.forEach((n: { name: string; id: string; networkType: string; worldId: string }) => {
+                            output += `• **${n.name}** (\`${n.id}\`) - ${n.networkType} / ${n.worldId}\n`;
+                        });
+                    } else {
+                        output += 'No networks found.\n';
                     }
                     break;
                 default:

@@ -17,6 +17,7 @@ import { randomUUID } from 'crypto';
 import { SessionContext } from '../types.js';
 import { getDb } from '../../storage/index.js';
 import { CharacterRepository } from '../../storage/repos/character.repo.js';
+import { CharacterOriginSchema } from '../../schema/character.js';
 import { provisionStartingEquipment } from '../../services/starting-equipment.service.js';
 import { getSpellSlots, isSpellcaster } from '../../data/class-starting-data.js';
 import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/action-router.js';
@@ -82,6 +83,7 @@ const CreateSchema = z.object({
     resistances: z.array(z.string()).optional().default([]),
     vulnerabilities: z.array(z.string()).optional().default([]),
     immunities: z.array(z.string()).optional().default([]),
+    origin: CharacterOriginSchema.optional(),
     provisionEquipment: z.boolean().optional().default(true),
     customEquipment: z.array(z.string()).optional(),
     startingGold: z.number().int().min(0).optional()
@@ -114,12 +116,17 @@ const UpdateSchema = z.object({
     preparedSpells: z.array(z.string()).optional(),
     conditions: z.array(ConditionSchema).optional(),
     addConditions: z.array(ConditionSchema).optional(),
-    removeConditions: z.array(z.string()).optional()
+    removeConditions: z.array(z.string()).optional(),
+    background: z.string().optional(),
+    alignment: z.string().optional(),
+    origin: CharacterOriginSchema.optional()
 });
 
 const ListSchema = z.object({
     action: z.literal('list'),
-    characterType: CharacterTypeSchema.optional()
+    characterType: CharacterTypeSchema.optional(),
+    nativeToBastion: z.boolean().optional(),
+    sourceUniverse: z.string().optional()
 });
 
 const DeleteSchema = z.object({
@@ -200,6 +207,7 @@ export async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<
         race: args.race,
         background: args.background,
         alignment: args.alignment,
+        origin: args.origin,
         characterClass: className,
         stats: args.stats || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
         hp,
@@ -300,6 +308,9 @@ async function handleUpdate(args: z.infer<typeof UpdateSchema>): Promise<object>
     if (args.ac !== undefined) updateData.ac = args.ac;
     if (args.level !== undefined) updateData.level = args.level;
     if (args.characterType !== undefined) updateData.characterType = args.characterType;
+    if (args.background !== undefined) updateData.background = args.background;
+    if (args.alignment !== undefined) updateData.alignment = args.alignment;
+    if (args.origin !== undefined) updateData.origin = args.origin;
     if (args.stats !== undefined) updateData.stats = args.stats;
     if (args.knownSpells !== undefined) updateData.knownSpells = args.knownSpells;
     if (args.preparedSpells !== undefined) updateData.preparedSpells = args.preparedSpells;
@@ -351,9 +362,16 @@ async function handleUpdate(args: z.infer<typeof UpdateSchema>): Promise<object>
 
 async function handleList(args: z.infer<typeof ListSchema>): Promise<object> {
     const { characterRepo } = ensureDb();
-    const characters = characterRepo.findAll({
+    let characters = characterRepo.findAll({
         characterType: args.characterType
     });
+
+    if (args.nativeToBastion !== undefined) {
+        characters = characters.filter(character => character.origin?.native === args.nativeToBastion);
+    }
+    if (args.sourceUniverse !== undefined) {
+        characters = characters.filter(character => character.origin?.universe === args.sourceUniverse);
+    }
 
     return {
         characters,
@@ -565,6 +583,7 @@ Aliases: new/add/spawn->create, fetch/find->get, modify/edit->update`,
         race: z.string().optional(),
         background: z.string().optional(),
         alignment: z.string().optional(),
+        origin: CharacterOriginSchema.optional(),
         stats: StatsSchema.optional(),
         hp: z.number().int().optional(),
         maxHp: z.number().int().optional(),
@@ -591,7 +610,9 @@ Aliases: new/add/spawn->create, fetch/find->get, modify/edit->update`,
         amount: z.number().int().optional(),
         // Level up fields
         hpIncrease: z.number().int().optional(),
-        targetLevel: z.number().int().optional()
+        targetLevel: z.number().int().optional(),
+        nativeToBastion: z.boolean().optional(),
+        sourceUniverse: z.string().optional()
     })
 };
 

@@ -16,13 +16,17 @@ export class CharacterRepository {
                               cantrips_known, max_spell_level, concentrating_on, conditions,
                               legendary_actions, legendary_actions_remaining, legendary_resistances,
                               legendary_resistances_remaining, has_lair_actions, resistances, vulnerabilities, immunities,
-                              current_room_id, perception_bonus, stealth_bonus, resource_pools, created_at, updated_at)
+                              current_room_id, perception_bonus, stealth_bonus, resource_pools,
+                              background, alignment, origin,
+                              created_at, updated_at)
       VALUES (@id, @name, @stats, @hp, @maxHp, @ac, @level, @factionId, @behavior, @characterType,
               @characterClass, @race, @spellSlots, @pactMagicSlots, @knownSpells, @preparedSpells,
               @cantripsKnown, @maxSpellLevel, @concentratingOn, @conditions,
               @legendaryActions, @legendaryActionsRemaining, @legendaryResistances,
               @legendaryResistancesRemaining, @hasLairActions, @resistances, @vulnerabilities, @immunities,
-              @currentRoomId, @perceptionBonus, @stealthBonus, @resourcePools, @createdAt, @updatedAt)
+              @currentRoomId, @perceptionBonus, @stealthBonus, @resourcePools,
+              @background, @alignment, @origin,
+              @createdAt, @updatedAt)
     `);
 
         stmt.run({
@@ -63,6 +67,10 @@ export class CharacterRepository {
             stealthBonus: validChar.stealthBonus || 0,
             // §10.3: Generalized resource pools (attentional_capacity et al.)
             resourcePools: JSON.stringify(validChar.resourcePools || {}),
+            // BASTION: background, alignment, origin (silent-drop fix + world-brief enforcement)
+            background: validChar.background ?? null,
+            alignment: validChar.alignment ?? null,
+            origin: validChar.origin ? JSON.stringify(validChar.origin) : null,
             createdAt: validChar.createdAt,
             updatedAt: validChar.updatedAt,
         });
@@ -121,7 +129,9 @@ export class CharacterRepository {
                 legendary_resistances = ?, legendary_resistances_remaining = ?,
                 has_lair_actions = ?, resistances = ?, vulnerabilities = ?, immunities = ?,
                 current_room_id = ?, perception_bonus = ?, stealth_bonus = ?,
-                resource_pools = ?, updated_at = ?
+                resource_pools = ?,
+                background = ?, alignment = ?, origin = ?,
+                updated_at = ?
             WHERE id = ?
         `);
 
@@ -162,6 +172,10 @@ export class CharacterRepository {
             validChar.stealthBonus || 0,
             // §10.3: Generalized resource pools
             JSON.stringify(validChar.resourcePools || {}),
+            // BASTION: background, alignment, origin
+            validChar.background ?? null,
+            validChar.alignment ?? null,
+            validChar.origin ? JSON.stringify(validChar.origin) : null,
             validChar.updatedAt,
             id
         );
@@ -212,6 +226,9 @@ export class CharacterRepository {
             stealthBonus: row.stealth_bonus ?? 0,
             // §10.3: Generalized resource pools (attentional_capacity et al.)
             resourcePools: row.resource_pools ? JSON.parse(row.resource_pools) : {},
+            background: row.background || undefined,
+            alignment: row.alignment || undefined,
+            origin: row.origin ? JSON.parse(row.origin) : undefined,
             createdAt: row.created_at,
             updatedAt: row.updated_at,
         };
@@ -266,6 +283,9 @@ interface CharacterRow {
     stealth_bonus: number | null;
     // §10.3: Generalized resource pools
     resource_pools: string | null;
+    background: string | null;
+    alignment: string | null;
+    origin: string | null;
     created_at: string;
     updated_at: string;
 }

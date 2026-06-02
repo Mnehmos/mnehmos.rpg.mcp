@@ -18,7 +18,10 @@ import {
     AgentCallSchema,
     AgentCallStatus,
     AgentProvider,
-    AgentCircuitState
+    AgentCircuitState,
+    CompetencyOverride,
+    ReasoningEffort,
+    CompetencySource
 } from '../../schema/agent.js';
 
 // ============================================================================
@@ -37,6 +40,7 @@ interface AgentRow {
     temperature: number;
     max_tokens: number;
     budget_tokens: number | null;
+    competency_override: string | null;
     tokens_used: number;
     timeout_ms: number;
     consecutive_failures: number;
@@ -86,6 +90,8 @@ interface CallRow {
     completion_tokens: number | null;
     duration_ms: number | null;
     status: string;
+    reasoning_effort: string | null;
+    competency_source: string | null;
     error_message: string | null;
     created_at: string;
 }
@@ -95,6 +101,10 @@ interface CallRow {
 // ============================================================================
 
 function rowToAgent(row: AgentRow): Agent {
+    const competencyOverride = row.competency_override
+        ? JSON.parse(row.competency_override) as CompetencyOverride
+        : null;
+
     return AgentSchema.parse({
         id: row.id,
         characterId: row.character_id,
@@ -105,6 +115,7 @@ function rowToAgent(row: AgentRow): Agent {
         temperature: row.temperature,
         maxTokens: row.max_tokens,
         budgetTokens: row.budget_tokens,
+        competencyOverride,
         tokensUsed: row.tokens_used,
         timeoutMs: row.timeout_ms,
         consecutiveFailures: row.consecutive_failures,
@@ -162,6 +173,8 @@ function rowToCall(row: CallRow): AgentCall {
         completionTokens: row.completion_tokens,
         durationMs: row.duration_ms,
         status: row.status as AgentCallStatus,
+        reasoningEffort: row.reasoning_effort as ReasoningEffort | null,
+        competencySource: row.competency_source as CompetencySource | null,
         errorMessage: row.error_message,
         createdAt: row.created_at
     });
@@ -187,12 +200,12 @@ export class AgentRepository {
             INSERT INTO agents (
                 id, character_id, provider, model, status,
                 auto_on_turn, temperature, max_tokens, budget_tokens,
-                tokens_used, timeout_ms, consecutive_failures, circuit_state,
+                competency_override, tokens_used, timeout_ms, consecutive_failures, circuit_state,
                 created_at, updated_at
             ) VALUES (
                 @id, @characterId, @provider, @model, @status,
                 @autoOnTurn, @temperature, @maxTokens, @budgetTokens,
-                @tokensUsed, @timeoutMs, @consecutiveFailures, @circuitState,
+                @competencyOverride, @tokensUsed, @timeoutMs, @consecutiveFailures, @circuitState,
                 @createdAt, @updatedAt
             )
         `);
@@ -207,6 +220,7 @@ export class AgentRepository {
             temperature: input.temperature ?? 0.7,
             maxTokens: input.maxTokens ?? 800,
             budgetTokens: input.budgetTokens ?? null,
+            competencyOverride: input.competencyOverride ? JSON.stringify(input.competencyOverride) : null,
             tokensUsed: input.tokensUsed ?? 0,
             timeoutMs: input.timeoutMs ?? 25000,
             consecutiveFailures: input.consecutiveFailures ?? 0,
@@ -263,6 +277,7 @@ export class AgentRepository {
             temperature: 'temperature',
             maxTokens: 'max_tokens',
             budgetTokens: 'budget_tokens',
+            competencyOverride: 'competency_override',
             tokensUsed: 'tokens_used',
             timeoutMs: 'timeout_ms',
             consecutiveFailures: 'consecutive_failures',
@@ -273,7 +288,9 @@ export class AgentRepository {
             const value = updates[key];
             if (value === undefined) continue;
             fields.push(`${column} = @${key}`);
-            params[key] = typeof value === 'boolean' ? (value ? 1 : 0) : value;
+            params[key] = key === 'competencyOverride'
+                ? (value ? JSON.stringify(value) : null)
+                : typeof value === 'boolean' ? (value ? 1 : 0) : value;
         }
 
         if (fields.length === 0) return existing;
@@ -512,6 +529,8 @@ export class AgentRepository {
         completionTokens?: number | null;
         durationMs?: number | null;
         status: AgentCallStatus;
+        reasoningEffort?: ReasoningEffort | null;
+        competencySource?: CompetencySource | null;
         errorMessage?: string | null;
     }): AgentCall {
         const id = randomUUID();
@@ -520,8 +539,9 @@ export class AgentRepository {
         this.db.prepare(`
             INSERT INTO agent_calls (
                 id, agent_id, request_id, provider, model, messages_json, raw_response,
-                prompt_tokens, completion_tokens, duration_ms, status, error_message, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                prompt_tokens, completion_tokens, duration_ms, status, reasoning_effort,
+                competency_source, error_message, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
             id,
             input.agentId,
@@ -534,6 +554,8 @@ export class AgentRepository {
             input.completionTokens ?? null,
             input.durationMs ?? null,
             input.status,
+            input.reasoningEffort ?? null,
+            input.competencySource ?? null,
             input.errorMessage ?? null,
             now
         );
@@ -550,6 +572,8 @@ export class AgentRepository {
             completion_tokens: input.completionTokens ?? null,
             duration_ms: input.durationMs ?? null,
             status: input.status,
+            reasoning_effort: input.reasoningEffort ?? null,
+            competency_source: input.competencySource ?? null,
             error_message: input.errorMessage ?? null,
             created_at: now
         });

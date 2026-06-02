@@ -160,6 +160,38 @@ describe('OpenAIProvider', () => {
             expect(body.max_completion_tokens).toBeUndefined();
             expect(body.temperature).toBeUndefined();
         });
+
+        it('passes reasoning_effort for reasoning models when supplied', async () => {
+            const mock = mockFetch({
+                body: JSON.stringify({ choices: [{ message: { content: 'x' } }] })
+            });
+            const provider = new OpenAIProvider({ apiKey: 'sk', fetchImpl: mock.fn });
+
+            await provider.call({
+                model: 'gpt-5.5',
+                messages: [{ role: 'user', content: 'hi' }],
+                reasoningEffort: 'xhigh'
+            } as any);
+
+            const body = JSON.parse(mock.lastRequest.init?.body as string);
+            expect(body.reasoning_effort).toBe('xhigh');
+        });
+
+        it('omits reasoning_effort for non-reasoning models', async () => {
+            const mock = mockFetch({
+                body: JSON.stringify({ choices: [{ message: { content: 'x' } }] })
+            });
+            const provider = new OpenAIProvider({ apiKey: 'sk', fetchImpl: mock.fn });
+
+            await provider.call({
+                model: 'gpt-4.1',
+                messages: [{ role: 'user', content: 'hi' }],
+                reasoningEffort: 'high'
+            } as any);
+
+            const body = JSON.parse(mock.lastRequest.init?.body as string);
+            expect(body.reasoning_effort).toBeUndefined();
+        });
     });
 
     describe('isReasoningModel', () => {

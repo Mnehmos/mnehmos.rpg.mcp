@@ -25,6 +25,7 @@ import {
     handleAddSecret as handleAgentAddSecret
 } from './agent-manage.js';
 import { buildCharacterStateSlice } from '../../agent/prompt/slices/character_state.js';
+import { CharacterOriginSchema } from '../../schema/character.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -87,6 +88,7 @@ const NewCreateSchema = z.object({
     resistances: z.array(z.string()).optional().default([]),
     vulnerabilities: z.array(z.string()).optional().default([]),
     immunities: z.array(z.string()).optional().default([]),
+    origin: CharacterOriginSchema.optional(),
     provisionEquipment: z.boolean().optional().default(false),
     customEquipment: z.array(z.string()).optional(),
     startingGold: z.number().int().min(0).optional(),
@@ -239,6 +241,7 @@ async function handleCreateNpc(args: z.infer<typeof NewCreateSchema>): Promise<o
         resistances: args.resistances,
         vulnerabilities: args.vulnerabilities,
         immunities: args.immunities,
+        origin: args.origin,
         provisionEquipment: args.provisionEquipment,
         customEquipment: args.customEquipment,
         startingGold: args.startingGold
@@ -260,7 +263,10 @@ async function handleCreateNpc(args: z.infer<typeof NewCreateSchema>): Promise<o
         maxHp: charResult.maxHp,
         ac: charResult.ac,
         stats: charResult.stats,
-        characterType: charResult.characterType
+        characterType: charResult.characterType,
+        background: charResult.background,
+        alignment: charResult.alignment,
+        origin: charResult.origin
     };
 
     const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
@@ -1182,6 +1188,7 @@ Actions: create, get_full_context, get_relationship, update_relationship, record
         resistances: z.array(z.string()).optional(),
         vulnerabilities: z.array(z.string()).optional(),
         immunities: z.array(z.string()).optional(),
+        origin: CharacterOriginSchema.optional(),
         provisionEquipment: z.boolean().optional(),
         customEquipment: z.array(z.string()).optional(),
         startingGold: z.number().int().optional(),

@@ -2,7 +2,7 @@ import { z } from "zod";
 import { getDb } from "../../storage/index.js";
 import { SpatialRepository } from "../../storage/repos/spatial.repo.js";
 import { CharacterRepository } from "../../storage/repos/character.repo.js";
-import { RoomNode, Exit } from "../../schema/spatial.js";
+import { RoomNode, Exit, NodeNetwork } from "../../schema/spatial.js";
 import { SessionContext } from "../types.js";
 
 /**
@@ -90,6 +90,58 @@ const SpatialTools = {
         ])
         .optional()
         .describe("Direction of the exit from previousNodeId to the new room"),
+      networkId: z
+        .string()
+        .uuid()
+        .optional()
+        .describe("Optional node network this room belongs to"),
+      localX: z
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe("Optional local X coordinate within the node network"),
+      localY: z
+        .number()
+        .int()
+        .min(0)
+        .optional()
+        .describe("Optional local Y coordinate within the node network"),
+    }),
+  },
+
+  UPDATE_ROOM_NODE: {
+    name: "update_room_node",
+    description:
+      "Partially update room metadata without replacing exits, entities, or visit state.",
+    inputSchema: z.object({
+      roomId: z.string().uuid().describe("ID of the room to update"),
+      name: z.string().min(1).max(100).optional(),
+      baseDescription: z.string().min(10).max(2000).optional(),
+      biomeContext: z
+        .enum([
+          "forest",
+          "mountain",
+          "urban",
+          "dungeon",
+          "coastal",
+          "cavern",
+          "divine",
+          "arcane",
+        ])
+        .optional(),
+      atmospherics: z
+        .array(
+          z.enum([
+            "DARKNESS",
+            "FOG",
+            "ANTIMAGIC",
+            "SILENCE",
+            "BRIGHT",
+            "MAGICAL",
+          ])
+        )
+        .optional(),
     }),
   },
 
@@ -108,6 +160,43 @@ const SpatialTools = {
     inputSchema: z.object({
       characterId: z.string().uuid().describe("ID of the character to move"),
       roomId: z.string().uuid().describe("ID of the destination room"),
+      networkId: z.string().uuid().optional(),
+      localX: z.number().int().min(0).optional(),
+      localY: z.number().int().min(0).optional(),
+    }),
+  },
+
+  CREATE_NODE_NETWORK: {
+    name: "create_node_network",
+    description: "Create a spatial node network such as a town, road, or dungeon.",
+    inputSchema: z.object({
+      name: z.string().min(1).max(100),
+      networkType: z.enum(["cluster", "linear"]),
+      worldId: z.string().min(1),
+      centerX: z.number().int().min(0),
+      centerY: z.number().int().min(0),
+      boundingBox: z.object({
+        minX: z.number().int().min(0),
+        maxX: z.number().int().min(0),
+        minY: z.number().int().min(0),
+        maxY: z.number().int().min(0),
+      }).optional(),
+    }),
+  },
+
+  GET_NODE_NETWORK: {
+    name: "get_node_network",
+    description: "Get a node network by ID.",
+    inputSchema: z.object({
+      networkId: z.string().uuid(),
+    }),
+  },
+
+  LIST_NODE_NETWORKS: {
+    name: "list_node_networks",
+    description: "List node networks, optionally filtered by world.",
+    inputSchema: z.object({
+      worldId: z.string().min(1).optional(),
     }),
   },
 
@@ -280,6 +369,9 @@ export async function handleLookAtSurroundings(
     description:
       e.description || `A ${e.type.toLowerCase()} passage leads ${e.direction}`,
     targetNodeId: e.targetNodeId,
+    travelTime: e.travelTime,
+    terrain: e.terrain,
+    difficulty: e.difficulty,
   }));
 
   return {
@@ -325,12 +417,16 @@ export async function handleGenerateRoomNode(
     updatedAt: new Date().toISOString(),
     visitedCount: 0,
     lastVisitedAt: undefined,
+    networkId: parsed.networkId,
+    localX: parsed.localX,
+    localY: parsed.localY,
   };
 
   // Save to database
   spatialRepo.create(newRoom);
 
   // Link from previous room if specified
+  let linkedToPrevious = false;
   if (parsed.previousNodeId && parsed.direction) {
     const prevRoom = spatialRepo.findById(parsed.previousNodeId);
     if (prevRoom) {
@@ -340,6 +436,7 @@ export async function handleGenerateRoomNode(
         type: "OPEN",
       };
       spatialRepo.addExit(parsed.previousNodeId, exit);
+      linkedToPrevious = true;
     }
   }
 
@@ -355,7 +452,67 @@ export async function handleGenerateRoomNode(
             description: newRoom.baseDescription,
             biomeContext: newRoom.biomeContext,
             atmospherics: newRoom.atmospherics,
-            linkedToPrevious: !!(parsed.previousNodeId && parsed.direction),
+            networkId: newRoom.networkId,
+            localX: newRoom.localX,
+            localY: newRoom.localY,
+            linkedToPrevious,
+          },
+          null,
+          2
+        ),
+      },
+    ],
+  };
+}
+
+export async function handleUpdateRoomNode(
+  args: unknown,
+  _ctx: SessionContext
+) {
+  const parsed = SpatialTools.UPDATE_ROOM_NODE.inputSchema.parse(args);
+  const spatialRepo = getSpatialRepo();
+
+  const updates: Partial<RoomNode> = {};
+  if (parsed.name !== undefined) updates.name = parsed.name;
+  if (parsed.baseDescription !== undefined) updates.baseDescription = parsed.baseDescription;
+  if (parsed.biomeContext !== undefined) updates.biomeContext = parsed.biomeContext;
+  if (parsed.atmospherics !== undefined) updates.atmospherics = parsed.atmospherics;
+
+  const room = spatialRepo.update(parsed.roomId, updates);
+
+  if (!room) {
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify(
+            {
+              success: false,
+              error: "Room not found",
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
+  }
+
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify(
+          {
+            success: true,
+            roomId: room.id,
+            name: room.name,
+            description: room.baseDescription,
+            biomeContext: room.biomeContext,
+            atmospherics: room.atmospherics,
+            networkId: room.networkId,
+            localX: room.localX,
+            localY: room.localY,
           },
           null,
           2
@@ -403,6 +560,9 @@ export async function handleGetRoomExits(args: unknown, _ctx: SessionContext) {
               type: e.type,
               dc: e.dc,
               description: e.description,
+              travelTime: e.travelTime,
+              terrain: e.terrain,
+              difficulty: e.difficulty,
             })),
           },
           null,
@@ -483,6 +643,14 @@ export async function handleMoveCharacterToRoom(
   // Increment visit count
   spatialRepo.incrementVisitCount(parsed.roomId);
 
+  const roomCoordinateUpdates: Partial<RoomNode> = {};
+  if (parsed.networkId !== undefined) roomCoordinateUpdates.networkId = parsed.networkId;
+  if (parsed.localX !== undefined) roomCoordinateUpdates.localX = parsed.localX;
+  if (parsed.localY !== undefined) roomCoordinateUpdates.localY = parsed.localY;
+  const updatedRoom = Object.keys(roomCoordinateUpdates).length > 0
+    ? spatialRepo.update(parsed.roomId, roomCoordinateUpdates) ?? room
+    : room;
+
   return {
     content: [
       {
@@ -493,8 +661,140 @@ export async function handleMoveCharacterToRoom(
             characterId: parsed.characterId,
             characterName: character.name,
             newRoomId: parsed.roomId,
-            newRoomName: room.name,
+            newRoomName: updatedRoom.name,
             visitedCount: room.visitedCount + 1,
+            networkId: updatedRoom.networkId,
+            localX: updatedRoom.localX,
+            localY: updatedRoom.localY,
+          },
+          null,
+          2
+        ),
+      },
+    ],
+  };
+}
+
+export async function handleCreateNodeNetwork(
+  args: unknown,
+  _ctx: SessionContext
+) {
+  const parsed = SpatialTools.CREATE_NODE_NETWORK.inputSchema.parse(args);
+  const spatialRepo = getSpatialRepo();
+
+  const network: NodeNetwork = {
+    id: crypto.randomUUID(),
+    name: parsed.name,
+    type: parsed.networkType,
+    worldId: parsed.worldId,
+    centerX: parsed.centerX,
+    centerY: parsed.centerY,
+    boundingBox: parsed.boundingBox,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+  spatialRepo.createNetwork(network);
+
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify(
+          {
+            success: true,
+            networkId: network.id,
+            id: network.id,
+            name: network.name,
+            networkType: network.type,
+            worldId: network.worldId,
+            centerX: network.centerX,
+            centerY: network.centerY,
+            boundingBox: network.boundingBox,
+          },
+          null,
+          2
+        ),
+      },
+    ],
+  };
+}
+
+export async function handleGetNodeNetwork(
+  args: unknown,
+  _ctx: SessionContext
+) {
+  const parsed = SpatialTools.GET_NODE_NETWORK.inputSchema.parse(args);
+  const spatialRepo = getSpatialRepo();
+  const network = spatialRepo.findNetworkById(parsed.networkId);
+
+  if (!network) {
+    return {
+      content: [
+        {
+          type: "text" as const,
+          text: JSON.stringify(
+            {
+              success: false,
+              error: "Network not found",
+            },
+            null,
+            2
+          ),
+        },
+      ],
+    };
+  }
+
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify(
+          {
+            success: true,
+            networkId: network.id,
+            id: network.id,
+            name: network.name,
+            networkType: network.type,
+            worldId: network.worldId,
+            centerX: network.centerX,
+            centerY: network.centerY,
+            boundingBox: network.boundingBox,
+          },
+          null,
+          2
+        ),
+      },
+    ],
+  };
+}
+
+export async function handleListNodeNetworks(
+  args: unknown,
+  _ctx: SessionContext
+) {
+  const parsed = SpatialTools.LIST_NODE_NETWORKS.inputSchema.parse(args);
+  const spatialRepo = getSpatialRepo();
+  const networks = spatialRepo.findAllNetworks(parsed.worldId);
+
+  return {
+    content: [
+      {
+        type: "text" as const,
+        text: JSON.stringify(
+          {
+            success: true,
+            count: networks.length,
+            networks: networks.map((network) => ({
+              id: network.id,
+              networkId: network.id,
+              name: network.name,
+              networkType: network.type,
+              worldId: network.worldId,
+              centerX: network.centerX,
+              centerY: network.centerY,
+              boundingBox: network.boundingBox,
+            })),
           },
           null,
           2

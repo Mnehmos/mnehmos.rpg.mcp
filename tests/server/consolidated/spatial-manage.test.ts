@@ -132,6 +132,104 @@ describe('spatial_manage consolidated tool', () => {
             expect(data.success).toBe(true);
             expect(data.linkedToPrevious).toBe(true);
         });
+
+        it('should not report linkedToPrevious when previous room does not exist', async () => {
+            const result = await handleSpatialManage({
+                action: 'generate',
+                name: 'Unlinked Room',
+                baseDescription: 'A room whose requested previous room does not exist.',
+                biomeContext: 'urban',
+                previousNodeId: randomUUID(),
+                direction: 'north'
+            }, ctx);
+
+            const data = parseResult(result);
+            expect(data.success).toBe(true);
+            expect(data.linkedToPrevious).toBe(false);
+        });
+
+        it('should create a room with network coordinates', async () => {
+            const network = await handleSpatialManage({
+                action: 'network_create',
+                name: 'Test Network',
+                networkType: 'cluster',
+                worldId: 'world-1',
+                centerX: 10,
+                centerY: 20
+            }, ctx);
+            const networkData = parseResult(network);
+
+            const result = await handleSpatialManage({
+                action: 'generate',
+                name: 'Mapped Room',
+                baseDescription: 'A room with committed local coordinates.',
+                biomeContext: 'urban',
+                networkId: networkData.networkId,
+                localX: 2,
+                localY: 3
+            }, ctx);
+
+            const data = parseResult(result);
+            expect(data.success).toBe(true);
+            expect(data.networkId).toBe(networkData.networkId);
+            expect(data.localX).toBe(2);
+            expect(data.localY).toBe(3);
+        });
+    });
+
+    describe('update action', () => {
+        it('should update room metadata', async () => {
+            const result = await handleSpatialManage({
+                action: 'update',
+                roomId: testRoomId,
+                baseDescription: 'An updated test room description with enough detail.',
+                atmospherics: ['FOG'],
+                biomeContext: 'dungeon'
+            }, ctx);
+
+            const data = parseResult(result);
+            expect(data.success).toBe(true);
+            expect(data.actionType).toBe('update');
+            expect(data.roomId).toBe(testRoomId);
+            expect(data.description).toContain('updated test room');
+            expect(data.atmospherics).toEqual(['FOG']);
+            expect(data.biomeContext).toBe('dungeon');
+        });
+    });
+
+    describe('network actions', () => {
+        it('should create, get, and list node networks', async () => {
+            const created = await handleSpatialManage({
+                action: 'network_create',
+                name: 'Market District',
+                networkType: 'cluster',
+                worldId: 'world-1',
+                centerX: 12,
+                centerY: 34,
+                boundingBox: { minX: 10, maxX: 14, minY: 32, maxY: 36 }
+            }, ctx);
+            const createdData = parseResult(created);
+            expect(createdData.success).toBe(true);
+            expect(createdData.actionType).toBe('network_create');
+            expect(createdData.networkId).toBeDefined();
+
+            const got = await handleSpatialManage({
+                action: 'network_get',
+                networkId: createdData.networkId
+            }, ctx);
+            const gotData = parseResult(got);
+            expect(gotData.success).toBe(true);
+            expect(gotData.name).toBe('Market District');
+            expect(gotData.boundingBox.maxX).toBe(14);
+
+            const listed = await handleSpatialManage({
+                action: 'network_list',
+                worldId: 'world-1'
+            }, ctx);
+            const listedData = parseResult(listed);
+            expect(listedData.success).toBe(true);
+            expect(listedData.networks.some((n: any) => n.id === createdData.networkId)).toBe(true);
+        });
     });
 
     describe('list action', () => {
@@ -197,6 +295,43 @@ describe('spatial_manage consolidated tool', () => {
             const data = parseResult(result);
             expect(data.actionType).toBe('get_exits');
         });
+
+        it('should include travel metadata on exits', async () => {
+            const spatialRepo = new SpatialRepository(getDb(':memory:'));
+            const targetRoomId = randomUUID();
+            spatialRepo.create({
+                id: targetRoomId,
+                name: 'Target Room',
+                baseDescription: 'A target room for travel metadata testing.',
+                biomeContext: 'urban',
+                atmospherics: [],
+                exits: [],
+                entityIds: [],
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                visitedCount: 0
+            });
+            spatialRepo.addExit(testRoomId, {
+                direction: 'east',
+                targetNodeId: targetRoomId,
+                type: 'OPEN',
+                travelTime: 5,
+                terrain: 'paved',
+                difficulty: 12,
+                description: 'A paved corridor runs east.'
+            });
+
+            const result = await handleSpatialManage({
+                action: 'get_exits',
+                roomId: testRoomId
+            }, ctx);
+
+            const data = parseResult(result);
+            const exit = data.exits.find((e: any) => e.direction === 'east');
+            expect(exit.travelTime).toBe(5);
+            expect(exit.terrain).toBe('paved');
+            expect(exit.difficulty).toBe(12);
+        });
     });
 
     describe('move action', () => {
@@ -255,6 +390,47 @@ describe('spatial_manage consolidated tool', () => {
             expect(data.success).toBe(true);
             expect(data.actionType).toBe('look');
             expect(data.roomName).toBe('Test Room');
+        });
+
+        it('should include travel metadata when looking at visible exits', async () => {
+            const spatialRepo = new SpatialRepository(getDb(':memory:'));
+            const targetRoomId = randomUUID();
+            spatialRepo.create({
+                id: targetRoomId,
+                name: 'Look Target',
+                baseDescription: 'A target room for visible travel metadata testing.',
+                biomeContext: 'urban',
+                atmospherics: [],
+                exits: [],
+                entityIds: [],
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                visitedCount: 0
+            });
+            spatialRepo.addExit(testRoomId, {
+                direction: 'south',
+                targetNodeId: targetRoomId,
+                type: 'OPEN',
+                travelTime: 1,
+                terrain: 'indoor',
+                difficulty: 10
+            });
+            await handleSpatialManage({
+                action: 'move',
+                characterId: testCharacterId,
+                roomId: testRoomId
+            }, ctx);
+
+            const result = await handleSpatialManage({
+                action: 'look',
+                observerId: testCharacterId
+            }, ctx);
+
+            const data = parseResult(result);
+            const exit = data.exits.find((e: any) => e.direction === 'south');
+            expect(exit.travelTime).toBe(1);
+            expect(exit.terrain).toBe('indoor');
+            expect(exit.difficulty).toBe(10);
         });
 
         it('should accept "observe" alias', async () => {

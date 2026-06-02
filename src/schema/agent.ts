@@ -13,6 +13,20 @@ export type AgentStatus = z.infer<typeof AgentStatusSchema>;
 export const AgentCircuitStateSchema = z.enum(['closed', 'open', 'half_open']);
 export type AgentCircuitState = z.infer<typeof AgentCircuitStateSchema>;
 
+export const ReasoningEffortSchema = z.enum(['low', 'medium', 'high', 'xhigh']);
+export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
+
+export const CompetencySourceSchema = z.enum(['stat_derived', 'override']);
+export type CompetencySource = z.infer<typeof CompetencySourceSchema>;
+
+export const CompetencyOverrideSchema = z.object({
+    model: z.string().min(1).refine((model) => !/-pro\b/i.test(model), {
+        message: 'Pro model variants are not allowed'
+    }).optional(),
+    reasoningEffort: ReasoningEffortSchema.nullable().optional()
+});
+export type CompetencyOverride = z.infer<typeof CompetencyOverrideSchema>;
+
 export const AgentSchema = z.object({
     id: z.string(),
     characterId: z.string(),
@@ -27,6 +41,7 @@ export const AgentSchema = z.object({
     timeoutMs: z.number().int().positive().default(25000),
     consecutiveFailures: z.number().int().nonnegative().default(0),
     circuitState: AgentCircuitStateSchema.default('closed'),
+    competencyOverride: CompetencyOverrideSchema.nullable().default(null),
     createdAt: z.string(),
     updatedAt: z.string()
 });
@@ -128,6 +143,8 @@ export const AgentCallSchema = z.object({
     completionTokens: z.number().int().nonnegative().nullable().default(null),
     durationMs: z.number().int().nonnegative().nullable().default(null),
     status: AgentCallStatusSchema,
+    reasoningEffort: ReasoningEffortSchema.nullable().default(null),
+    competencySource: CompetencySourceSchema.nullable().default(null),
     errorMessage: z.string().nullable().default(null),
     createdAt: z.string()
 });
@@ -150,7 +167,8 @@ export const AgentCreateInputSchema = z.object({
     tokensUsed: z.number().int().nonnegative().optional(),
     timeoutMs: z.number().int().positive().optional(),
     consecutiveFailures: z.number().int().nonnegative().optional(),
-    circuitState: AgentCircuitStateSchema.optional()
+    circuitState: AgentCircuitStateSchema.optional(),
+    competencyOverride: CompetencyOverrideSchema.nullable().optional()
 });
 export type AgentCreateInput = z.infer<typeof AgentCreateInputSchema>;
 

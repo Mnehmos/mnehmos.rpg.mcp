@@ -1,0 +1,122 @@
+[
+  {
+    "int": 1,
+    "tier": "bare_pattern",
+    "model": "babbage-002",
+    "reasoningEffort": null
+  },
+  {
+    "int": 2,
+    "tier": "bare_pattern",
+    "model": "babbage-002",
+    "reasoningEffort": null
+  },
+  {
+    "int": 3,
+    "tier": "primitive_reasoning",
+    "model": "davinci-002",
+    "reasoningEffort": null
+  },
+  {
+    "int": 4,
+    "tier": "simple_language",
+    "model": "gpt-4",
+    "reasoningEffort": null
+  },
+  {
+    "int": 5,
+    "tier": "low_cognition",
+    "model": "gpt-oss-20b",
+    "reasoningEffort": null
+  },
+  {
+    "int": 6,
+    "tier": "low_cognition",
+    "model": "gpt-oss-20b",
+    "reasoningEffort": null
+  },
+  {
+    "int": 7,
+    "tier": "basic_adventurer",
+    "model": "gpt-4o-mini",
+    "reasoningEffort": null
+  },
+  {
+    "int": 8,
+    "tier": "broad_context",
+    "model": "gpt-oss-120b",
+    "reasoningEffort": null
+  },
+  {
+    "int": 9,
+    "tier": "trained",
+    "model": "gpt-4.1-mini",
+    "reasoningEffort": null
+  },
+  {
+    "int": 10,
+    "tier": "baseline_human",
+    "model": "gpt-4.1",
+    "reasoningEffort": null
+  },
+  {
+    "int": 11,
+    "tier": "above_average",
+    "model": "o3",
+    "reasoningEffort": "medium"
+  },
+  {
+    "int": 12,
+    "tier": "sharp",
+    "model": "o3",
+    "reasoningEffort": "high"
+  },
+  {
+    "int": 13,
+    "tier": "gifted",
+    "model": "gpt-5-nano",
+    "reasoningEffort": "medium"
+  },
+  {
+    "int": 14,
+    "tier": "expert",
+    "model": "gpt-5-mini",
+    "reasoningEffort": "high"
+  },
+  {
+    "int": 15,
+    "tier": "master",
+    "model": "gpt-5.4-nano",
+    "reasoningEffort": "medium"
+  },
+  {
+    "int": 16,
+    "tier": "master_plus",
+    "model": "gpt-5.4-mini",
+    "reasoningEffort": "high"
+  },
+  {
+    "int": 17,
+    "tier": "genius",
+    "model": "gpt-5.4",
+    "reasoningEffort": "medium"
+  },
+  {
+    "int": 18,
+    "tier": "strategic_genius",
+    "model": "gpt-5.4",
+    "reasoningEffort": "high"
+  },
+  {
+    "int": 19,
+    "tier": "near_superhuman",
+    "model": "gpt-5.5",
+    "reasoningEffort": "high"
+  },
+  {
+    "int": 20,
+    "tier": "superhuman",
+    "model": "gpt-5.5",
+    "reasoningEffort": "xhigh"
+  }
+]

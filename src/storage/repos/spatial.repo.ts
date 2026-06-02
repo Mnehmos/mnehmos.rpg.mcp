@@ -244,6 +244,14 @@ export class SpatialRepository {
         return this.rowToNodeNetwork(row);
     }
 
+    findAllNetworks(worldId?: string): NodeNetwork[] {
+        const stmt = worldId
+            ? this.db.prepare('SELECT * FROM node_networks WHERE world_id = ? ORDER BY name')
+            : this.db.prepare('SELECT * FROM node_networks ORDER BY name');
+        const rows = worldId ? stmt.all(worldId) as NodeNetworkRow[] : stmt.all() as NodeNetworkRow[];
+        return rows.map(row => this.rowToNodeNetwork(row));
+    }
+
     findRoomsByNetwork(networkId: string): RoomNode[] {
         const stmt = this.db.prepare(
             'SELECT * FROM room_nodes WHERE network_id = ? ORDER BY name'

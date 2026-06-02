@@ -834,6 +834,29 @@ function runMigrations(db: Database.Database) {
     db.exec(`ALTER TABLE characters ADD COLUMN resource_pools TEXT DEFAULT '{}';`);
   }
 
+  // BASTION: background + alignment were accepted by Zod but had no columns —
+  // silently dropped on persistence. Add them. See
+  // docs/bastion/05-world-brief-vs-tool-surface.md.
+  const hasBackground = charColumns.some(col => col.name === 'background');
+  if (!hasBackground) {
+    console.error('[Migration] Adding background column to characters table');
+    db.exec(`ALTER TABLE characters ADD COLUMN background TEXT;`);
+  }
+  const hasAlignment = charColumns.some(col => col.name === 'alignment');
+  if (!hasAlignment) {
+    console.error('[Migration] Adding alignment column to characters table');
+    db.exec(`ALTER TABLE characters ADD COLUMN alignment TEXT;`);
+  }
+
+  // BASTION: origin tracks the soul's source universe + Bastion-arrival data.
+  // The world brief's "almost no one is native" claim is meaningless without
+  // a column to enforce it. JSON-encoded {universe, native, arrivedAt?, arrivedInCohortId?}.
+  const hasOrigin = charColumns.some(col => col.name === 'origin');
+  if (!hasOrigin) {
+    console.error('[Migration] Adding origin column to characters table');
+    db.exec(`ALTER TABLE characters ADD COLUMN origin TEXT;`);
+  }
+
   // Migration: Rename world_x/world_y to local_x/local_y if needed
   const hasWorldX = roomColumns.some(col => col.name === 'world_x');
   const hasWorldY = roomColumns.some(col => col.name === 'world_y');
@@ -914,6 +937,7 @@ function runMigrations(db: Database.Database) {
       temperature REAL DEFAULT 0.7,
       max_tokens INTEGER DEFAULT 800,
       budget_tokens INTEGER,
+      competency_override TEXT,
       tokens_used INTEGER NOT NULL DEFAULT 0,
       timeout_ms INTEGER NOT NULL DEFAULT 25000,
       consecutive_failures INTEGER NOT NULL DEFAULT 0,
@@ -1009,11 +1033,29 @@ function runMigrations(db: Database.Database) {
       completion_tokens INTEGER,
       duration_ms INTEGER,
       status TEXT NOT NULL CHECK (status IN ('ok', 'timeout', 'rate_limited', 'error', 'circuit_open', 'budget_exhausted', 'incapable', 'paused', 'skipped')),
+      reasoning_effort TEXT,
+      competency_source TEXT,
       error_message TEXT,
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_calls_agent_time ON agent_calls(agent_id, created_at DESC);
   `);
+
+  const agentColumns = db.prepare("PRAGMA table_info(agents)").all() as { name: string }[];
+  if (!agentColumns.some(col => col.name === 'competency_override')) {
+    console.error('[Migration] Adding competency_override column to agents table');
+    db.exec(`ALTER TABLE agents ADD COLUMN competency_override TEXT;`);
+  }
+
+  const callColumns = db.prepare("PRAGMA table_info(agent_calls)").all() as { name: string }[];
+  if (!callColumns.some(col => col.name === 'reasoning_effort')) {
+    console.error('[Migration] Adding reasoning_effort column to agent_calls table');
+    db.exec(`ALTER TABLE agent_calls ADD COLUMN reasoning_effort TEXT;`);
+  }
+  if (!callColumns.some(col => col.name === 'competency_source')) {
+    console.error('[Migration] Adding competency_source column to agent_calls table');
+    db.exec(`ALTER TABLE agent_calls ADD COLUMN competency_source TEXT;`);
+  }
 }
 
 function createPostMigrationIndexes(db: Database.Database) {

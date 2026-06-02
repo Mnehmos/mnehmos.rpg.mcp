@@ -150,7 +150,7 @@ This engine implements the **Event-Driven Agentic AI Architecture**:
 |------|---------|-------------|
 | `world_manage` | generate, get, update, list, delete | Procedural world generation |
 | `world_map` | get_overview, get_region, patch, preview | Map queries and modifications |
-| `spatial_manage` | look, move, generate_room, get_exits, list_rooms | Dungeon navigation and room networks |
+| `spatial_manage` | look, generate, update, get_exits, move, list, network_create, network_get, network_list | Dungeon navigation and room networks |
 
 ### Quests & NPCs
 

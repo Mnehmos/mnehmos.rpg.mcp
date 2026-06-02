@@ -81,14 +81,16 @@ describe('AgentRepository', () => {
                 temperature: 0.3,
                 maxTokens: 1200,
                 budgetTokens: 50000,
-                timeoutMs: 30000
-            });
+                timeoutMs: 30000,
+                competencyOverride: { model: 'gpt-5.5', reasoningEffort: 'high' }
+            } as any);
 
             expect(agent.autoOnTurn).toBe(true);
             expect(agent.temperature).toBe(0.3);
             expect(agent.maxTokens).toBe(1200);
             expect(agent.budgetTokens).toBe(50000);
             expect(agent.timeoutMs).toBe(30000);
+            expect((agent as any).competencyOverride).toEqual({ model: 'gpt-5.5', reasoningEffort: 'high' });
         });
 
         it('finds agent by id and by characterId', () => {
@@ -122,11 +124,17 @@ describe('AgentRepository', () => {
             chars.create(makeCharacter('char-1'));
             const agent = repo.create({ characterId: 'char-1', provider: 'openai', model: 'gpt-4o-mini' });
 
-            const updated = repo.update(agent.id, { model: 'gpt-4o', temperature: 1.1, autoOnTurn: true });
+            const updated = repo.update(agent.id, {
+                model: 'gpt-4o',
+                temperature: 1.1,
+                autoOnTurn: true,
+                competencyOverride: { reasoningEffort: 'medium' }
+            } as any);
             expect(updated?.model).toBe('gpt-4o');
             expect(updated?.temperature).toBe(1.1);
             expect(updated?.autoOnTurn).toBe(true);
             expect(updated?.provider).toBe('openai'); // unchanged
+            expect((updated as any).competencyOverride).toEqual({ reasoningEffort: 'medium' });
         });
 
         it('returns null when updating a missing agent', () => {
@@ -341,18 +349,22 @@ describe('AgentRepository', () => {
                 agentId: agent.id,
                 provider: 'openai',
                 model: 'gpt-4o-mini',
+                reasoningEffort: 'medium',
+                competencySource: 'stat_derived',
                 messagesJson: JSON.stringify([{ role: 'user', content: 'hi' }]),
                 rawResponse: 'hello',
                 promptTokens: 12,
                 completionTokens: 4,
                 durationMs: 320,
                 status: 'ok'
-            });
+            } as any);
 
             expect(call.agentId).toBe(agent.id);
             expect(call.status).toBe('ok');
             expect(call.promptTokens).toBe(12);
             expect(call.completionTokens).toBe(4);
+            expect((call as any).reasoningEffort).toBe('medium');
+            expect((call as any).competencySource).toBe('stat_derived');
         });
 
         it('finds calls by id and lists newest-first', () => {
