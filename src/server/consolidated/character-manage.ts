@@ -177,7 +177,9 @@ function convertSpellSlotsToObject(slots: number[] | null) {
 // ACTION HANDLERS
 // ═══════════════════════════════════════════════════════════════════════════
 
-async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<object> {
+export { CreateSchema as CharacterCreateSchema };
+
+export async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<object> {
     const { db, characterRepo } = ensureDb();
     const now = new Date().toISOString();
     const className = args.class || 'Adventurer';

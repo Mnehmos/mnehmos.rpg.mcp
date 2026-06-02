@@ -281,7 +281,7 @@ const ReplaySchema = z.object({
 
 // ----- Lifecycle -----
 
-async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<object> {
+export async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<object> {
     const { agentRepo, characterRepo } = ensureDb();
 
     const character = characterRepo.findById(args.characterId);
@@ -435,7 +435,7 @@ async function handleBudget(args: z.infer<typeof BudgetSchema>): Promise<object>
 
 // ----- Prompt assembly -----
 
-async function handleSetSlice(args: z.infer<typeof SetSliceSchema>): Promise<object> {
+export async function handleSetSlice(args: z.infer<typeof SetSliceSchema>): Promise<object> {
     const { agentRepo } = ensureDb();
     const agent = resolveAgent(agentRepo, args);
     if (!agent) return { error: true, message: 'Agent not found' };
@@ -557,7 +557,7 @@ async function handlePreviewPrompt(args: z.infer<typeof PreviewPromptSchema>): P
 
 // ----- Mind state -----
 
-async function handleAddSecret(args: z.infer<typeof AddSecretSchema>): Promise<object> {
+export async function handleAddSecret(args: z.infer<typeof AddSecretSchema>): Promise<object> {
     const { agentRepo } = ensureDb();
     const agent = resolveAgent(agentRepo, args);
     if (!agent) return { error: true, message: 'Agent not found' };
