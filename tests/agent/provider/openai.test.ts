@@ -1,4 +1,4 @@
-import { OpenAIProvider, isReasoningModel } from '../../../src/agent/provider/openai.js';
+import { OpenAIProvider, isReasoningModel, REASONING_COMPLETION_FLOOR } from '../../../src/agent/provider/openai.js';
 import { ProviderError } from '../../../src/agent/provider/types.js';
 
 /**
@@ -98,7 +98,9 @@ describe('OpenAIProvider', () => {
                 });
 
                 const body = JSON.parse(mock.lastRequest.init?.body as string);
-                expect(body.max_completion_tokens, `${model} should use max_completion_tokens`).toBe(200);
+                // Value may be floored up for reasoning models (see floor regression below);
+                // this test guards the field-NAME mapping, so assert presence + no max_tokens.
+                expect(body.max_completion_tokens, `${model} should use max_completion_tokens`).toBeGreaterThanOrEqual(200);
                 expect(body.max_tokens, `${model} must NOT send max_tokens`).toBeUndefined();
             }
         );
@@ -191,6 +193,58 @@ describe('OpenAIProvider', () => {
 
             const body = JSON.parse(mock.lastRequest.init?.body as string);
             expect(body.reasoning_effort).toBeUndefined();
+        });
+    });
+
+    describe('reasoning completion floor (empty-content / silent-agent regression)', () => {
+        it('floors max_completion_tokens to the effort tier when caller passes a chat-sized budget', async () => {
+            const mock = mockFetch({ body: JSON.stringify({ choices: [{ message: { content: 'x' } }] }) });
+            const provider = new OpenAIProvider({ apiKey: 'sk', fetchImpl: mock.fn });
+            await provider.call({
+                model: 'gpt-5.5',
+                messages: [{ role: 'user', content: 'hi' }],
+                maxTokens: 800,            // the agent default that made reasoning agents go silent
+                reasoningEffort: 'xhigh'
+            });
+            const body = JSON.parse(mock.lastRequest.init?.body as string);
+            expect(body.max_completion_tokens).toBe(REASONING_COMPLETION_FLOOR.xhigh);
+        });
+
+        it('defaults to the medium floor when a reasoning model has no effort supplied', async () => {
+            const mock = mockFetch({ body: JSON.stringify({ choices: [{ message: { content: 'x' } }] }) });
+            const provider = new OpenAIProvider({ apiKey: 'sk', fetchImpl: mock.fn });
+            await provider.call({ model: 'o3', messages: [{ role: 'user', content: 'hi' }], maxTokens: 800 });
+            const body = JSON.parse(mock.lastRequest.init?.body as string);
+            expect(body.max_completion_tokens).toBe(REASONING_COMPLETION_FLOOR.medium);
+        });
+
+        it('never lowers a caller budget already above the floor', async () => {
+            const mock = mockFetch({ body: JSON.stringify({ choices: [{ message: { content: 'x' } }] }) });
+            const provider = new OpenAIProvider({ apiKey: 'sk', fetchImpl: mock.fn });
+            await provider.call({
+                model: 'gpt-5', messages: [{ role: 'user', content: 'hi' }], maxTokens: 50000, reasoningEffort: 'high'
+            });
+            const body = JSON.parse(mock.lastRequest.init?.body as string);
+            expect(body.max_completion_tokens).toBe(50000);
+        });
+
+        it('does NOT floor non-reasoning models (max_tokens passes through unchanged)', async () => {
+            const mock = mockFetch({ body: JSON.stringify({ choices: [{ message: { content: 'x' } }] }) });
+            const provider = new OpenAIProvider({ apiKey: 'sk', fetchImpl: mock.fn });
+            await provider.call({ model: 'gpt-4o', messages: [{ role: 'user', content: 'hi' }], maxTokens: 800 });
+            const body = JSON.parse(mock.lastRequest.init?.body as string);
+            expect(body.max_tokens).toBe(800);
+            expect(body.max_completion_tokens).toBeUndefined();
+        });
+
+        it('gives a self-diagnosing error when content is empty due to finish_reason=length', async () => {
+            const mock = mockFetch({
+                body: JSON.stringify({ choices: [{ message: { content: '' }, finish_reason: 'length' }] })
+            });
+            const provider = new OpenAIProvider({ apiKey: 'sk', fetchImpl: mock.fn });
+            await expect(provider.call({
+                model: 'gpt-5.5', messages: [{ role: 'user', content: 'hi' }], maxTokens: 800, reasoningEffort: 'xhigh'
+            })).rejects.toThrow(/finish_reason="length"[\s\S]*reasoning tokens[\s\S]*maxTokens/);
         });
     });
 
