@@ -16,6 +16,7 @@ import { CharacterRepository } from '../../storage/repos/character.repo.js';
 import {
     WILD_SURGE_TABLE,
     SKILL_TO_ABILITY,
+    MechanicTypeSchema,
     SkillName,
     TriggerEvent,
     ActorType
@@ -142,25 +143,25 @@ const StuntSchema = z.object({
 
 const ApplyEffectSchema = z.object({
     action: z.literal('apply_effect'),
-    targetId: z.string(),
+    targetId: z.string().describe('ID of the character/npc the effect is applied to'),
     targetType: z.enum(['character', 'npc']),
-    name: z.string(),
-    description: z.string().optional(),
+    name: z.string().describe('Effect name shown on the sheet, e.g. "Blessing of the Forge"'),
+    description: z.string().optional().describe('Human-readable flavor text. NOTE: per-mechanic detail goes in mechanics[], not here'),
     category: z.enum(['boon', 'curse', 'neutral', 'transformative']),
-    powerLevel: z.number().int().min(1).max(5).default(1),
+    powerLevel: z.number().int().min(1).max(5).default(1).describe('1=minor (+1, hours) .. 5=reality-warping (permanent)'),
     sourceType: z.enum(['divine', 'arcane', 'natural', 'cursed', 'psionic', 'unknown']).default('unknown'),
     sourceEntityName: z.string().optional(),
     mechanics: z.array(z.object({
-        type: z.string(),
-        value: z.union([z.string(), z.number()]),
-        condition: z.string().optional()
-    })),
+        type: MechanicTypeSchema.describe('What the mechanic does (closed set). Use custom_trigger for narrative-only effects'),
+        value: z.union([z.string(), z.number()]).describe('Number for bonuses (e.g. 2, -10); string for typed effects (e.g. "fire" for damage_resistance)'),
+        condition: z.string().optional().describe('When it applies, e.g. "against undead", "attack_rolls"')
+    })).describe('One or more mechanical riders. REQUIRED — each needs {type, value}. type is a closed enum; freeform strings are rejected'),
     durationType: z.enum(['rounds', 'minutes', 'hours', 'days', 'permanent', 'until_removed']),
-    durationValue: z.number().int().optional(),
+    durationValue: z.number().int().optional().describe('Magnitude for timed durations; ignored for permanent/until_removed'),
     triggers: z.array(z.object({
         event: TriggerEventEnum,
         condition: z.string().optional()
-    })).optional()
+    })).optional().describe('When mechanics fire. Defaults to always_active if omitted')
 });
 
 const GetEffectsSchema = z.object({
@@ -619,7 +620,7 @@ const definitions: Record<ImprovisationAction, ActionDefinition> = {
         schema: ApplyEffectSchema,
         handler: handleApplyEffect,
         aliases: ['add_effect', 'boon', 'curse'],
-        description: 'Apply a custom effect (boon/curse)'
+        description: 'Apply a custom effect (boon/curse). Required: targetId, targetType, name, category, durationType, and mechanics[] where each is {type (closed enum), value (number|string), condition?}'
     },
     get_effects: {
         schema: GetEffectsSchema,
@@ -681,10 +682,13 @@ STUNT (Rule of Cool):
 - Critical success doubles damage
 - Critical failure can cause self-damage
 
-CUSTOM EFFECTS:
-- Categories: boon, curse, neutral, transformative
-- Power levels 1-5
-- Duration types: rounds, minutes, hours, days, permanent
+CUSTOM EFFECTS (apply_effect):
+- Required: targetId, targetType, name, category, mechanics[], durationType
+- mechanics[] = { type, value, condition? } — type is a CLOSED ENUM, value is a number (bonuses) or string (typed effects like "fire")
+- type ∈ ${MechanicTypeSchema.options.join(', ')}
+- Categories: boon, curse, neutral, transformative | Power levels 1-5 | Duration types: rounds, minutes, hours, days, permanent, until_removed
+- Use custom_trigger (value 1) for narrative-only effects with no numeric rider
+- Example: { action: "apply_effect", targetId: "char_1", targetType: "character", name: "Forge Blessing", category: "boon", powerLevel: 2, durationType: "until_removed", mechanics: [{ type: "attack_bonus", value: 2, condition: "melee" }, { type: "damage_resistance", value: "fire" }] }
 
 ARCANE SYNTHESIS:
 - DC = 10 + (spell level x 2) + modifiers
@@ -721,10 +725,10 @@ ARCANE SYNTHESIS:
         powerLevel: z.number().optional(),
         sourceType: z.string().optional(),
         sourceEntityName: z.string().optional(),
-        mechanics: z.array(z.any()).optional(),
+        mechanics: z.array(z.any()).optional().describe('apply_effect: array of {type, value, condition?}. type is a closed enum (attack_bonus, damage_bonus, ac_bonus, saving_throw_bonus, skill_bonus, advantage_on, disadvantage_on, damage_resistance, damage_vulnerability, damage_immunity, damage_over_time, healing_over_time, extra_action, prevent_action, movement_modifier, sense_granted, sense_removed, speak_language, cannot_speak, custom_trigger). value is number for bonuses or string for typed effects'),
         durationType: z.string().optional(),
         durationValue: z.number().optional(),
-        triggers: z.array(z.any()).optional(),
+        triggers: z.array(z.any()).optional().describe('apply_effect: array of {event, condition?}. event is a closed enum (always_active, start_of_turn, end_of_turn, on_attack, on_hit, on_miss, on_damage_taken, on_heal, on_rest, on_spell_cast, on_death)'),
         effectId: z.number().optional(),
         effectName: z.string().optional(),
         includeInactive: z.boolean().optional(),

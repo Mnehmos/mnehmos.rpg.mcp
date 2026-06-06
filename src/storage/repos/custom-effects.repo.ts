@@ -16,7 +16,7 @@ import {
     ActorType
 } from '../../schema/improvisation.js';
 
-interface CustomEffectRow {
+export interface CustomEffectRow {
     id: number;
     target_id: string;
     target_type: string;
@@ -71,8 +71,22 @@ export class CustomEffectsRepository {
             }
         }
 
-        // Check for existing non-stackable effect
-        const existing = this.findByTargetAndName(args.target_id, args.target_type, args.name);
+        // Check for an existing active effect of the same name. Use a RAW read so a
+        // previously-stored unreadable row (e.g. a legacy/invalid mechanic type written
+        // before input validation tightened) cannot throw here and permanently brick this
+        // (target, name): every retry would re-parse the bad row and re-throw its stored
+        // error verbatim, regardless of the new payload. Instead, self-heal by dropping it.
+        const existingRow = this.findRawByTargetAndName(args.target_id, args.target_type, args.name);
+        let existing: CustomEffect | null = null;
+        if (existingRow) {
+            try {
+                existing = this.rowToEffect(existingRow);
+            } catch {
+                // Corrupt/unreadable row: remove it so this apply() writes a clean
+                // replacement instead of re-throwing the stored row's parse error forever.
+                this.remove(existingRow.id);
+            }
+        }
 
         if (existing && !args.stackable) {
             // Refresh duration instead of creating new
@@ -105,7 +119,7 @@ export class CustomEffectsRepository {
             )
         `);
 
-        const result = stmt.run({
+        const params = {
             targetId: args.target_id,
             targetType: args.target_type,
             name: args.name,
@@ -127,9 +141,18 @@ export class CustomEffectsRepository {
             isActive: 1,
             createdAt: now,
             expiresAt
+        };
+
+        // Insert and read-back atomically. If the stored row fails to parse on read-back
+        // (e.g. a constraint input validation didn't catch), the whole transaction rolls
+        // back — so an unreadable "poison" row can never persist and brick later retries
+        // on this name. The error then surfaces honestly on THIS call, not a future one.
+        const insertAndRead = this.db.transaction((p: typeof params): CustomEffect => {
+            const result = stmt.run(p);
+            return this.findById(result.lastInsertRowid as number)!;
         });
 
-        return this.findById(result.lastInsertRowid as number)!;
+        return insertAndRead(params);
     }
 
     /**
@@ -151,6 +174,19 @@ export class CustomEffectsRepository {
         `);
         const row = stmt.get(targetId, targetType, name) as CustomEffectRow | undefined;
         return row ? this.rowToEffect(row) : null;
+    }
+
+    /**
+     * Raw, parse-tolerant lookup by target and name. Returns the underlying row without
+     * running it through CustomEffectSchema, so callers (e.g. apply's self-heal path) can
+     * detect a corrupt row instead of having the parse throw before they get a chance to.
+     */
+    findRawByTargetAndName(targetId: string, targetType: ActorType, name: string): CustomEffectRow | undefined {
+        const stmt = this.db.prepare(`
+            SELECT * FROM custom_effects
+            WHERE target_id = ? AND target_type = ? AND name = ? AND is_active = 1
+        `);
+        return stmt.get(targetId, targetType, name) as CustomEffectRow | undefined;
     }
 
     /**
