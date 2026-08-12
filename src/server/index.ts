@@ -115,14 +115,76 @@ function setupShutdownHandlers(): void {
   });
 }
 
-async function main() {
-  setupShutdownHandlers();
-  console.error(`[Server] Database path: ${getDbPath()}`);
-
+/**
+ * Builds a fresh McpServer with every tool registered. Cheap (no I/O) —
+ * safe to call once for the long-lived stdio/tcp/unix/websocket transports,
+ * or per-request for the stateless HTTP transport, which requires a new
+ * McpServer + StreamableHTTPServerTransport pair per request (the SDK
+ * throws "Stateless transport cannot be reused across requests" otherwise).
+ * `pubsub` and `auditLogger` are app-level singletons shared across calls —
+ * only the protocol-level McpServer/tool-registration wrapper is rebuilt.
+ */
+function buildServer(pubsub: PubSub, auditLogger: AuditLogger): McpServer {
   const server = new McpServer({
     name: 'rpg-mcp',
     version: '1.0.3'
   });
+
+  registerEventTools(server, pubsub);
+
+  server.tool(
+    MetaTools.SEARCH_TOOLS.name,
+    MetaTools.SEARCH_TOOLS.description,
+    MetaTools.SEARCH_TOOLS.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+    auditLogger.wrapHandler(MetaTools.SEARCH_TOOLS.name, withSession(MetaTools.SEARCH_TOOLS.inputSchema, handleSearchTools))
+  );
+
+  server.tool(
+    MetaTools.LOAD_TOOL_SCHEMA.name,
+    MetaTools.LOAD_TOOL_SCHEMA.description,
+    MetaTools.LOAD_TOOL_SCHEMA.inputSchema.extend({ sessionId: z.string().optional() }).shape,
+    auditLogger.wrapHandler(MetaTools.LOAD_TOOL_SCHEMA.name, withSession(MetaTools.LOAD_TOOL_SCHEMA.inputSchema, handleLoadToolSchema))
+  );
+
+  const registry = buildConsolidatedRegistry();
+  const toolCount = Object.keys(registry).length;
+  const sessionIdSchema = z.object({ sessionId: z.string().optional() });
+
+  for (const [toolName, entry] of Object.entries(registry)) {
+    // Handle all Zod schema types (object, omit, pick, etc.)
+    // .extend() only works on z.object(), so we use .and() which works universally
+    let extendedSchema: any;
+    if (typeof entry.schema.extend === 'function') {
+      // Standard z.object() - use .extend() for best performance
+      extendedSchema = entry.schema.extend({ sessionId: z.string().optional() });
+    } else if (typeof entry.schema.and === 'function') {
+      // .omit(), .pick(), or other transformed schemas - use .and()
+      extendedSchema = entry.schema.and(sessionIdSchema);
+    } else {
+      // Fallback: wrap in intersection
+      extendedSchema = z.intersection(entry.schema, sessionIdSchema);
+    }
+
+    server.tool(
+      toolName,
+      entry.metadata.description,
+      extendedSchema.shape || extendedSchema._def?.schema?.shape || {},
+      auditLogger.wrapHandler(
+        toolName,
+        withSession(entry.schema, entry.handler as any)
+      )
+    );
+  }
+
+  console.error(`[Server] Registered ${toolCount} tools with minimal schemas`);
+  console.error(`[Server] Meta-tools: search_tools, load_tool_schema`);
+
+  return server;
+}
+
+async function main() {
+  setupShutdownHandlers();
+  console.error(`[Server] Database path: ${getDbPath()}`);
 
   // =========================================================================
   // AGENT RUNTIME: wire LLM providers + repos behind getAgentRuntime()
@@ -153,69 +215,9 @@ async function main() {
     console.error(`[Server] Failed to initialize agent runtime: ${(err as Error).message}`);
   }
 
-  // Initialize PubSub for event subscription
+  // App-level singletons shared across every McpServer instance buildServer() creates.
   const pubsub = new PubSub();
-
-  // Register Event Tools (subscribe_to_events)
-  registerEventTools(server, pubsub);
-
-  // Initialize AuditLogger
   const auditLogger = new AuditLogger();
-
-  // =========================================================================
-  // META-TOOLS: Register with FULL schemas (they're the discovery mechanism)
-  // =========================================================================
-  
-  server.tool(
-    MetaTools.SEARCH_TOOLS.name,
-    MetaTools.SEARCH_TOOLS.description,
-    MetaTools.SEARCH_TOOLS.inputSchema.extend({ sessionId: z.string().optional() }).shape,
-    auditLogger.wrapHandler(MetaTools.SEARCH_TOOLS.name, withSession(MetaTools.SEARCH_TOOLS.inputSchema, handleSearchTools))
-  );
-
-  server.tool(
-    MetaTools.LOAD_TOOL_SCHEMA.name,
-    MetaTools.LOAD_TOOL_SCHEMA.description,
-    MetaTools.LOAD_TOOL_SCHEMA.inputSchema.extend({ sessionId: z.string().optional() }).shape,
-    auditLogger.wrapHandler(MetaTools.LOAD_TOOL_SCHEMA.name, withSession(MetaTools.LOAD_TOOL_SCHEMA.inputSchema, handleLoadToolSchema))
-  );
-
-  // =========================================================================
-  // CONSOLIDATED TOOLS: 28 action-based tools (85% reduction from 195)
-  // =========================================================================
-
-  const registry = buildConsolidatedRegistry();
-  const toolCount = Object.keys(registry).length;
-  const sessionIdSchema = z.object({ sessionId: z.string().optional() });
-  
-  for (const [toolName, entry] of Object.entries(registry)) {
-    // Handle all Zod schema types (object, omit, pick, etc.)
-    // .extend() only works on z.object(), so we use .and() which works universally
-    let extendedSchema: any;
-    if (typeof entry.schema.extend === 'function') {
-      // Standard z.object() - use .extend() for best performance
-      extendedSchema = entry.schema.extend({ sessionId: z.string().optional() });
-    } else if (typeof entry.schema.and === 'function') {
-      // .omit(), .pick(), or other transformed schemas - use .and()
-      extendedSchema = entry.schema.and(sessionIdSchema);
-    } else {
-      // Fallback: wrap in intersection
-      extendedSchema = z.intersection(entry.schema, sessionIdSchema);
-    }
-    
-    server.tool(
-      toolName,
-      entry.metadata.description,
-      extendedSchema.shape || extendedSchema._def?.schema?.shape || {},
-      auditLogger.wrapHandler(
-        toolName,
-        withSession(entry.schema, entry.handler as any)
-      )
-    );
-  }
-
-  console.error(`[Server] Registered ${toolCount} tools with minimal schemas`);
-  console.error(`[Server] Meta-tools: search_tools, load_tool_schema`);
 
   // =========================================================================
   // TRANSPORT SETUP
@@ -247,6 +249,7 @@ async function main() {
     const { TCPServerTransport } = await import('./transport/tcp.js');
     const port = getArgValue('--port') ? parseInt(getArgValue('--port')!, 10) : 3000;
 
+    const server = buildServer(pubsub, auditLogger);
     const transport = new TCPServerTransport(port, {
       host: networkHost,
       authToken: transportToken,
@@ -270,6 +273,7 @@ async function main() {
       socketPath = process.platform === 'win32' ? '\\\\.\\pipe\\rpg-mcp' : '/tmp/rpg-mcp.sock';
     }
 
+    const server = buildServer(pubsub, auditLogger);
     const transport = new UnixServerTransport(socketPath, { maxMessageBytes });
     await server.connect(transport);
     console.error(`RPG MCP Server running on Unix socket ${socketPath}`);
@@ -277,6 +281,7 @@ async function main() {
     const { WebSocketServerTransport } = await import('./transport/websocket.js');
     const port = getArgValue('--port') ? parseInt(getArgValue('--port')!, 10) : 3001;
 
+    const server = buildServer(pubsub, auditLogger);
     const transport = new WebSocketServerTransport(port, {
       host: networkHost,
       authToken: transportToken,
@@ -288,12 +293,13 @@ async function main() {
     const { startHttpServerTransport } = await import('./transport/http.js');
     const port = getArgValue('--port') ? parseInt(getArgValue('--port')!, 10) : parseInt(process.env.PORT || '3000', 10);
 
-    await startHttpServerTransport(server, port, {
+    await startHttpServerTransport(() => buildServer(pubsub, auditLogger), port, {
       host: '0.0.0.0',
       authToken: transportToken,
     });
     console.error(`RPG MCP Server running on HTTP 0.0.0.0:${port} (POST /mcp, GET /health)`);
   } else {
+    const server = buildServer(pubsub, auditLogger);
     const transport = new StdioServerTransport();
     await server.connect(transport);
     console.error('RPG MCP Server running on stdio');

@@ -52,12 +52,18 @@ function readBody(req: IncomingMessage, maxBytes: number): Promise<unknown> {
 /**
  * Minimal HTTP server exposing the MCP Streamable HTTP transport at /mcp and
  * a plain health check at /health for platform healthchecks (Railway, etc).
- * Runs the MCP server in stateless mode: app-level session state already
- * flows through the explicit `sessionId` tool argument, so no MCP
- * protocol-level session affinity is required here.
+ *
+ * Runs in stateless mode (sessionIdGenerator: undefined). The SDK enforces
+ * "one transport instance per request" in stateless mode — reusing a
+ * transport across requests throws "Stateless transport cannot be reused
+ * across requests" — so a fresh McpServer + StreamableHTTPServerTransport
+ * pair is built per POST /mcp request via `serverFactory`. Pass a factory
+ * that reuses your app-level singletons (DB, pubsub, audit logger) and only
+ * constructs a new McpServer/tool-registration wrapper each call — tool
+ * registration itself is cheap (no I/O).
  */
 export async function startHttpServerTransport(
-    mcpServer: McpServer,
+    serverFactory: () => McpServer,
     port: number,
     options: HttpServerTransportOptions = {}
 ): Promise<Server> {
@@ -68,11 +74,6 @@ export async function startHttpServerTransport(
     if (!authToken) {
         console.error('[HTTP] WARNING: no RPG_MCP_TRANSPORT_TOKEN configured; /mcp is unauthenticated.');
     }
-
-    const transport = new StreamableHTTPServerTransport({
-        sessionIdGenerator: undefined,
-    });
-    await mcpServer.connect(transport);
 
     const server = createServer((req: IncomingMessage, res: ServerResponse) => {
         const url = new URL(req.url || '/', 'http://localhost');
@@ -95,27 +96,30 @@ export async function startHttpServerTransport(
             return;
         }
 
-        if (req.method === 'POST') {
-            readBody(req, maxBodyBytes)
-                .then((body) => transport.handleRequest(req, res, body))
-                .catch((error: Error) => {
-                    console.error('[HTTP] Failed to read/parse request body:', error.message);
-                    if (!res.headersSent) {
-                        res.writeHead(400, { 'content-type': 'application/json' });
-                        res.end(JSON.stringify({ error: 'invalid_request', message: error.message }));
-                    }
-                });
+        if (req.method !== 'POST') {
+            // Stateless mode has no session to resume (GET) or tear down (DELETE).
+            res.writeHead(405, { 'content-type': 'application/json', allow: 'POST' });
+            res.end(JSON.stringify({ error: 'method_not_allowed' }));
             return;
         }
 
-        // GET (SSE stream resumption) and DELETE (session teardown) carry no body.
-        transport.handleRequest(req, res).catch((error: Error) => {
-            console.error('[HTTP] Transport request failed:', error.message);
-            if (!res.headersSent) {
-                res.writeHead(500, { 'content-type': 'application/json' });
-                res.end(JSON.stringify({ error: 'internal_error' }));
-            }
-        });
+        readBody(req, maxBodyBytes)
+            .then(async (body) => {
+                const mcpServer = serverFactory();
+                const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+                res.on('close', () => {
+                    void transport.close();
+                });
+                await mcpServer.connect(transport);
+                await transport.handleRequest(req, res, body);
+            })
+            .catch((error: Error) => {
+                console.error('[HTTP] Request failed:', error.message);
+                if (!res.headersSent) {
+                    res.writeHead(400, { 'content-type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'invalid_request', message: error.message }));
+                }
+            });
     });
 
     await new Promise<void>((resolve) => server.listen(port, host, resolve));
