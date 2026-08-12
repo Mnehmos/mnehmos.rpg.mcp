@@ -27,7 +27,9 @@ export class WebSocketServerTransport implements Transport {
     public onmessage?: (message: JSONRPCMessage) => void;
 
     constructor(port: number = 3001, options: WebSocketServerTransportOptions = {}) {
-        const host = options.host ?? '127.0.0.1';
+        // Bind dual-stack by default: Node 18 commonly resolves localhost to
+        // ::1 while newer runtimes may prefer 127.0.0.1.
+        const host = options.host ?? '::';
         this.authToken = options.authToken || process.env.RPG_MCP_TRANSPORT_TOKEN;
 
         this.wss = new WebSocketServer({
