@@ -225,6 +225,7 @@ async function main() {
   const transportType = args.includes('--tcp') ? 'tcp'
     : (args.includes('--unix') || args.includes('--socket')) ? 'unix'
     : (args.includes('--ws') || args.includes('--websocket')) ? 'websocket'
+    : (args.includes('--http') || process.env.PORT) ? 'http'
     : 'stdio';
 
   const getArgValue = (name: string): string | undefined => {
@@ -283,6 +284,15 @@ async function main() {
     });
     await server.connect(transport);
     console.error(`RPG MCP Server running on WebSocket ${networkHost}:${port}`);
+  } else if (transportType === 'http') {
+    const { startHttpServerTransport } = await import('./transport/http.js');
+    const port = getArgValue('--port') ? parseInt(getArgValue('--port')!, 10) : parseInt(process.env.PORT || '3000', 10);
+
+    await startHttpServerTransport(server, port, {
+      host: '0.0.0.0',
+      authToken: transportToken,
+    });
+    console.error(`RPG MCP Server running on HTTP 0.0.0.0:${port} (POST /mcp, GET /health)`);
   } else {
     const transport = new StdioServerTransport();
     await server.connect(transport);
