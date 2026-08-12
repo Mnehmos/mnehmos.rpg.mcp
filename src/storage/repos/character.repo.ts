@@ -16,16 +16,20 @@ export class CharacterRepository {
                               cantrips_known, max_spell_level, concentrating_on, conditions,
                               legendary_actions, legendary_actions_remaining, legendary_resistances,
                               legendary_resistances_remaining, has_lair_actions, resistances, vulnerabilities, immunities,
-                              current_room_id, perception_bonus, stealth_bonus, resource_pools,
-                              background, alignment, origin,
+                               current_room_id, perception_bonus, stealth_bonus, resource_pools,
+                               skill_proficiencies, save_proficiencies, expertise,
+                               armor_proficiencies, weapon_proficiencies, tool_proficiencies, languages,
+                               background, alignment, origin,
                               created_at, updated_at)
       VALUES (@id, @name, @stats, @hp, @maxHp, @ac, @level, @factionId, @behavior, @characterType,
               @characterClass, @race, @spellSlots, @pactMagicSlots, @knownSpells, @preparedSpells,
               @cantripsKnown, @maxSpellLevel, @concentratingOn, @conditions,
               @legendaryActions, @legendaryActionsRemaining, @legendaryResistances,
               @legendaryResistancesRemaining, @hasLairActions, @resistances, @vulnerabilities, @immunities,
-              @currentRoomId, @perceptionBonus, @stealthBonus, @resourcePools,
-              @background, @alignment, @origin,
+               @currentRoomId, @perceptionBonus, @stealthBonus, @resourcePools,
+               @skillProficiencies, @saveProficiencies, @expertise,
+               @armorProficiencies, @weaponProficiencies, @toolProficiencies, @languages,
+               @background, @alignment, @origin,
               @createdAt, @updatedAt)
     `);
 
@@ -67,6 +71,13 @@ export class CharacterRepository {
             stealthBonus: validChar.stealthBonus || 0,
             // §10.3: Generalized resource pools (attentional_capacity et al.)
             resourcePools: JSON.stringify(validChar.resourcePools || {}),
+            skillProficiencies: JSON.stringify(validChar.skillProficiencies || []),
+            saveProficiencies: JSON.stringify(validChar.saveProficiencies || []),
+            expertise: JSON.stringify(validChar.expertise || []),
+            armorProficiencies: JSON.stringify(validChar.armorProficiencies || []),
+            weaponProficiencies: JSON.stringify(validChar.weaponProficiencies || []),
+            toolProficiencies: JSON.stringify(validChar.toolProficiencies || []),
+            languages: JSON.stringify(validChar.languages || []),
             // BASTION: background, alignment, origin (silent-drop fix + world-brief enforcement)
             background: validChar.background ?? null,
             alignment: validChar.alignment ?? null,
@@ -127,10 +138,12 @@ export class CharacterRepository {
                 max_spell_level = ?, concentrating_on = ?, conditions = ?,
                 legendary_actions = ?, legendary_actions_remaining = ?,
                 legendary_resistances = ?, legendary_resistances_remaining = ?,
-                has_lair_actions = ?, resistances = ?, vulnerabilities = ?, immunities = ?,
-                current_room_id = ?, perception_bonus = ?, stealth_bonus = ?,
-                resource_pools = ?,
-                background = ?, alignment = ?, origin = ?,
+                 has_lair_actions = ?, resistances = ?, vulnerabilities = ?, immunities = ?,
+                 current_room_id = ?, perception_bonus = ?, stealth_bonus = ?,
+                 resource_pools = ?,
+                 skill_proficiencies = ?, save_proficiencies = ?, expertise = ?,
+                 armor_proficiencies = ?, weapon_proficiencies = ?, tool_proficiencies = ?, languages = ?,
+                 background = ?, alignment = ?, origin = ?,
                 updated_at = ?
             WHERE id = ?
         `);
@@ -172,6 +185,13 @@ export class CharacterRepository {
             validChar.stealthBonus || 0,
             // §10.3: Generalized resource pools
             JSON.stringify(validChar.resourcePools || {}),
+            JSON.stringify(validChar.skillProficiencies || []),
+            JSON.stringify(validChar.saveProficiencies || []),
+            JSON.stringify(validChar.expertise || []),
+            JSON.stringify(validChar.armorProficiencies || []),
+            JSON.stringify(validChar.weaponProficiencies || []),
+            JSON.stringify(validChar.toolProficiencies || []),
+            JSON.stringify(validChar.languages || []),
             // BASTION: background, alignment, origin
             validChar.background ?? null,
             validChar.alignment ?? null,
@@ -226,6 +246,13 @@ export class CharacterRepository {
             stealthBonus: row.stealth_bonus ?? 0,
             // §10.3: Generalized resource pools (attentional_capacity et al.)
             resourcePools: row.resource_pools ? JSON.parse(row.resource_pools) : {},
+            skillProficiencies: row.skill_proficiencies ? JSON.parse(row.skill_proficiencies) : [],
+            saveProficiencies: row.save_proficiencies ? JSON.parse(row.save_proficiencies) : [],
+            expertise: row.expertise ? JSON.parse(row.expertise) : [],
+            armorProficiencies: row.armor_proficiencies ? JSON.parse(row.armor_proficiencies) : [],
+            weaponProficiencies: row.weapon_proficiencies ? JSON.parse(row.weapon_proficiencies) : [],
+            toolProficiencies: row.tool_proficiencies ? JSON.parse(row.tool_proficiencies) : [],
+            languages: row.languages ? JSON.parse(row.languages) : [],
             background: row.background || undefined,
             alignment: row.alignment || undefined,
             origin: row.origin ? JSON.parse(row.origin) : undefined,
@@ -283,6 +310,13 @@ interface CharacterRow {
     stealth_bonus: number | null;
     // §10.3: Generalized resource pools
     resource_pools: string | null;
+    skill_proficiencies: string | null;
+    save_proficiencies: string | null;
+    expertise: string | null;
+    armor_proficiencies: string | null;
+    weapon_proficiencies: string | null;
+    tool_proficiencies: string | null;
+    languages: string | null;
     background: string | null;
     alignment: string | null;
     origin: string | null;

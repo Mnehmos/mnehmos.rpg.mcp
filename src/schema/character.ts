@@ -7,6 +7,15 @@ import {
     SpellcastingAbilitySchema
 } from './spell.js';
 
+export const SkillProficiencySchema = z.enum([
+    'acrobatics', 'animal_handling', 'arcana', 'athletics', 'deception',
+    'history', 'insight', 'intimidation', 'investigation', 'medicine',
+    'nature', 'perception', 'performance', 'persuasion', 'religion',
+    'sleight_of_hand', 'stealth', 'survival'
+]);
+
+export const SaveProficiencySchema = z.enum(['str', 'dex', 'con', 'int', 'wis', 'cha']);
+
 /**
  * Bastion world-brief origin tracker.
  *
@@ -115,16 +124,20 @@ export const CharacterSchema = z.object({
     })).optional().default({}),
 
     // Skill and Save Proficiencies
-    skillProficiencies: z.array(z.enum([
-        'acrobatics', 'animal_handling', 'arcana', 'athletics', 'deception',
-        'history', 'insight', 'intimidation', 'investigation', 'medicine',
-        'nature', 'perception', 'performance', 'persuasion', 'religion',
-        'sleight_of_hand', 'stealth', 'survival'
-    ])).optional().default([]).describe('Skills the character is proficient in'),
-    saveProficiencies: z.array(z.enum(['str', 'dex', 'con', 'int', 'wis', 'cha']))
-        .optional().default([]).describe('Saving throws the character is proficient in'),
+    skillProficiencies: z.array(SkillProficiencySchema).optional().default([])
+        .describe('Skills the character is proficient in'),
+    saveProficiencies: z.array(SaveProficiencySchema).optional().default([])
+        .describe('Saving throws the character is proficient in'),
     expertise: z.array(z.string()).optional().default([])
         .describe('Skills with double proficiency bonus (rogues, bards)'),
+    armorProficiencies: z.array(z.string()).optional().default([])
+        .describe('Armor categories the character is proficient with'),
+    weaponProficiencies: z.array(z.string()).optional().default([])
+        .describe('Weapons or weapon categories the character is proficient with'),
+    toolProficiencies: z.array(z.string()).optional().default([])
+        .describe('Tools the character is proficient with'),
+    languages: z.array(z.string()).optional().default([])
+        .describe('Languages the character can speak or understand'),
 
     // Background and alignment — accepted previously but silently dropped on
     // persistence (no migration column). See docs/bastion/05-world-brief-vs-tool-surface.md.
