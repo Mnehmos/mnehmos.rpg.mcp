@@ -84,7 +84,18 @@ export async function startHttpServerTransport(
 
         if (url.pathname === '/health' && req.method === 'GET') {
             res.writeHead(200, { 'content-type': 'application/json' });
-            res.end(JSON.stringify({ status: 'ok', service: 'rpg-mcp', transport: 'http' }));
+            res.end(JSON.stringify({
+                status: 'ok',
+                service: 'rpg-mcp',
+                environment: process.env.RAILWAY_ENVIRONMENT_NAME || process.env.NODE_ENV || 'development',
+                transport: 'http',
+                deployment: {
+                    service: process.env.RAILWAY_SERVICE_NAME || 'rpg-mcp',
+                    environment: process.env.RAILWAY_ENVIRONMENT_NAME || process.env.NODE_ENV || 'development',
+                    commitSha: process.env.RAILWAY_GIT_COMMIT_SHA || null,
+                    deploymentId: process.env.RAILWAY_DEPLOYMENT_ID || null,
+                },
+            }));
             return;
         }
 

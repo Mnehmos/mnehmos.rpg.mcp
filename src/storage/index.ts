@@ -55,6 +55,10 @@ function getDefaultDbPath(): string {
         return process.env.RPG_MCP_DB_PATH;
     }
 
+    if (process.env.RPG_DATA_DIR) {
+        return join(process.env.RPG_DATA_DIR, 'rpg.db');
+    }
+
     // Check for CLI argument --db-path
     const args = process.argv;
     const dbPathIndex = args.indexOf('--db-path');
