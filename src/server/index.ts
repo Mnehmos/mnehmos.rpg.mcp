@@ -293,11 +293,14 @@ async function main() {
     const { startHttpServerTransport } = await import('./transport/http.js');
     const port = getArgValue('--port') ? parseInt(getArgValue('--port')!, 10) : parseInt(process.env.PORT || '3000', 10);
 
+    // '::' binds dual-stack (IPv6 + IPv4). Required for Railway private
+    // networking, which is IPv6-only — see transport/http.ts.
+    const httpHost = getArgValue('--host') || '::';
     await startHttpServerTransport(() => buildServer(pubsub, auditLogger), port, {
-      host: '0.0.0.0',
+      host: httpHost,
       authToken: transportToken,
     });
-    console.error(`RPG MCP Server running on HTTP 0.0.0.0:${port} (POST /mcp, GET /health)`);
+    console.error(`RPG MCP Server running on HTTP ${httpHost}:${port} (POST /mcp, GET /health)`);
   } else {
     const server = buildServer(pubsub, auditLogger);
     const transport = new StdioServerTransport();

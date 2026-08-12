@@ -67,7 +67,11 @@ export async function startHttpServerTransport(
     port: number,
     options: HttpServerTransportOptions = {}
 ): Promise<Server> {
-    const host = options.host ?? '0.0.0.0';
+    // Default to '::' (all IPv6 interfaces), which Node binds dual-stack so
+    // IPv4 still works. Railway's private network is IPv6-only: a server bound
+    // to '0.0.0.0' is reachable on its public domain but NOT on
+    // <service>.railway.internal, so peer services can't reach it privately.
+    const host = options.host ?? '::';
     const authToken = options.authToken ?? process.env.RPG_MCP_TRANSPORT_TOKEN;
     const maxBodyBytes = options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
 
