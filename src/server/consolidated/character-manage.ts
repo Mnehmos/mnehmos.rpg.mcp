@@ -17,9 +17,13 @@ import { randomUUID } from 'crypto';
 import { SessionContext } from '../types.js';
 import { getDb } from '../../storage/index.js';
 import { CharacterRepository } from '../../storage/repos/character.repo.js';
-import { CharacterOriginSchema } from '../../schema/character.js';
+import {
+    CharacterOriginSchema,
+    SkillProficiencySchema,
+    SaveProficiencySchema,
+} from '../../schema/character.js';
 import { provisionStartingEquipment } from '../../services/starting-equipment.service.js';
-import { getSpellSlots, isSpellcaster } from '../../data/class-starting-data.js';
+import { CLASS_DATA, getSpellSlots, isSpellcaster } from '../../data/class-starting-data.js';
 import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/action-router.js';
 import { RichFormatter } from '../utils/formatter.js';
 
@@ -36,6 +40,15 @@ const XP_TABLE: Record<number, number> = {
     1: 0, 2: 300, 3: 900, 4: 2700, 5: 6500, 6: 14000, 7: 23000, 8: 34000,
     9: 48000, 10: 64000, 11: 85000, 12: 100000, 13: 120000, 14: 140000,
     15: 165000, 16: 195000, 17: 225000, 18: 265000, 19: 305000, 20: 355000
+};
+
+const CLASS_SAVE_KEYS: Record<string, z.infer<typeof SaveProficiencySchema>> = {
+    strength: 'str',
+    dexterity: 'dex',
+    constitution: 'con',
+    intelligence: 'int',
+    wisdom: 'wis',
+    charisma: 'cha',
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -83,6 +96,13 @@ const CreateSchema = z.object({
     resistances: z.array(z.string()).optional().default([]),
     vulnerabilities: z.array(z.string()).optional().default([]),
     immunities: z.array(z.string()).optional().default([]),
+    skillProficiencies: z.array(SkillProficiencySchema).optional(),
+    saveProficiencies: z.array(SaveProficiencySchema).optional(),
+    expertise: z.array(z.string()).optional(),
+    armorProficiencies: z.array(z.string()).optional(),
+    weaponProficiencies: z.array(z.string()).optional(),
+    toolProficiencies: z.array(z.string()).optional(),
+    languages: z.array(z.string()).optional(),
     origin: CharacterOriginSchema.optional(),
     provisionEquipment: z.boolean().optional().default(true),
     customEquipment: z.array(z.string()).optional(),
@@ -114,6 +134,13 @@ const UpdateSchema = z.object({
     stats: StatsSchema.partial().optional(),
     knownSpells: z.array(z.string()).optional(),
     preparedSpells: z.array(z.string()).optional(),
+    skillProficiencies: z.array(SkillProficiencySchema).optional(),
+    saveProficiencies: z.array(SaveProficiencySchema).optional(),
+    expertise: z.array(z.string()).optional(),
+    armorProficiencies: z.array(z.string()).optional(),
+    weaponProficiencies: z.array(z.string()).optional(),
+    toolProficiencies: z.array(z.string()).optional(),
+    languages: z.array(z.string()).optional(),
     conditions: z.array(ConditionSchema).optional(),
     addConditions: z.array(ConditionSchema).optional(),
     removeConditions: z.array(z.string()).optional(),
@@ -190,6 +217,10 @@ export async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<
     const { db, characterRepo } = ensureDb();
     const now = new Date().toISOString();
     const className = args.class || 'Adventurer';
+    const classData = CLASS_DATA[className.trim().toLowerCase().replace(/^srd[-_:]/, '')];
+    const classSaveProficiencies = classData?.savingThrows
+        .map((ability) => CLASS_SAVE_KEYS[ability])
+        .filter((ability): ability is z.infer<typeof SaveProficiencySchema> => Boolean(ability));
 
     // Calculate HP from constitution if not provided
     const conModifier = Math.floor(((args.stats?.con ?? 10) - 10) / 2);
@@ -220,6 +251,13 @@ export async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<
         knownSpells: args.knownSpells || [],
         cantripsKnown: [],
         preparedSpells: args.preparedSpells || [],
+        skillProficiencies: args.skillProficiencies || [],
+        saveProficiencies: args.saveProficiencies ?? classSaveProficiencies ?? [],
+        expertise: args.expertise || [],
+        armorProficiencies: args.armorProficiencies ?? classData?.armorProficiencies ?? [],
+        weaponProficiencies: args.weaponProficiencies ?? classData?.weaponProficiencies ?? [],
+        toolProficiencies: args.toolProficiencies || [],
+        languages: args.languages || [],
         resistances: args.resistances || [],
         vulnerabilities: args.vulnerabilities || [],
         immunities: args.immunities || [],
@@ -314,6 +352,13 @@ async function handleUpdate(args: z.infer<typeof UpdateSchema>): Promise<object>
     if (args.stats !== undefined) updateData.stats = args.stats;
     if (args.knownSpells !== undefined) updateData.knownSpells = args.knownSpells;
     if (args.preparedSpells !== undefined) updateData.preparedSpells = args.preparedSpells;
+    if (args.skillProficiencies !== undefined) updateData.skillProficiencies = args.skillProficiencies;
+    if (args.saveProficiencies !== undefined) updateData.saveProficiencies = args.saveProficiencies;
+    if (args.expertise !== undefined) updateData.expertise = args.expertise;
+    if (args.armorProficiencies !== undefined) updateData.armorProficiencies = args.armorProficiencies;
+    if (args.weaponProficiencies !== undefined) updateData.weaponProficiencies = args.weaponProficiencies;
+    if (args.toolProficiencies !== undefined) updateData.toolProficiencies = args.toolProficiencies;
+    if (args.languages !== undefined) updateData.languages = args.languages;
 
     // Handle conditions
     if (args.conditions !== undefined) {
@@ -594,6 +639,13 @@ Aliases: new/add/spawn->create, fetch/find->get, modify/edit->update`,
         behavior: z.string().optional(),
         knownSpells: z.array(z.string()).optional(),
         preparedSpells: z.array(z.string()).optional(),
+        skillProficiencies: z.array(SkillProficiencySchema).optional(),
+        saveProficiencies: z.array(SaveProficiencySchema).optional(),
+        expertise: z.array(z.string()).optional(),
+        armorProficiencies: z.array(z.string()).optional(),
+        weaponProficiencies: z.array(z.string()).optional(),
+        toolProficiencies: z.array(z.string()).optional(),
+        languages: z.array(z.string()).optional(),
         resistances: z.array(z.string()).optional(),
         vulnerabilities: z.array(z.string()).optional(),
         immunities: z.array(z.string()).optional(),

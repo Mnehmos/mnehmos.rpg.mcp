@@ -728,6 +728,46 @@ function runMigrations(db: Database.Database) {
     db.exec(`ALTER TABLE characters ADD COLUMN race TEXT DEFAULT 'Human';`);
   }
 
+  // Character proficiencies are part of the public CharacterSchema and must
+  // survive a character_manage create/get round-trip. Older databases do not
+  // have these columns, so add them with empty JSON arrays for compatibility.
+  const hasSkillProficiencies = charColumns.some(col => col.name === 'skill_proficiencies');
+  const hasSaveProficiencies = charColumns.some(col => col.name === 'save_proficiencies');
+  const hasExpertise = charColumns.some(col => col.name === 'expertise');
+  const hasArmorProficiencies = charColumns.some(col => col.name === 'armor_proficiencies');
+  const hasWeaponProficiencies = charColumns.some(col => col.name === 'weapon_proficiencies');
+  const hasToolProficiencies = charColumns.some(col => col.name === 'tool_proficiencies');
+  const hasLanguages = charColumns.some(col => col.name === 'languages');
+
+  if (!hasSkillProficiencies) {
+    console.error('[Migration] Adding skill_proficiencies column to characters table');
+    db.exec(`ALTER TABLE characters ADD COLUMN skill_proficiencies TEXT DEFAULT '[]';`);
+  }
+  if (!hasSaveProficiencies) {
+    console.error('[Migration] Adding save_proficiencies column to characters table');
+    db.exec(`ALTER TABLE characters ADD COLUMN save_proficiencies TEXT DEFAULT '[]';`);
+  }
+  if (!hasExpertise) {
+    console.error('[Migration] Adding expertise column to characters table');
+    db.exec(`ALTER TABLE characters ADD COLUMN expertise TEXT DEFAULT '[]';`);
+  }
+  if (!hasArmorProficiencies) {
+    console.error('[Migration] Adding armor_proficiencies column to characters table');
+    db.exec(`ALTER TABLE characters ADD COLUMN armor_proficiencies TEXT DEFAULT '[]';`);
+  }
+  if (!hasWeaponProficiencies) {
+    console.error('[Migration] Adding weapon_proficiencies column to characters table');
+    db.exec(`ALTER TABLE characters ADD COLUMN weapon_proficiencies TEXT DEFAULT '[]';`);
+  }
+  if (!hasToolProficiencies) {
+    console.error('[Migration] Adding tool_proficiencies column to characters table');
+    db.exec(`ALTER TABLE characters ADD COLUMN tool_proficiencies TEXT DEFAULT '[]';`);
+  }
+  if (!hasLanguages) {
+    console.error('[Migration] Adding languages column to characters table');
+    db.exec(`ALTER TABLE characters ADD COLUMN languages TEXT DEFAULT '[]';`);
+  }
+
   // HIGH-007: Add legendary creature columns to characters table
   const hasLegendaryActions = charColumns.some(col => col.name === 'legendary_actions');
   const hasLegendaryActionsRemaining = charColumns.some(col => col.name === 'legendary_actions_remaining');

@@ -133,7 +133,7 @@ async function handleGet(args: z.infer<typeof GetSchema>): Promise<object> {
 
 async function handleCurrent(args: z.infer<typeof CurrentSchema>): Promise<object> {
     const repo = new SceneRepository(ensureDb());
-    const scene = repo.findLatestForParticipant(args.worldId, args.characterId);
+    const scene = repo.findLatestForParticipant(args.characterId, args.worldId);
     if (!scene) {
         return {
             actionType: 'current',

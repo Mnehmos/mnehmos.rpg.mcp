@@ -72,6 +72,10 @@ describe('character_manage consolidated tool', () => {
                 maxHp: 45,
                 ac: 18,
                 stats: { str: 16, dex: 14, con: 14, int: 10, wis: 12, cha: 10 },
+                skillProficiencies: ['athletics', 'perception'],
+                expertise: ['athletics'],
+                languages: ['Common', 'Draconic'],
+                toolProficiencies: ['vehicles (land)'],
                 characterType: 'pc'
             }, ctx);
 
@@ -81,6 +85,53 @@ describe('character_manage consolidated tool', () => {
             expect(parsed.characterClass).toBe('Fighter');
             expect(parsed.race).toBe('Human');
             expect(parsed.level).toBe(5);
+            expect(parsed.saveProficiencies).toEqual(['str', 'con']);
+            expect(parsed.skillProficiencies).toEqual(['athletics', 'perception']);
+            expect(parsed.expertise).toEqual(['athletics']);
+            expect(parsed.languages).toEqual(['Common', 'Draconic']);
+            expect(parsed.toolProficiencies).toEqual(['vehicles (land)']);
+        });
+
+        it('round-trips all character proficiency fields through get and update', async () => {
+            const createdResult = await handleCharacterManage({
+                action: 'create',
+                name: 'Proficiency Test',
+                class: 'Barbarian',
+                skillProficiencies: ['athletics'],
+                expertise: [],
+                languages: ['Common', 'Draconic'],
+                armorProficiencies: ['light', 'medium', 'shields'],
+                weaponProficiencies: ['simple', 'martial'],
+                toolProficiencies: [],
+                provisionEquipment: false,
+            }, ctx);
+            const created = extractJson(createdResult.content[0].text);
+
+            expect(created.saveProficiencies).toEqual(['str', 'con']);
+            expect(created.skillProficiencies).toEqual(['athletics']);
+            expect(created.armorProficiencies).toEqual(['light', 'medium', 'shields']);
+
+            const updatedResult = await handleCharacterManage({
+                action: 'update',
+                characterId: created.id,
+                skillProficiencies: ['perception'],
+                expertise: ['perception'],
+                languages: ['Common'],
+            }, ctx);
+            const updated = extractJson(updatedResult.content[0].text);
+
+            expect(updated.skillProficiencies).toEqual(['perception']);
+            expect(updated.expertise).toEqual(['perception']);
+            expect(updated.languages).toEqual(['Common']);
+
+            const fetchedResult = await handleCharacterManage({
+                action: 'get',
+                characterId: created.id,
+            }, ctx);
+            const fetched = extractJson(fetchedResult.content[0].text);
+            expect(fetched.skillProficiencies).toEqual(['perception']);
+            expect(fetched.expertise).toEqual(['perception']);
+            expect(fetched.languages).toEqual(['Common']);
         });
 
         it('should provision equipment by default for PCs', async () => {
