@@ -27,12 +27,7 @@ const ACTIONS = ['set', 'list', 'get', 'current'] as const;
 type SceneAction = typeof ACTIONS[number];
 
 function ensureDb() {
-    const dbPath = process.env.NODE_ENV === 'test'
-        ? ':memory:'
-        : process.env.RPG_DATA_DIR
-            ? `${process.env.RPG_DATA_DIR}/rpg.db`
-            : 'rpg.db';
-    return getDb(dbPath);
+    return getDb();
 }
 
 const SetSchema = z.object({

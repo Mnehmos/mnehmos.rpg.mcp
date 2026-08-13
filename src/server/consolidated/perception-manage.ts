@@ -45,8 +45,7 @@ export const CONSTRAINT_PERCEPTION_SUBSYSTEM_ID = 'constraint-perception';
 // ─────────────────────────────────────────────────────────────────
 
 function ensureDb() {
-    const dbPath = process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db';
-    const db = getDb(dbPath);
+    const db = getDb();
     return {
         db,
         characterRepo: new CharacterRepository(db),

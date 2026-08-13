@@ -58,12 +58,7 @@ const ALIASES: Record<string, BatchAction> = {
 };
 
 function ensureDb() {
-    const dbPath = process.env.NODE_ENV === 'test'
-        ? ':memory:'
-        : process.env.RPG_DATA_DIR
-            ? `${process.env.RPG_DATA_DIR}/rpg.db`
-            : 'rpg.db';
-    const db = getDb(dbPath);
+    const db = getDb();
     return {
         db,
         charRepo: new CharacterRepository(db)
