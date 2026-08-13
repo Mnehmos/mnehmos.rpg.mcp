@@ -421,7 +421,10 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
                 inventory: inventory.items,
                 totalWeight: inventory.totalWeight,
                 capacity: inventory.capacity,
-                gold: (inventory as { gold?: number }).gold || 0,
+                currency: inventory.currency,
+                gold: inventory.currency.gold,
+                silver: inventory.currency.silver,
+                copper: inventory.currency.copper,
                 itemCount: inventory.items.length
             };
         },
