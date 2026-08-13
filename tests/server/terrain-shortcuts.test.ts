@@ -5,6 +5,7 @@ import {
     clearCombatState
 } from '../../src/server/handlers/combat-handlers';
 import { generateMaze, generateMazeWithRooms } from '../../src/server/terrain-patterns';
+import { useInMemoryDatabase } from '../helpers/test-db.js';
 
 let testCounter = 0;
 const getMockCtx = () => ({ sessionId: `test-terrain-session-${testCounter++}` });
@@ -18,6 +19,8 @@ function extractStateJson(responseText: string): any {
 }
 
 describe('Terrain Range Shortcuts', () => {
+    useInMemoryDatabase();
+
     let encounterId: string;
     let mockCtx: { sessionId: string };
 
@@ -39,6 +42,8 @@ describe('Terrain Range Shortcuts', () => {
     });
 
     describe('update_terrain with ranges', () => {
+    useInMemoryDatabase();
+
         it('should add obstacles using row shortcut', async () => {
             const result = await handleUpdateTerrain({
                 encounterId,
@@ -256,6 +261,8 @@ describe('Terrain Range Shortcuts', () => {
 });
 
 describe('Maze Generator', () => {
+    useInMemoryDatabase();
+
     it('should generate a maze with corridors and walls', () => {
         const result = generateMaze(0, 0, 20, 20, 'test-seed', 1);
 
@@ -290,6 +297,8 @@ describe('Maze Generator', () => {
 });
 
 describe('Maze with Rooms Generator', () => {
+    useInMemoryDatabase();
+
     it('should generate a maze with carved-out rooms', () => {
         const result = generateMazeWithRooms(0, 0, 50, 50, 'room-test', 5, 4, 8);
 
@@ -309,6 +318,8 @@ describe('Maze with Rooms Generator', () => {
 });
 
 describe('generate_terrain_pattern tool with maze', () => {
+    useInMemoryDatabase();
+
     let encounterId: string;
     let mazeCtx: { sessionId: string };
 

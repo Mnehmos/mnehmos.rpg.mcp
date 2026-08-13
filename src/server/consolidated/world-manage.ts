@@ -28,7 +28,7 @@ type WorldManageAction = typeof ACTIONS[number];
 // ═══════════════════════════════════════════════════════════════════════════
 
 function getWorldRepo(): WorldRepository {
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const db = getDb();
     return new WorldRepository(db);
 }
 

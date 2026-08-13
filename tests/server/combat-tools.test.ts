@@ -9,6 +9,7 @@ import {
     clearCombatState
 } from '../../src/server/handlers/combat-handlers';
 import { getCombatManager } from '../../src/server/state/combat-manager';
+import { useInMemoryDatabase } from '../helpers/test-db.js';
 
 const mockCtx = { sessionId: 'test-session' };
 
@@ -31,12 +32,16 @@ function extractStateJson(responseText: string): any {
 }
 
 describe('Combat MCP Tools', () => {
+    useInMemoryDatabase();
+
     beforeEach(() => {
         // Clear any existing combat state
         clearCombatState();
     });
 
     describe('create_encounter', () => {
+    useInMemoryDatabase();
+
         it('should create a new combat encounter with participants', async () => {
             const result = await handleCreateEncounter({
                 seed: 'test-combat-1',
@@ -106,6 +111,8 @@ describe('Combat MCP Tools', () => {
     });
 
     describe('get_encounter_state', () => {
+    useInMemoryDatabase();
+
         it('should return current encounter state', async () => {
             const createResult = await handleCreateEncounter({
                 seed: 'test-state-1',
@@ -137,6 +144,8 @@ describe('Combat MCP Tools', () => {
     });
 
     describe('execute_combat_action', () => {
+    useInMemoryDatabase();
+
         async function createTestEncounter() {
             const result = await handleCreateEncounter({
                 seed: 'test-actions',
@@ -214,6 +223,8 @@ describe('Combat MCP Tools', () => {
     });
 
     describe('advance_turn', () => {
+    useInMemoryDatabase();
+
         async function createTestEncounter() {
             const result = await handleCreateEncounter({
                 seed: 'test-turn',
@@ -266,6 +277,8 @@ describe('Combat MCP Tools', () => {
     });
 
     describe('end_encounter', () => {
+    useInMemoryDatabase();
+
         it('should end active encounter', async () => {
             const createResult = await handleCreateEncounter({
                 seed: 'test-end',
@@ -298,6 +311,8 @@ describe('Combat MCP Tools', () => {
     });
 
     describe('persistence', () => {
+    useInMemoryDatabase();
+
         it('should save and load encounter state', async () => {
             // 1. Create encounter
             const createResult = await handleCreateEncounter({
@@ -351,6 +366,8 @@ describe('Combat MCP Tools', () => {
     });
 
     describe('[CRIT-004] terrain rendering in get_encounter_state', () => {
+    useInMemoryDatabase();
+
         it('should return terrain data after generate_terrain_pattern is called', async () => {
             // 1. Create an encounter
             const createResult = await handleCreateEncounter({

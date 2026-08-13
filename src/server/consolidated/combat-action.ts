@@ -205,7 +205,7 @@ const definitions: Record<CombatAction, ActionDefinition> = {
             // wrap the create in a try/get fallback — the loser of the race
             // adopts the winner's engine.
             if (!engine) {
-                const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+                const db = getDb();
                 const repo = new EncounterRepository(db);
                 const persisted = repo.loadState(params.encounterId);
                 if (persisted) {

@@ -43,7 +43,7 @@ const SpellcastingClassEnum = z.enum([
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureDb() {
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const db = getDb();
     return {
         characterRepo: new CharacterRepository(db),
         itemRepo: new ItemRepository(db),

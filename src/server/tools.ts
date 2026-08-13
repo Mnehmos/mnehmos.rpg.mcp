@@ -184,7 +184,7 @@ export async function handleGenerateWorld(args: unknown, ctx: SessionContext) {
     getWorldManager().create(`${ctx.sessionId}:${worldId}`, world);
 
     // Persist world metadata to database
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const db = getDb();
     const worldRepo = new WorldRepository(db);
     const now = new Date().toISOString();
     worldRepo.create({
@@ -232,7 +232,7 @@ async function getOrRestoreWorld(worldId: string, sessionId: string) {
     if (world) return world;
 
     // Try DB
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const db = getDb();
     const worldRepo = new WorldRepository(db);
     const storedWorld = worldRepo.findById(worldId);
 
@@ -301,7 +301,7 @@ export async function handleApplyMapPatch(args: unknown, ctx: SessionContext) {
 
         // Only invalidate cache if commands actually executed
         if (result.commandsExecuted > 0) {
-            const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+            const db = getDb();
             invalidateTileCache(db, parsed.worldId);
 
             pubsub?.publish('world', {
@@ -619,7 +619,7 @@ export async function handleGetWorldTiles(args: unknown, ctx: SessionContext) {
     const parsed = Tools.GET_WORLD_TILES.inputSchema.parse(args);
     
     // Check for cached tiles first (much faster)
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const db = getDb();
     const cachedTiles = getCachedTiles(db, parsed.worldId);
     
     if (cachedTiles) {
