@@ -3,6 +3,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { runInTenant, type TenantContext } from '../../storage/tenant-context.js';
 import { verifyTenantToken } from './tenant-token.js';
+import { deleteCampaignDatabase } from '../../storage/index.js';
 
 export interface HttpServerTransportOptions {
     host?: string;
@@ -146,6 +147,46 @@ export async function startHttpServerTransport(
                     deploymentId: process.env.RAILWAY_DEPLOYMENT_ID || null,
                 },
             }));
+            return;
+        }
+
+        // Campaign erasure.
+        //
+        // Deliberately an HTTP route rather than an MCP tool: session_manage is
+        // exposed to the model, and a prompt injection that could wipe a
+        // campaign is not a capability worth handing over. Only the web host,
+        // holding the service token and a signed tenant context, can reach this.
+        if (url.pathname === '/campaign') {
+            if (!isAuthorized(req, authToken)) {
+                res.writeHead(401, { 'content-type': 'application/json' });
+                res.end(JSON.stringify({ error: 'unauthorized' }));
+                return;
+            }
+            if (req.method !== 'DELETE') {
+                res.writeHead(405, { 'content-type': 'application/json', allow: 'DELETE' });
+                res.end(JSON.stringify({ error: 'method_not_allowed' }));
+                return;
+            }
+            // Unlike /mcp, an absent tenant is not tolerated here: there is no
+            // campaign to erase without one, and guessing is not an option.
+            const scope = resolveTenant(req, tenantSecret);
+            if (!scope.ok || !scope.context) {
+                console.error(`[HTTP] Rejected campaign deletion: ${scope.ok ? 'no_tenant_context' : scope.reason}`);
+                res.writeHead(401, { 'content-type': 'application/json' });
+                res.end(JSON.stringify({ error: 'invalid_tenant_context' }));
+                return;
+            }
+            try {
+                // The campaign comes from the signed context, never from the
+                // request body — a caller cannot name someone else's campaign.
+                const deleted = deleteCampaignDatabase(scope.context.campaignId);
+                res.writeHead(200, { 'content-type': 'application/json' });
+                res.end(JSON.stringify({ deleted }));
+            } catch (error) {
+                console.error(`[HTTP] Campaign deletion failed: ${(error as Error).message}`);
+                res.writeHead(400, { 'content-type': 'application/json' });
+                res.end(JSON.stringify({ error: 'delete_failed' }));
+            }
             return;
         }
 
