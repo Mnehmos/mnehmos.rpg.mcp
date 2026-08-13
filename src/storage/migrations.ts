@@ -1,4 +1,5 @@
 import Database from 'better-sqlite3';
+import { migrateClassProgression } from './migrations.class-progression.js';
 
 export function migrate(db: Database.Database) {
   // First, create all tables (without indexes that depend on new columns)
@@ -618,6 +619,9 @@ export function migrate(db: Database.Database) {
 
   // Now create indexes that depend on migrated columns
   createPostMigrationIndexes(db);
+
+  // Per-class progression: homebrew multiclass tracks (no single general level)
+  migrateClassProgression(db);
 }
 
 function runMigrations(db: Database.Database) {
