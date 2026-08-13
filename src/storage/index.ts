@@ -279,6 +279,27 @@ function evictBeyondCap(): void {
 }
 
 /**
+ * Puts the process in single-user mode against one local database.
+ *
+ * Multi-tenancy is a property of the hosted HTTP server, where every request
+ * carries a signed tenant context. The other transports — stdio, TCP, unix
+ * socket, WebSocket — have nowhere to put one: they serve a single operator
+ * running the engine locally, through the npm package, the standalone
+ * binaries, or an MCP client config. Without this they would resolve no tenant
+ * and every storage call would throw, which is a regression rather than a
+ * boundary: there is no second tenant to isolate from.
+ */
+export function useSingleUserDatabase(path?: string): Database.Database {
+    if (!overrideDb) {
+        const resolvedPath = resolveDbPath(path);
+        console.error(`[Database] Single-user mode: ${resolvedPath}`);
+        overrideDb = initDB(resolvedPath);
+        migrate(overrideDb);
+    }
+    return overrideDb;
+}
+
+/**
  * The database for the current request's campaign.
  *
  * Isolation here is physical rather than a predicate every query has to
