@@ -4,6 +4,7 @@ import {
     handleGetEncounterState,
     clearCombatState
 } from '../../src/server/handlers/combat-handlers';
+import { useInMemoryDatabase } from '../helpers/test-db.js';
 
 const mockCtx = { sessionId: 'test-session-autocalc' };
 
@@ -21,6 +22,8 @@ function extractStateJson(responseText: string): any {
 }
 
 describe('Combat Auto-Calculation', () => {
+    useInMemoryDatabase();
+
     beforeEach(() => {
         clearCombatState();
     });

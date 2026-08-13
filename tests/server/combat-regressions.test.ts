@@ -2,20 +2,15 @@
 import { handleCreateEncounter, handleExecuteCombatAction } from '../../src/server/handlers/combat-handlers.js';
 import { getCombatManager } from '../../src/server/state/combat-manager.js';
 
-// Mock DB
-vi.mock('../../src/server/db.js', () => ({
-    getDb: vi.fn(() => ({
-        prepare: vi.fn(() => ({
-            run: vi.fn(),
-            get: vi.fn(),
-            all: vi.fn(() => [])
-        })),
-        transaction: (fn: any) => fn(),
-        exec: vi.fn()
-    }))
-}));
+// The previous vi.mock here targeted '../../src/server/db.js', a path that
+// does not exist — so it never intercepted anything, and these tests were
+// really running against the database the handlers created implicitly. Using
+// the real in-memory database makes that explicit instead of accidental.
+import { useInMemoryDatabase } from '../helpers/test-db.js';
 
 describe('Combat Regressions', () => {
+    useInMemoryDatabase();
+
     const mockCtx = { sessionId: 'test-session', connectionId: 'test-conn' };
 
     beforeEach(() => {

@@ -61,7 +61,7 @@ import { PubSub } from '../engine/pubsub.js';
 import { registerEventTools } from './events.js';
 import { AuditLogger } from './audit.js';
 import { withSession } from './types.js';
-import { closeDb, campaignDbPath } from '../storage/index.js';
+import { closeDb, campaignDbPath, assertNoLegacyDatabase } from '../storage/index.js';
 
 // Agent runtime
 import { ProviderFactory } from '../agent/provider/factory.js';
@@ -183,6 +183,7 @@ function buildServer(pubsub: PubSub, auditLogger: AuditLogger): McpServer {
 
 async function main() {
   setupShutdownHandlers();
+  assertNoLegacyDatabase();
   console.error(`[Server] Campaign databases: ${campaignDbPath('<campaign-id>')}`);
 
   // =========================================================================

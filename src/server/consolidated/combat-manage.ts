@@ -237,7 +237,7 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                     const runtime = getAgentRuntime() ?? (() => {
                         const factory = new ProviderFactory();
                         factory.initialize();
-                        return buildAgentRuntime(getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db'), factory);
+                        return buildAgentRuntime(getDb(), factory);
                     })();
 
                     const agent = runtime.agentRepo.findByCharacterId(currentActorId);
@@ -364,7 +364,7 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                 let loadedFromDb = false;
 
                 if (!engine) {
-                    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+                    const db = getDb();
                     const repo = new EncounterRepository(db);
                     const persisted = repo.loadState(params.encounterId);
                     if (persisted) {
@@ -388,7 +388,7 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                     // DB state. Roll back the in-memory addParticipants and
                     // surface an explicit error.
                     try {
-                        const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+                        const db = getDb();
                         const repo = new EncounterRepository(db);
                         repo.saveState(params.encounterId, state);
                     } catch (err) {
@@ -489,7 +489,7 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
     get_history: {
         schema: GetHistorySchema,
         handler: async (params: z.infer<typeof GetHistorySchema>) => {
-            const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+            const db = getDb();
             const actionLogRepo = new CombatActionLogRepository(db);
 
             let actions;

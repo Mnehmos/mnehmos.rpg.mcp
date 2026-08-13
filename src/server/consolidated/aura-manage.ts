@@ -39,7 +39,7 @@ type AuraManageAction = typeof ACTIONS[number];
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureDb() {
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const db = getDb();
     return {
         auraRepo: new AuraRepository(db),
         encounterRepo: new EncounterRepository(db),

@@ -56,7 +56,7 @@ const CLASS_SAVE_KEYS: Record<string, z.infer<typeof SaveProficiencySchema>> = {
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureDb() {
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const db = getDb();
     return {
         db,
         characterRepo: new CharacterRepository(db)

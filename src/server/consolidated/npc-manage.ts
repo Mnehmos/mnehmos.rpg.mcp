@@ -49,7 +49,7 @@ type NpcManageAction = typeof ACTIONS[number];
 // ═══════════════════════════════════════════════════════════════════════════
 
 function getRepo(): NpcMemoryRepository {
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const db = getDb();
     return new NpcMemoryRepository(db);
 }
 
@@ -269,7 +269,7 @@ async function handleCreateNpc(args: z.infer<typeof NewCreateSchema>): Promise<o
         origin: charResult.origin
     };
 
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const db = getDb();
     const memoryRepo = new NpcMemoryRepository(db);
 
     // STEP 5: Seed initial relationship (best-effort)
@@ -400,7 +400,7 @@ async function handleCreateNpc(args: z.infer<typeof NewCreateSchema>): Promise<o
 // ----- Full context bundle -----
 
 async function handleGetFullContext(args: z.infer<typeof GetFullContextSchema>): Promise<object> {
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const db = getDb();
     const charRepo = new CharacterRepository(db);
     const agentRepo = new AgentRepository(db);
     const memoryRepo = new NpcMemoryRepository(db);
@@ -900,7 +900,7 @@ async function handleGetContext(args: z.infer<typeof GetContextSchema>): Promise
 }
 
 async function handleInteract(args: z.infer<typeof InteractSchema>): Promise<object> {
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const db = getDb();
     const charRepo = new CharacterRepository(db);
     const spatialRepo = new SpatialRepository(db);
     const memoryRepo = new NpcMemoryRepository(db);

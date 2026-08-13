@@ -227,12 +227,12 @@ const SpatialTools = {
 // ============================================================
 
 function getSpatialRepo(): SpatialRepository {
-  const db = getDb(process.env.NODE_ENV === "test" ? ":memory:" : "rpg.db");
+  const db = getDb();
   return new SpatialRepository(db);
 }
 
 function getCharacterRepo(): CharacterRepository {
-  const db = getDb(process.env.NODE_ENV === "test" ? ":memory:" : "rpg.db");
+  const db = getDb();
   return new CharacterRepository(db);
 }
 

@@ -1,6 +1,6 @@
 import Database from 'better-sqlite3';
 import { join, isAbsolute, dirname } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, rmSync } from 'fs';
 import { homedir } from 'os';
 import { initDB } from './db.js';
 import { migrate } from './migrations.js';
@@ -150,6 +150,93 @@ export function getDbPath(): string {
 export function campaignDbPath(campaignId: string): string {
     const root = process.env.RPG_DATA_DIR || getAppDataDir();
     return join(root, 'campaigns', campaignId.slice(0, 2), `${campaignId}.db`);
+}
+
+/**
+ * Filenames the engine used before campaigns were split into their own files.
+ * Both names existed across the deployment's history — RPG_MCP_DB_PATH pointed
+ * at `rpg-mcp.db` while the tool helpers built `rpg.db` — so both are checked.
+ */
+const LEGACY_DATABASE_NAMES = ['rpg-mcp.db', 'rpg.db'];
+
+/**
+ * Refuses to start when a pre-split database is still present.
+ *
+ * A leftover file means one of two things, and both are worth stopping for: a
+ * cutover that never completed, or a rollback-forward where an older build
+ * wrote every tenant back into one file. Starting anyway would serve empty
+ * campaigns while real data sat in a file nothing reads — silent, and very
+ * confusing to diagnose. Failing loudly at boot is the cheaper outcome.
+ */
+export function assertNoLegacyDatabase(): void {
+    const root = process.env.RPG_DATA_DIR || getAppDataDir();
+    const found = LEGACY_DATABASE_NAMES
+        .map(name => join(root, name))
+        .filter(path => existsSync(path));
+
+    if (found.length === 0) return;
+
+    throw new Error(
+        `Refusing to start: pre-split database(s) still present at ${found.join(', ')}. ` +
+        'Campaigns now live in per-campaign files under <RPG_DATA_DIR>/campaigns/. ' +
+        'Move or delete the legacy file(s) once you are satisfied nothing is needed from them.'
+    );
+}
+
+/**
+ * Campaign ids that have a database on disk.
+ *
+ * Walks the shard directories rather than tracking state, so it reflects what
+ * is actually there — including campaigns whose handles are not currently open.
+ */
+export function listCampaignDatabases(): string[] {
+    const root = join(process.env.RPG_DATA_DIR || getAppDataDir(), 'campaigns');
+    if (!existsSync(root)) return [];
+
+    const ids: string[] = [];
+    for (const shard of readdirSync(root, { withFileTypes: true })) {
+        if (!shard.isDirectory()) continue;
+        for (const entry of readdirSync(join(root, shard.name))) {
+            if (!entry.endsWith('.db')) continue;
+            const id = entry.slice(0, -3);
+            if (CAMPAIGN_ID_PATTERN.test(id)) ids.push(id);
+        }
+    }
+    return ids.sort();
+}
+
+/**
+ * Deletes a campaign's database outright.
+ *
+ * Erasure is a file operation rather than a cascading multi-table delete, which
+ * is the practical dividend of the file boundary: there is no way to miss a
+ * table and leave a fragment of one customer's game behind.
+ *
+ * Returns false when the campaign had no database.
+ */
+export function deleteCampaignDatabase(campaignId: string): boolean {
+    if (!CAMPAIGN_ID_PATTERN.test(campaignId)) {
+        throw new Error('Refusing to delete a database for a malformed campaign id.');
+    }
+
+    const open = pool.get(campaignId);
+    if (open) {
+        pool.delete(campaignId);
+        try {
+            open.close();
+        } catch (e) {
+            console.error(`[Database] Close before delete failed for ${campaignId}: ${(e as Error).message}`);
+        }
+    }
+
+    const path = campaignDbPath(campaignId);
+    const existed = existsSync(path);
+    // WAL and shared-memory sidecars must go too; leaving a -wal behind would
+    // let a later open recover rows from the database just deleted.
+    for (const target of [path, `${path}-wal`, `${path}-shm`]) {
+        if (existsSync(target)) rmSync(target, { force: true });
+    }
+    return existed;
 }
 
 function openCampaignDb(campaignId: string): Database.Database {
