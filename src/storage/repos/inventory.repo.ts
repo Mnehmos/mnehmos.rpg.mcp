@@ -27,7 +27,7 @@ export class InventoryRepository {
         return InventorySchema.parse({
             characterId,
             items,
-            capacity: 100, // Default
+            capacity: this.getCapacity(characterId),
             currency
         });
     }
@@ -151,9 +151,22 @@ export class InventoryRepository {
             characterId,
             items,
             totalWeight,
-            capacity: 100,
+            capacity: this.getCapacity(characterId),
             currency
         };
+    }
+
+    /** D&D 5e carrying capacity: Strength score multiplied by 15 pounds. */
+    private getCapacity(characterId: string): number {
+        const row = this.db.prepare('SELECT stats FROM characters WHERE id = ?').get(characterId) as { stats: string } | undefined;
+        if (!row?.stats) return 0;
+
+        try {
+            const stats = JSON.parse(row.stats) as { str?: number };
+            return Math.max(0, Math.trunc(stats.str ?? 0) * 15);
+        } catch {
+            return 0;
+        }
     }
 
     // ============================================================

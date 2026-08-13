@@ -16,6 +16,12 @@ export const SkillProficiencySchema = z.enum([
 
 export const SaveProficiencySchema = z.enum(['str', 'dex', 'con', 'int', 'wis', 'cha']);
 
+export const CurrencySchema = z.object({
+    gold: z.number().int().min(0).default(0),
+    silver: z.number().int().min(0).default(0),
+    copper: z.number().int().min(0).default(0),
+});
+
 /**
  * Bastion world-brief origin tracker.
  *
@@ -138,6 +144,8 @@ export const CharacterSchema = z.object({
         .describe('Tools the character is proficient with'),
     languages: z.array(z.string()).optional().default([])
         .describe('Languages the character can speak or understand'),
+    currency: CurrencySchema.optional().default({})
+        .describe('Character currency in gold, silver, and copper denominations'),
 
     // Background and alignment — accepted previously but silently dropped on
     // persistence (no migration column). See docs/bastion/05-world-brief-vs-tool-surface.md.

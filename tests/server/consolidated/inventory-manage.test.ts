@@ -50,9 +50,10 @@ describe('inventory_manage consolidated tool', () => {
             race: 'human',
             hp: 10,
             maxHp: 10,
-            ac: 10,
-            stats: { str: 14, dex: 12, con: 13, int: 10, wis: 11, cha: 10 },
-            speed: 30,
+             ac: 10,
+             stats: { str: 14, dex: 12, con: 13, int: 10, wis: 11, cha: 10 },
+             currency: { gold: 5, silver: 0, copper: 0 },
+             speed: 30,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         });
@@ -482,7 +483,8 @@ describe('inventory_manage consolidated tool', () => {
             expect(data.success).toBe(true);
             expect(data.actionType).toBe('get_detailed');
             expect(data.totalWeight).toBeDefined();
-            expect(data.capacity).toBeDefined();
+            expect(data.capacity).toBe(210);
+            expect(data.currency).toEqual({ gold: 5, silver: 0, copper: 0 });
         });
 
         it('should accept "detailed" alias', async () => {

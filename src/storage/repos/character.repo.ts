@@ -12,9 +12,10 @@ export class CharacterRepository {
 
         const stmt = this.db.prepare(`
       INSERT INTO characters (id, name, stats, hp, max_hp, ac, level, faction_id, behavior, character_type,
-                              character_class, race, spell_slots, pact_magic_slots, known_spells, prepared_spells,
-                              cantrips_known, max_spell_level, concentrating_on, conditions,
-                              legendary_actions, legendary_actions_remaining, legendary_resistances,
+                               character_class, race, spell_slots, pact_magic_slots, known_spells, prepared_spells,
+                               cantrips_known, max_spell_level, concentrating_on, conditions,
+                               currency,
+                               legendary_actions, legendary_actions_remaining, legendary_resistances,
                               legendary_resistances_remaining, has_lair_actions, resistances, vulnerabilities, immunities,
                                current_room_id, perception_bonus, stealth_bonus, resource_pools,
                                skill_proficiencies, save_proficiencies, expertise,
@@ -22,9 +23,10 @@ export class CharacterRepository {
                                background, alignment, origin,
                               created_at, updated_at)
       VALUES (@id, @name, @stats, @hp, @maxHp, @ac, @level, @factionId, @behavior, @characterType,
-              @characterClass, @race, @spellSlots, @pactMagicSlots, @knownSpells, @preparedSpells,
-              @cantripsKnown, @maxSpellLevel, @concentratingOn, @conditions,
-              @legendaryActions, @legendaryActionsRemaining, @legendaryResistances,
+               @characterClass, @race, @spellSlots, @pactMagicSlots, @knownSpells, @preparedSpells,
+               @cantripsKnown, @maxSpellLevel, @concentratingOn, @conditions,
+               @currency,
+               @legendaryActions, @legendaryActionsRemaining, @legendaryResistances,
               @legendaryResistancesRemaining, @hasLairActions, @resistances, @vulnerabilities, @immunities,
                @currentRoomId, @perceptionBonus, @stealthBonus, @resourcePools,
                @skillProficiencies, @saveProficiencies, @expertise,
@@ -55,6 +57,7 @@ export class CharacterRepository {
             maxSpellLevel: validChar.maxSpellLevel || 0,
             concentratingOn: validChar.concentratingOn || null,
             conditions: JSON.stringify(validChar.conditions || []),
+            currency: JSON.stringify(validChar.currency || { gold: 0, silver: 0, copper: 0 }),
             // HIGH-007: Legendary creature fields
             legendaryActions: validChar.legendaryActions ?? null,
             legendaryActionsRemaining: validChar.legendaryActionsRemaining ?? null,
@@ -133,10 +136,11 @@ export class CharacterRepository {
             UPDATE characters
             SET name = ?, stats = ?, hp = ?, max_hp = ?, ac = ?, level = ?,
                 faction_id = ?, behavior = ?, character_type = ?,
-                character_class = ?, race = ?, spell_slots = ?, pact_magic_slots = ?,
-                known_spells = ?, prepared_spells = ?, cantrips_known = ?,
-                max_spell_level = ?, concentrating_on = ?, conditions = ?,
-                legendary_actions = ?, legendary_actions_remaining = ?,
+                 character_class = ?, race = ?, spell_slots = ?, pact_magic_slots = ?,
+                 known_spells = ?, prepared_spells = ?, cantrips_known = ?,
+                 max_spell_level = ?, concentrating_on = ?, conditions = ?,
+                 currency = ?,
+                 legendary_actions = ?, legendary_actions_remaining = ?,
                 legendary_resistances = ?, legendary_resistances_remaining = ?,
                  has_lair_actions = ?, resistances = ?, vulnerabilities = ?, immunities = ?,
                  current_room_id = ?, perception_bonus = ?, stealth_bonus = ?,
@@ -169,6 +173,7 @@ export class CharacterRepository {
             validChar.maxSpellLevel || 0,
             validChar.concentratingOn || null,
             JSON.stringify(validChar.conditions || []),
+            JSON.stringify(validChar.currency || { gold: 0, silver: 0, copper: 0 }),
             // HIGH-007: Legendary creature fields
             validChar.legendaryActions ?? null,
             validChar.legendaryActionsRemaining ?? null,
@@ -230,6 +235,7 @@ export class CharacterRepository {
             maxSpellLevel: row.max_spell_level || 0,
             concentratingOn: row.concentrating_on || null,
             conditions: row.conditions ? JSON.parse(row.conditions) : [],
+            currency: row.currency ? JSON.parse(row.currency) : { gold: 0, silver: 0, copper: 0 },
             // HIGH-007: Legendary creature fields
             legendaryActions: row.legendary_actions ?? undefined,
             legendaryActionsRemaining: row.legendary_actions_remaining ?? undefined,
@@ -294,6 +300,7 @@ interface CharacterRow {
     max_spell_level: number | null;
     concentrating_on: string | null;
     conditions: string | null;
+    currency: string | null;
     // HIGH-007: Legendary creature columns
     legendary_actions: number | null;
     legendary_actions_remaining: number | null;

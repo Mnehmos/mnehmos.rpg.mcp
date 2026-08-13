@@ -117,6 +117,7 @@ function buildCharacter(data: {
         weaponProficiencies: [],
         toolProficiencies: [],
         languages: [],
+        currency: { gold: 0, silver: 0, copper: 0 },
         origin: data.origin,
         hasLairActions: false,
         position: data.position,
