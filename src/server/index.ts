@@ -61,7 +61,7 @@ import { PubSub } from '../engine/pubsub.js';
 import { registerEventTools } from './events.js';
 import { AuditLogger } from './audit.js';
 import { withSession } from './types.js';
-import { closeDb, campaignDbPath, assertNoLegacyDatabase } from '../storage/index.js';
+import { closeDb, campaignDbPath, assertNoLegacyDatabase, useSingleUserDatabase } from '../storage/index.js';
 
 // Agent runtime
 import { ProviderFactory } from '../agent/provider/factory.js';
@@ -183,8 +183,6 @@ function buildServer(pubsub: PubSub, auditLogger: AuditLogger): McpServer {
 
 async function main() {
   setupShutdownHandlers();
-  assertNoLegacyDatabase();
-  console.error(`[Server] Campaign databases: ${campaignDbPath('<campaign-id>')}`);
 
   // =========================================================================
   // AGENT RUNTIME: wire LLM providers + repos behind getAgentRuntime()
@@ -239,6 +237,22 @@ async function main() {
     const index = args.indexOf(name);
     return index !== -1 ? args[index + 1] : undefined;
   };
+  // Only the HTTP transport is multi-tenant; it establishes a verified tenant
+  // per request. Every other transport serves one local operator, so it opens a
+  // single database up front. Without this, getDb() would find no tenant and
+  // every storage tool would fail for local users of the npm package, the
+  // standalone binaries, and MCP client configs.
+  //
+  // The legacy-database assertion is likewise HTTP-only: for a hosted server a
+  // pre-split file means an incomplete cutover, but in single-user mode that
+  // same file is simply the operator's database.
+  if (transportType === 'http') {
+    assertNoLegacyDatabase();
+    console.error(`[Server] Campaign databases: ${campaignDbPath('<campaign-id>')}`);
+  } else {
+    useSingleUserDatabase(getArgValue('--db-path'));
+  }
+
   const networkHost = getArgValue('--host') || '127.0.0.1';
   const transportToken = getArgValue('--transport-token') || process.env.RPG_MCP_TRANSPORT_TOKEN;
   const maxMessageBytes = parseInt(getArgValue('--max-message-bytes') || '1048576', 10);
