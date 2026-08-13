@@ -56,11 +56,19 @@ function detectSoftError(result: unknown): string | undefined {
 }
 
 export class AuditLogger {
-    private repo: AuditRepository;
-
-    constructor() {
-        const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
-        this.repo = new AuditRepository(db);
+    /**
+     * Resolved per write rather than held from construction.
+     *
+     * The logger is built at server boot, where there is no tenant and so no
+     * database to bind to. Resolving at write time also puts each audit row in
+     * its own campaign's database, which is where it belongs.
+     *
+     * Writes made outside a tenant scope — only the tenant-agnostic meta-tools
+     * reach that path — throw here and are swallowed by the caller's existing
+     * catch, so an unscoped call is simply not audited rather than failing.
+     */
+    private repo(): AuditRepository {
+        return new AuditRepository(getDb());
     }
 
     wrapHandler(toolName: string, handler: (args: any) => Promise<any>) {
@@ -78,7 +86,7 @@ export class AuditLogger {
             } finally {
                 try {
                     const softError = error ? undefined : detectSoftError(result);
-                    this.repo.create({
+                    this.repo().create({
                         action: toolName,
                         actorId: null,
                         targetId: null,

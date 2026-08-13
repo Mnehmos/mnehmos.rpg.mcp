@@ -32,8 +32,7 @@ type MathAction = typeof ACTIONS[number];
 // ═══════════════════════════════════════════════════════════════════════════
 
 function getRepo() {
-    const dbPath = process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db';
-    const db = getDb(dbPath);
+    const db = getDb();
     return { repo: new CalculationRepository(db), db };
 }
 

@@ -60,8 +60,7 @@ const TriggerEventEnum = z.enum([
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureDb() {
-    const dbPath = process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db';
-    const db = getDb(dbPath);
+    const db = getDb();
     const effectsRepo = new CustomEffectsRepository(db);
     const charRepo = new CharacterRepository(db);
     return { db, effectsRepo, charRepo };

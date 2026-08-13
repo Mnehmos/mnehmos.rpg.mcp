@@ -32,8 +32,7 @@ type StrategyAction = typeof ACTIONS[number];
 // ═══════════════════════════════════════════════════════════════════════════
 
 function getRepos() {
-    const dbPath = process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db';
-    const db = getDb(dbPath);
+    const db = getDb();
     return {
         nationRepo: new NationRepository(db),
         diplomacyRepo: new DiplomacyRepository(db),

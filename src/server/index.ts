@@ -61,11 +61,10 @@ import { PubSub } from '../engine/pubsub.js';
 import { registerEventTools } from './events.js';
 import { AuditLogger } from './audit.js';
 import { withSession } from './types.js';
-import { closeDb, getDb, getDbPath } from '../storage/index.js';
+import { closeDb, campaignDbPath } from '../storage/index.js';
 
 // Agent runtime
 import { ProviderFactory } from '../agent/provider/factory.js';
-import { setAgentRuntime, buildAgentRuntime } from '../agent/runtime/deps.js';
 
 /**
  * Setup graceful shutdown handlers to ensure database is properly closed.
@@ -184,16 +183,21 @@ function buildServer(pubsub: PubSub, auditLogger: AuditLogger): McpServer {
 
 async function main() {
   setupShutdownHandlers();
-  console.error(`[Server] Database path: ${getDbPath()}`);
+  console.error(`[Server] Campaign databases: ${campaignDbPath('<campaign-id>')}`);
 
   // =========================================================================
   // AGENT RUNTIME: wire LLM providers + repos behind getAgentRuntime()
   // =========================================================================
   try {
-    const agentDb = getDb(getDbPath());
+    // Deliberately no setAgentRuntime() here any more. Runtime deps bind eight
+    // repositories to a single database, and under per-campaign databases the
+    // right one is not known until a request arrives with a verified tenant.
+    // agent_manage and combat_manage already build the runtime lazily from the
+    // request's own database, which is now the only correct place to do it.
+    // Provider initialization stays at boot: it is genuinely process-wide, and
+    // surfacing misconfiguration early is worth keeping.
     const providerFactory = new ProviderFactory();
     const providers = providerFactory.initialize();
-    setAgentRuntime(buildAgentRuntime(agentDb, providerFactory));
 
     // Diagnostic: print enough to self-diagnose the "Provider not configured"
     // error class without ever printing key values. The MCP-host-spawned-with-

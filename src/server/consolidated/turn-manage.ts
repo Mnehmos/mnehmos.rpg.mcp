@@ -30,8 +30,7 @@ type TurnAction = typeof ACTIONS[number];
 // ═══════════════════════════════════════════════════════════════════════════
 
 function getRepos() {
-    const dbPath = process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db';
-    const db = getDb(dbPath);
+    const db = getDb();
     return {
         turnStateRepo: new TurnStateRepository(db),
         nationRepo: new NationRepository(db),

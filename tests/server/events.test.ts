@@ -35,7 +35,10 @@ describe('Event Tools', () => {
         pubsub.publish('world', { data: 'test' });
         expect(notificationSpy).toHaveBeenCalledWith({
             method: 'notifications/rpg/event',
-            params: { topic: 'world', payload: { data: 'test' }, sessionId: 'default' }
+            // 'unscoped' rather than the old 'default': this subscription was
+            // made outside any verified tenant, and the sentinel should not
+            // read like a real session id that callers could be pooled into.
+            params: { topic: 'world', payload: { data: 'test' }, sessionId: 'unscoped' }
         });
     });
 
