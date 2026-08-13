@@ -2,9 +2,15 @@
 
 ## This Repository
 
-The backend game engine for Quest Keeper AI. **34 MCP tools** (30 consolidated action-routed + 4 meta/event) for complete RPG mechanics, including LLM-driven NPCs via `agent_manage` and the Operator's constraint-perception lens via `perception_manage`.
+The reference backend game engine. **35 MCP tools** (31 consolidated action-routed + 4 meta/event) for complete RPG mechanics, including LLM-driven NPCs via `agent_manage` and the Operator's constraint-perception lens via `perception_manage`.
 **Philosophy:** "LLM describes, engine validates" - Database is source of truth.
-**Status:** Alpha - 2214 tests passing, 136 test files, MCP Protocol fully integrated
+**Status:** Alpha - 2216 tests passing (7 skipped), 141 test files, MCP Protocol fully integrated
+
+## Who consumes this engine
+
+`rpg-mcp-live` (repo `Mnehmos/rpg-mcp-live`, local checkout `F:\Github\rpg mcp live`) is the hosted web product and the **only** active consumer. It calls this engine **over HTTP** — see its `src/reference-engine-client.ts` and `REFERENCE_ENGINE_URL`. It is not a submodule and does not vendor this code, so the two repos are deployed separately and share no build step. Changing a tool's contract here is a breaking change for that service.
+
+The Tauri desktop app (`mnehmos.quest-keeper.game`, "Lantern") still declares this engine as an `externalBin` sidecar, but it is **deprecated and unused** — do not treat its build or deploy steps as live.
 
 ## Bastion subsystems
 
@@ -25,7 +31,7 @@ npm run build:binaries            # Create standalone executables
 ```
 src/
 ├── server/
-│   ├── consolidated/  # 29 action-routed tool handlers
+│   ├── consolidated/  # 31 action-routed tool handlers (index.ts = registry)
 │   ├── handlers/      # Extracted handler implementations (combat, spatial)
 │   ├── index.ts       # MCP server entry + transport setup
 │   └── meta-tools.ts  # search_tools, load_tool_schema
@@ -41,11 +47,11 @@ src/
 │   ├── runtime/  # invoke + preflight + circuit + auto-on-turn hook
 │   └── audit/    # Replay
 ├── storage/      # SQLite repos & migrations
-├── schema/       # Zod validation (30 schemas — added schema/agent.ts)
+├── schema/       # Zod validation (29 schemas, incl. schema/agent.ts)
 ├── utils/        # Action router, fuzzy matching
 └── math/         # Dice, algebra, physics
 
-tests/            # Mirror of src/ structure (136 files)
+tests/            # Mirror of src/ structure (141 files)
 docs/             # White paper, ADRs, LLM spatial guide
 ```
 
@@ -76,10 +82,12 @@ Do NOT ask permission for local commits. Just save the state.
 4. Commit
 5. Repeat
 
-## Deploy to Frontend
+## Shell note
 
-After building binaries:
+`bash` in this environment fails on startup (`fnm env` is not evaluated in the shell profile). Use **PowerShell** for git and npm work; the Bash tool errors out before running the command.
 
-```powershell
-copy dist-bundle\rpg-mcp-win.exe "C:\Users\mnehm\Desktop\Quest Keeper AI attempt 2\src-tauri\binaries\rpg-mcp-server-x86_64-pc-windows-msvc.exe"
-```
+## Deploy
+
+This engine deploys as its own service and is reached over HTTP by `rpg-mcp-live`. There is no copy-a-binary-into-the-frontend step anymore.
+
+`npm run build:binaries` still produces standalone executables in `dist-bundle/` for local and MCP-client use. The old instruction to copy `rpg-mcp-win.exe` into the Quest Keeper Tauri app's `src-tauri/binaries/` is **obsolete** — that desktop app is deprecated and its target directory no longer exists.
