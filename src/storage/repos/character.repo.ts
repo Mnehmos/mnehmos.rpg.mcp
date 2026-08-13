@@ -11,7 +11,7 @@ export class CharacterRepository {
         const validChar = isNPC ? NPCSchema.parse(character) : CharacterSchema.parse(character);
 
         const stmt = this.db.prepare(`
-      INSERT INTO characters (id, name, stats, hp, max_hp, ac, level, faction_id, behavior, character_type,
+      INSERT INTO characters (id, name, stats, hp, max_hp, ac, level, xp, faction_id, behavior, character_type,
                                character_class, race, spell_slots, pact_magic_slots, known_spells, prepared_spells,
                                cantrips_known, max_spell_level, concentrating_on, conditions,
                                currency,
@@ -22,7 +22,7 @@ export class CharacterRepository {
                                armor_proficiencies, weapon_proficiencies, tool_proficiencies, languages,
                                background, alignment, origin,
                               created_at, updated_at)
-      VALUES (@id, @name, @stats, @hp, @maxHp, @ac, @level, @factionId, @behavior, @characterType,
+      VALUES (@id, @name, @stats, @hp, @maxHp, @ac, @level, @xp, @factionId, @behavior, @characterType,
                @characterClass, @race, @spellSlots, @pactMagicSlots, @knownSpells, @preparedSpells,
                @cantripsKnown, @maxSpellLevel, @concentratingOn, @conditions,
                @currency,
@@ -43,6 +43,7 @@ export class CharacterRepository {
             maxHp: validChar.maxHp,
             ac: validChar.ac,
             level: validChar.level,
+            xp: validChar.xp ?? 0,
             factionId: (validChar as NPC).factionId || null,
             behavior: (validChar as NPC).behavior || null,
             characterType: validChar.characterType || 'pc',
@@ -134,7 +135,7 @@ export class CharacterRepository {
 
         const stmt = this.db.prepare(`
             UPDATE characters
-            SET name = ?, stats = ?, hp = ?, max_hp = ?, ac = ?, level = ?,
+            SET name = ?, stats = ?, hp = ?, max_hp = ?, ac = ?, level = ?, xp = ?,
                 faction_id = ?, behavior = ?, character_type = ?,
                  character_class = ?, race = ?, spell_slots = ?, pact_magic_slots = ?,
                  known_spells = ?, prepared_spells = ?, cantrips_known = ?,
@@ -159,6 +160,7 @@ export class CharacterRepository {
             validChar.maxHp,
             validChar.ac,
             validChar.level,
+            validChar.xp ?? 0,
             (validChar as NPC).factionId || null,
             (validChar as NPC).behavior || null,
             validChar.characterType || 'pc',
@@ -223,6 +225,7 @@ export class CharacterRepository {
             maxHp: row.max_hp,
             ac: row.ac,
             level: row.level,
+            xp: row.xp ?? 0,
             characterType: (row.character_type as CharacterType) || 'pc',
             // CRIT-002/006: Spellcasting fields
             characterClass: row.character_class || 'fighter',
@@ -286,6 +289,7 @@ interface CharacterRow {
     max_hp: number;
     ac: number;
     level: number;
+    xp: number | null;
     faction_id: string | null;
     behavior: string | null;
     character_type: string | null;

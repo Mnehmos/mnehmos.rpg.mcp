@@ -157,4 +157,54 @@ describe('CharacterRepository', () => {
         const retrieved = repo.findById('edge-max');
         expect(retrieved?.name).toBe(maxName);
     });
+
+    // The characters table has had an `xp` column since the XP-system migration,
+    // but the repository never read or wrote it: create/update omitted the column
+    // and rowToCharacter never mapped it, so CharacterSchema's `.default(0)`
+    // silently re-synthesized 0 on every read. update() still *returned* the
+    // merged in-memory object, so callers saw their own value echoed back and
+    // only noticed on the next get.
+    describe('xp persistence', () => {
+        const baseCharacter = (id: string, xp?: number): Character => ({
+            id,
+            name: 'Adventurer',
+            stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+            hp: 20, maxHp: 20, ac: 15, level: 1,
+            ...(xp === undefined ? {} : { xp }),
+            createdAt: FIXED_TIMESTAMP, updatedAt: FIXED_TIMESTAMP
+        } as Character);
+
+        it('persists xp supplied at create time', () => {
+            repo.create(baseCharacter('xp-create', 250));
+
+            expect(repo.findById('xp-create')?.xp).toBe(250);
+        });
+
+        it('defaults xp to 0 when omitted at create time', () => {
+            repo.create(baseCharacter('xp-default'));
+
+            expect(repo.findById('xp-default')?.xp).toBe(0);
+        });
+
+        it('persists xp through update instead of resetting it to 0', () => {
+            repo.create(baseCharacter('xp-update', 0));
+
+            const returned = repo.update('xp-update', { xp: 500 });
+
+            // The echoed response and the stored row must agree — the original
+            // bug returned 500 here while writing nothing.
+            expect(returned?.xp).toBe(500);
+            expect(repo.findById('xp-update')?.xp).toBe(500);
+        });
+
+        it('leaves xp untouched when an unrelated field is updated', () => {
+            repo.create(baseCharacter('xp-untouched', 1200));
+
+            repo.update('xp-untouched', { hp: 12 });
+
+            const retrieved = repo.findById('xp-untouched');
+            expect(retrieved?.hp).toBe(12);
+            expect(retrieved?.xp).toBe(1200);
+        });
+    });
 });
