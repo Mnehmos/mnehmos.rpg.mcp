@@ -445,7 +445,7 @@ async function handleAddXp(args: z.infer<typeof AddXpSchema>): Promise<object> {
         throw new Error(`Character ${args.characterId} not found`);
     }
 
-    const currentXp = (char as any).xp || 0;
+    const currentXp = char.xp ?? 0;
     const newXp = currentXp + args.amount;
     const currentLevel = char.level;
     const nextLevelXp = XP_TABLE[currentLevel + 1];
