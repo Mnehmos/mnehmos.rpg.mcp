@@ -246,7 +246,7 @@ export class CombatEngine {
     startEncounter(participants: CombatParticipant[]): CombatState {
         // Roll initiative for each participant and store the value
         const participantsWithInitiative = participants.map(p => {
-            const rolledInitiative = this.rng.d20(p.initiativeBonus);
+            const rolledInitiative = p.initiative ?? this.rng.d20(p.initiativeBonus);
             return {
                 ...p,
                 ac: p.ac,

@@ -1049,6 +1049,13 @@
         "Tool Proficiency",
         "Stonecunning",
         "Dwarven Toughness"
+      ],
+      "mechanics": [
+        {
+          "key": "dwarven_toughness",
+          "type": "max_hp_per_level",
+          "value": 1
+        }
       ]
     },
     {

@@ -111,8 +111,8 @@ const CreateSchema = z.object({
     weaponProficiencies: z.array(z.string()).optional(),
     toolProficiencies: z.array(z.string()).optional(),
     languages: z.array(z.string()).optional(),
-    applySpeciesAbilityBonuses: z.boolean().optional().default(false)
-        .describe('Treat stats as pre-species base scores and apply the source species bonuses exactly once'),
+    applySpeciesAbilityBonuses: z.boolean().optional().default(true)
+        .describe('Apply source species ability bonuses exactly once; set false only when stats already include them'),
     origin: CharacterOriginSchema.optional(),
     provisionEquipment: z.boolean().optional().default(true),
     customEquipment: z.array(z.string()).optional(),
@@ -124,7 +124,7 @@ const GetSchema = z.object({
     characterId: z.string().describe('Character ID to retrieve')
 });
 
-const ConditionSchema = z.object({
+const conditionSchema = () => z.object({
     name: z.string(),
     duration: z.number().int().optional(),
     source: z.string().optional()
@@ -151,8 +151,8 @@ const UpdateSchema = z.object({
     weaponProficiencies: z.array(z.string()).optional(),
     toolProficiencies: z.array(z.string()).optional(),
     languages: z.array(z.string()).optional(),
-    conditions: z.array(ConditionSchema).optional(),
-    addConditions: z.array(ConditionSchema).optional(),
+    conditions: z.array(conditionSchema()).optional(),
+    addConditions: z.array(conditionSchema()).optional(),
     removeConditions: z.array(z.string()).optional(),
     background: z.string().optional(),
     alignment: z.string().optional(),
@@ -272,7 +272,8 @@ export async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<
     const backgroundSkills = validSkillProficiencies(backgroundSource?.skillProficiencies);
 
     const stats = { ...(args.stats ?? { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }) };
-    if (args.applySpeciesAbilityBonuses && speciesSource) {
+    const speciesAbilityBonusesApplied = Boolean(args.applySpeciesAbilityBonuses && speciesSource);
+    if (speciesAbilityBonusesApplied && speciesSource) {
         for (const ability of Object.keys(speciesSource.abilityBonuses) as Array<keyof typeof stats>) {
             stats[ability] += speciesSource.abilityBonuses[ability];
         }
@@ -281,10 +282,28 @@ export async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<
     // Source-backed classes own hit-die HP. Custom classes retain the d8 fallback.
     const conModifier = Math.floor((stats.con - 10) / 2);
     const hitDie = classSource?.hitDie ?? Number.parseInt(classData?.hitDice.replace('d', '') ?? '8', 10);
-    const baseHp = initialHitPoints(hitDie, conModifier, args.level ?? 1);
-    const hp = args.hp ?? baseHp;
-    const maxHp = args.maxHp ?? hp;
+    const level = args.level ?? 1;
+    const speciesMaxHpBonus = speciesSource?.mechanics
+        .filter((mechanic) => mechanic.type === 'max_hp_per_level')
+        .reduce((total, mechanic) => total + mechanic.value * level, 0) ?? 0;
+    const baseHp = initialHitPoints(hitDie, conModifier, level);
+    const derivedMaxHp = baseHp + speciesMaxHpBonus;
+    const hp = args.hp ?? derivedMaxHp;
+    const maxHp = args.maxHp ?? Math.max(hp, derivedMaxHp);
     const characterId = randomUUID();
+
+    const supportedSpeciesMechanics = new Set(['max_hp_per_level']);
+    const appliedSpeciesMechanics = [
+        ...(speciesAbilityBonusesApplied ? ['ability_score_increases'] : []),
+        ...(speciesSource?.languages.length ? ['fixed_languages'] : []),
+        ...(speciesMaxHpBonus > 0 && args.maxHp === undefined ? ['max_hp_per_level'] : [])
+    ];
+    const deferredSpeciesMechanics = [
+        ...(!speciesAbilityBonusesApplied && speciesSource ? ['ability_score_increases'] : []),
+        ...(speciesMaxHpBonus > 0 && args.maxHp !== undefined ? ['max_hp_per_level:maxHp_override'] : [])
+    ];
+    const unsupportedSpeciesFeatures = (speciesSource?.featureNames ?? [])
+        .filter((featureName) => !supportedSpeciesMechanics.has(featureName === 'Dwarven Toughness' ? 'max_hp_per_level' : featureName));
 
     // Build the base character record from args. The character row MUST be
     // inserted before provisioning runs, otherwise inventory_items.character_id
@@ -301,13 +320,17 @@ export async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<
         hp,
         maxHp,
         ac: args.ac ?? 10 + Math.floor((stats.dex - 10) / 2),
-        level: args.level ?? 1,
+        level,
         characterType: args.characterType ?? 'pc',
         factionId: args.factionId,
         behavior: args.behavior,
         knownSpells: args.knownSpells || [],
         cantripsKnown: [],
-        preparedSpells: args.preparedSpells || [],
+        // Known spells are immediately usable after creation unless the caller
+        // explicitly supplies a prepared list.
+        preparedSpells: args.preparedSpells?.length
+            ? [...args.preparedSpells]
+            : [...(args.knownSpells || [])],
         skillProficiencies: uniqueStrings(backgroundSkills, args.skillProficiencies),
         saveProficiencies: args.saveProficiencies ?? classSaveProficiencies,
         expertise: args.expertise || [],
@@ -353,12 +376,16 @@ export async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<
         character.knownSpells = provisioningResult.spellsGranted.length
             ? [...new Set([...(args.knownSpells || []), ...provisioningResult.spellsGranted])]
             : args.knownSpells || [];
+        character.preparedSpells = args.preparedSpells?.length
+            ? [...new Set(args.preparedSpells)]
+            : [...new Set(character.knownSpells as string[])];
         character.cantripsKnown = provisioningResult.cantripsGranted || [];
         character.spellSlots = convertSpellSlotsToObject(provisioningResult.spellSlots ?? null);
         character.pactMagicSlots = provisioningResult.pactMagicSlots || undefined;
 
         characterRepo.update(characterId, {
             knownSpells: character.knownSpells as string[],
+            preparedSpells: character.preparedSpells as string[],
             cantripsKnown: character.cantripsKnown as string[],
             spellSlots: character.spellSlots,
             pactMagicSlots: character.pactMagicSlots
@@ -384,15 +411,28 @@ export async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<
                 contentKey: speciesSource.contentKey,
                 speedFeet: speciesSource.speedFeet,
                 abilityBonuses: speciesSource.abilityBonuses,
-                abilityBonusesApplied: args.applySpeciesAbilityBonuses,
+                abilityBonusesApplied: speciesAbilityBonusesApplied,
                 languageChoiceCount: speciesSource.languageChoiceCount,
-                featureNames: speciesSource.featureNames
+                featureNames: speciesSource.featureNames,
+                appliedMechanics: appliedSpeciesMechanics,
+                deferredMechanics: deferredSpeciesMechanics,
+                unsupportedFeatureNames: unsupportedSpeciesFeatures,
+                maxHpBonus: speciesMaxHpBonus
             } : { custom: true, name: raceName },
             background: backgroundSource ? {
                 sourceKey: backgroundSource.sourceKey,
                 contentKey: backgroundSource.contentKey,
                 languageChoiceCount: backgroundSource.languageChoiceCount,
-                startingEquipmentDescription: backgroundSource.startingEquipmentDescription
+                startingEquipmentDescription: backgroundSource.startingEquipmentDescription,
+                appliedMechanics: [
+                    ...(backgroundSource.skillProficiencies.length ? ['fixed_skill_proficiencies'] : []),
+                    ...(backgroundSource.fixedLanguages.length ? ['fixed_languages'] : [])
+                ],
+                deferredMechanics: [
+                    ...(backgroundSource.skillChoice ? ['skill_choice'] : []),
+                    ...(backgroundSource.languageChoiceCount > 0 ? ['language_choice'] : []),
+                    ...(backgroundSource.toolChoice ? ['tool_choice'] : [])
+                ]
             } : backgroundName ? { custom: true, name: backgroundName } : null
         }
     };
@@ -757,8 +797,8 @@ Aliases: new/add/spawn->create, fetch/find->get, modify/edit->update`,
         // Get/Update/Delete fields
         characterId: z.string().optional(),
         // Update condition fields
-        conditions: z.array(ConditionSchema).optional(),
-        addConditions: z.array(ConditionSchema).optional(),
+        conditions: z.array(conditionSchema()).optional(),
+        addConditions: z.array(conditionSchema()).optional(),
         removeConditions: z.array(z.string()).optional(),
         // Add XP field
         amount: z.number().int().optional(),

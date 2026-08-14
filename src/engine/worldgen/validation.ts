@@ -118,16 +118,9 @@ export function validateStructurePlacement(
         };
     }
     
-    // Additional elevation check for sea level (elevation < 20 is typically water)
-    if (elevation < 20 && structureType !== StructureType.RUINS) {
-        return {
-            valid: false,
-            reason: `Location (${x}, ${y}) is below sea level (elevation: ${elevation})`,
-            biome,
-            elevation
-        };
-    }
-    
+    // Biome classification is authoritative for land/water. Generated land
+    // can legitimately have a low normalized elevation, so a numeric cutoff
+    // here incorrectly rejects valid lowland and coastal structures.
     return { valid: true, biome, elevation };
 }
 

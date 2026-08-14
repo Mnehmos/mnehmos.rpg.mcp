@@ -170,21 +170,44 @@ describe('pinned Open5e engine authority', () => {
         });
     });
 
-    it('applies species ability bonuses only when explicitly requested', async () => {
+    it('applies source species mechanics by default with explicit provenance', async () => {
         const created = embeddedJson(await handleCharacterManage({
             action: 'create',
             name: 'Dwarven Scholar',
-            class: 'Wizard',
-            race: 'Dwarf',
+            class: 'Cleric',
+            race: 'Hill Dwarf',
             stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
-            applySpeciesAbilityBonuses: true,
             provisionEquipment: false,
         }, ctx as any));
 
         expect(created.stats.con).toBe(12);
-        expect(created.hp).toBe(7);
+        expect(created.stats.wis).toBe(11);
+        expect(created.hp).toBe(10);
+        expect(created.maxHp).toBe(10);
         expect(created.languages).toEqual(['Common', 'Dwarvish']);
         expect(created._rules.species.abilityBonusesApplied).toBe(true);
+        expect(created._rules.species.appliedMechanics).toEqual(expect.arrayContaining([
+            'ability_score_increases', 'fixed_languages', 'max_hp_per_level'
+        ]));
+        expect(created._rules.species.unsupportedFeatureNames).toEqual(expect.arrayContaining([
+            'Darkvision', 'Dwarven Resilience'
+        ]));
+    });
+
+    it('supports the explicit pre-adjusted-stat opt-out without double applying', async () => {
+        const created = embeddedJson(await handleCharacterManage({
+            action: 'create',
+            name: 'Pre-adjusted Dwarf',
+            class: 'Wizard',
+            race: 'Dwarf',
+            stats: { str: 10, dex: 10, con: 12, int: 10, wis: 10, cha: 10 },
+            applySpeciesAbilityBonuses: false,
+            provisionEquipment: false,
+        }, ctx as any));
+
+        expect(created.stats.con).toBe(12);
+        expect(created._rules.species.abilityBonusesApplied).toBe(false);
+        expect(created._rules.species.deferredMechanics).toContain('ability_score_increases');
     });
 
     it('routes batch character creation through the same source-backed path', async () => {

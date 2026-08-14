@@ -159,10 +159,17 @@ const SpatialTools = {
     description: "Move a character to a room and increment its visit count.",
     inputSchema: z.object({
       characterId: z.string().uuid().describe("ID of the character to move"),
-      roomId: z.string().uuid().describe("ID of the destination room"),
+      roomId: z.string().uuid().optional().describe("ID of the destination room; omit to follow an exit"),
+      direction: z.enum([
+        "north", "south", "east", "west", "up", "down",
+        "northeast", "northwest", "southeast", "southwest"
+      ]).optional().describe("Exit direction to follow from the current room"),
       networkId: z.string().uuid().optional(),
       localX: z.number().int().min(0).optional(),
       localY: z.number().int().min(0).optional(),
+    }).refine(args => Boolean(args.roomId || args.direction), {
+      message: "Either roomId or direction is required",
+      path: ["roomId"]
     }),
   },
 
@@ -600,7 +607,44 @@ export async function handleMoveCharacterToRoom(
     };
   }
 
-  const room = spatialRepo.findById(parsed.roomId);
+  const oldRoomId = (character as unknown as { currentRoomId?: string }).currentRoomId;
+  let destinationRoomId = parsed.roomId;
+  if (!destinationRoomId && parsed.direction) {
+    if (!oldRoomId) {
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({
+          success: false,
+          error: "Character has no current room",
+          direction: parsed.direction
+        }, null, 2) }]
+      };
+    }
+    const currentRoom = spatialRepo.findById(oldRoomId);
+    const exit = currentRoom?.exits.find(candidate => candidate.direction === parsed.direction);
+    if (!exit) {
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({
+          success: false,
+          error: `No ${parsed.direction} exit from current room`,
+          direction: parsed.direction,
+          currentRoomId: oldRoomId
+        }, null, 2) }]
+      };
+    }
+    if (exit.type !== "OPEN") {
+      return {
+        content: [{ type: "text" as const, text: JSON.stringify({
+          success: false,
+          error: `The ${parsed.direction} exit is ${exit.type.toLowerCase()}`,
+          direction: parsed.direction,
+          exit
+        }, null, 2) }]
+      };
+    }
+    destinationRoomId = exit.targetNodeId;
+  }
+
+  const room = destinationRoomId ? spatialRepo.findById(destinationRoomId) : null;
   if (!room) {
     return {
       content: [
@@ -620,8 +664,6 @@ export async function handleMoveCharacterToRoom(
   }
 
   // Remove character from old room if present
-  const oldRoomId = (character as unknown as { currentRoomId?: string })
-    .currentRoomId;
   if (oldRoomId) {
     try {
       spatialRepo.removeEntityFromRoom(oldRoomId, parsed.characterId);
@@ -633,22 +675,22 @@ export async function handleMoveCharacterToRoom(
   // Update character's current room (using unknown to bypass TypeScript checks for current_room_id)
   const updatedChar = {
     ...(character as any),
-    currentRoomId: parsed.roomId,
+    currentRoomId: destinationRoomId,
   };
   characterRepo.update(parsed.characterId, updatedChar as any);
 
   // Add character to new room
-  spatialRepo.addEntityToRoom(parsed.roomId, parsed.characterId);
+  spatialRepo.addEntityToRoom(destinationRoomId!, parsed.characterId);
 
   // Increment visit count
-  spatialRepo.incrementVisitCount(parsed.roomId);
+  spatialRepo.incrementVisitCount(destinationRoomId!);
 
   const roomCoordinateUpdates: Partial<RoomNode> = {};
   if (parsed.networkId !== undefined) roomCoordinateUpdates.networkId = parsed.networkId;
   if (parsed.localX !== undefined) roomCoordinateUpdates.localX = parsed.localX;
   if (parsed.localY !== undefined) roomCoordinateUpdates.localY = parsed.localY;
   const updatedRoom = Object.keys(roomCoordinateUpdates).length > 0
-    ? spatialRepo.update(parsed.roomId, roomCoordinateUpdates) ?? room
+    ? spatialRepo.update(destinationRoomId!, roomCoordinateUpdates) ?? room
     : room;
 
   return {
@@ -660,7 +702,7 @@ export async function handleMoveCharacterToRoom(
             success: true,
             characterId: parsed.characterId,
             characterName: character.name,
-            newRoomId: parsed.roomId,
+            newRoomId: destinationRoomId,
             newRoomName: updatedRoom.name,
             visitedCount: room.visitedCount + 1,
             networkId: updatedRoom.networkId,

@@ -299,6 +299,39 @@ describe('inventory_manage consolidated tool', () => {
             expect(data.effect).toBe('Restore 2d4+2 HP');
         });
 
+        it('should roll and persist healing when the effect declares healing', async () => {
+            const db = getDb(':memory:');
+            const charRepo = new CharacterRepository(db);
+            charRepo.update(testCharId, { hp: 2 });
+            const potionResult = await handleItemManage({
+                action: 'create',
+                name: 'Greater Healing Potion',
+                type: 'consumable',
+                weight: 0.5,
+                value: 100,
+                properties: { healing: 4, effect: 'Restore 4 HP' }
+            }, ctx);
+            const healingId = parseItemResult(potionResult).item.id;
+            await handleInventoryManage({
+                action: 'give',
+                characterId: testCharId,
+                itemId: healingId,
+                quantity: 1
+            }, ctx);
+
+            const data = parseResult(await handleInventoryManage({
+                action: 'use',
+                characterId: testCharId,
+                itemId: healingId
+            }, ctx));
+
+            expect(data.success).toBe(true);
+            expect(data.healing).toBe(4);
+            expect(data.hpBefore).toBe(2);
+            expect(data.hpAfter).toBe(6);
+            expect(new CharacterRepository(getDb(':memory:')).findById(testCharId)?.hp).toBe(6);
+        });
+
         it('should accept "consume" alias', async () => {
             const result = await handleInventoryManage({
                 action: 'consume',
@@ -504,6 +537,8 @@ describe('inventory_manage consolidated tool', () => {
             expect(data.actionType).toBe('get');
             expect(data.inventory).toBeDefined();
             expect(data.itemCount).toBeGreaterThan(0);
+            expect(data.inventory[0].item.name).toBe('Test Sword');
+            expect(data.currency).toEqual({ gold: 5, silver: 0, copper: 0 });
         });
 
         it('should accept "list" alias', async () => {

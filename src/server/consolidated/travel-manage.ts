@@ -11,6 +11,8 @@ import { getDb } from '../../storage/index.js';
 import { CharacterRepository } from '../../storage/repos/character.repo.js';
 import { PartyRepository } from '../../storage/repos/party.repo.js';
 import { CorpseRepository } from '../../storage/repos/corpse.repo.js';
+import { SpatialRepository } from '../../storage/repos/spatial.repo.js';
+import { PoiRepository } from '../../storage/repos/poi.repo.js';
 import { SessionContext } from '../types.js';
 
 export interface McpResponse {
@@ -44,7 +46,9 @@ function ensureDb() {
         db,
         charRepo: new CharacterRepository(db),
         partyRepo: new PartyRepository(db),
-        corpseRepo: new CorpseRepository(db)
+        corpseRepo: new CorpseRepository(db),
+        spatialRepo: new SpatialRepository(db),
+        poiRepo: new PoiRepository(db)
     };
 }
 
@@ -119,7 +123,7 @@ async function handleTravel(input: TravelManageInput, _ctx: SessionContext): Pro
         };
     }
 
-    const { db, partyRepo } = ensureDb();
+    const { partyRepo, spatialRepo, poiRepo } = ensureDb();
 
     // Get party
     const party = partyRepo.getPartyWithMembers(input.partyId);
@@ -134,12 +138,7 @@ async function handleTravel(input: TravelManageInput, _ctx: SessionContext): Pro
     }
 
     // Get POI
-    let poi: Record<string, unknown> | undefined;
-    try {
-        poi = db.prepare('SELECT * FROM pois WHERE id = ?').get(input.poiId) as Record<string, unknown> | undefined;
-    } catch {
-        // POIs table might not exist
-    }
+    const poi = poiRepo.getById(input.poiId);
 
     if (!poi) {
         return {
@@ -164,7 +163,7 @@ async function handleTravel(input: TravelManageInput, _ctx: SessionContext): Pro
         if (discoverer) {
             const wisBonus = Math.floor(((discoverer.stats?.wis || 10) - 10) / 2);
             discoveryRoll = Math.floor(Math.random() * 20) + 1 + wisBonus;
-            const dc = (poi.discoveryDc as number) || 15;
+            const dc = poi.discoveryDc || 15;
             discovered = discoveryRoll >= dc;
         }
     } else if (input.autoDiscover) {
@@ -188,24 +187,21 @@ async function handleTravel(input: TravelManageInput, _ctx: SessionContext): Pro
 
     // Update POI discovery state
     if (poi.discoveryState === 'unknown') {
-        db.prepare('UPDATE pois SET discoveryState = ?, updated_at = ? WHERE id = ?')
-            .run('discovered', new Date().toISOString(), input.poiId);
+        poiRepo.markDiscovered(input.poiId);
     }
 
-    // Update party position
-    db.prepare('UPDATE parties SET currentLocation = ?, updated_at = ? WHERE id = ?')
-        .run(poi.name, new Date().toISOString(), input.partyId);
+    // Update party position through the canonical repository/schema.
+    partyRepo.update(input.partyId, {
+        currentLocation: poi.name,
+        currentPOI: poi.id,
+        positionX: poi.x,
+        positionY: poi.y
+    });
 
     // Enter location if requested
-    let enteredRoom: Record<string, unknown> | null = null;
+    let enteredRoom: ReturnType<SpatialRepository['findRoomsByNetwork']>[number] | null = null;
     if (input.enterLocation && poi.networkId) {
-        try {
-            enteredRoom = db.prepare(`
-                SELECT * FROM rooms WHERE networkId = ? ORDER BY createdAt LIMIT 1
-            `).get(poi.networkId) as Record<string, unknown> | null;
-        } catch {
-            // Rooms table might not exist
-        }
+        enteredRoom = spatialRepo.findRoomsByNetwork(poi.networkId)[0] || null;
     }
 
     let output = RichFormatter.header('Travel Complete', '🚶');
@@ -223,8 +219,8 @@ async function handleTravel(input: TravelManageInput, _ctx: SessionContext): Pro
     if (enteredRoom) {
         output += RichFormatter.section('Entered Location');
         output += `**${enteredRoom.name}**\n`;
-        if (enteredRoom.description) {
-            output += `${enteredRoom.description}\n`;
+        if (enteredRoom.baseDescription) {
+            output += `${enteredRoom.baseDescription}\n`;
         }
     }
 

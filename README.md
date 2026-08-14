@@ -174,7 +174,7 @@ This engine implements the **Event-Driven Agentic AI Architecture**:
 |------|---------|-------------|
 | `secret_manage` | create, get, list, update, delete, reveal, check_conditions | DM secrets with reveal conditions |
 | `narrative_manage` | add, search, update, get, delete, get_context | Story notes and session history |
-| `improvisation_manage` | resolve_stunt, apply_effect, get_effects, remove_effect, advance_duration, attempt_synthesis | Rule of Cool and custom effects |
+| `improvisation_manage` | stunt, apply_effect, get_effects, remove_effect, process_triggers, advance_durations, synthesize, get_spellbook | Rule of Cool and custom effects |
 | `math_manage` | dice_roll, probability, algebra, physics | Dice and calculations |
 | `strategy_manage` | create_nation, get_state, propose_alliance, claim_region | Grand strategy simulation |
 | `turn_manage` | init, get_status, submit_actions, mark_ready, poll_results | Async turn management |

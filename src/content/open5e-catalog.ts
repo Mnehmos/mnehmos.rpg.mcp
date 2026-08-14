@@ -46,6 +46,11 @@ const SpeciesSchema = z.object({
     languages: z.array(z.string()),
     languageChoiceCount: z.number().int().min(0),
     featureNames: z.array(z.string()),
+    mechanics: z.array(z.object({
+        key: z.string(),
+        type: z.literal('max_hp_per_level'),
+        value: z.number().int(),
+    })).default([]),
 });
 
 const BackgroundSchema = z.object({
