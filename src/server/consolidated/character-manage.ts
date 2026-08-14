@@ -99,6 +99,7 @@ const CreateSchema = z.object({
     characterType: CharacterTypeSchema.optional().default('pc'),
     factionId: z.string().optional(),
     behavior: z.string().optional(),
+    cantripsKnown: z.array(z.string()).optional().default([]),
     knownSpells: z.array(z.string()).optional().default([]),
     preparedSpells: z.array(z.string()).optional().default([]),
     resistances: z.array(z.string()).optional().default([]),
@@ -142,6 +143,7 @@ const UpdateSchema = z.object({
     level: z.number().int().min(1).optional(),
     characterType: CharacterTypeSchema.optional(),
     stats: StatsSchema.partial().optional(),
+    cantripsKnown: z.array(z.string()).optional(),
     knownSpells: z.array(z.string()).optional(),
     preparedSpells: z.array(z.string()).optional(),
     skillProficiencies: z.array(SkillProficiencySchema).optional(),
@@ -325,7 +327,7 @@ export async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<
         factionId: args.factionId,
         behavior: args.behavior,
         knownSpells: args.knownSpells || [],
-        cantripsKnown: [],
+        cantripsKnown: args.cantripsKnown || [],
         // Known spells are immediately usable after creation unless the caller
         // explicitly supplies a prepared list.
         preparedSpells: args.preparedSpells?.length
@@ -379,7 +381,9 @@ export async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<
         character.preparedSpells = args.preparedSpells?.length
             ? [...new Set(args.preparedSpells)]
             : [...new Set(character.knownSpells as string[])];
-        character.cantripsKnown = provisioningResult.cantripsGranted || [];
+        character.cantripsKnown = args.cantripsKnown?.length
+            ? [...new Set(args.cantripsKnown)]
+            : provisioningResult.cantripsGranted || [];
         character.spellSlots = convertSpellSlotsToObject(provisioningResult.spellSlots ?? null);
         character.pactMagicSlots = provisioningResult.pactMagicSlots || undefined;
 
@@ -480,6 +484,7 @@ async function handleUpdate(args: z.infer<typeof UpdateSchema>): Promise<object>
     if (args.alignment !== undefined) updateData.alignment = args.alignment;
     if (args.origin !== undefined) updateData.origin = args.origin;
     if (args.stats !== undefined) updateData.stats = args.stats;
+    if (args.cantripsKnown !== undefined) updateData.cantripsKnown = args.cantripsKnown;
     if (args.knownSpells !== undefined) updateData.knownSpells = args.knownSpells;
     if (args.preparedSpells !== undefined) updateData.preparedSpells = args.preparedSpells;
     if (args.skillProficiencies !== undefined) updateData.skillProficiencies = args.skillProficiencies;

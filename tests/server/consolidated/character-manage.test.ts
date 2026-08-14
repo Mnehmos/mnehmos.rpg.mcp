@@ -92,6 +92,29 @@ describe('character_manage consolidated tool', () => {
             expect(parsed.toolProficiencies).toEqual(['vehicles (land)']);
         });
 
+        it('persists explicit cantrips on create and update', async () => {
+            const createdResult = await handleCharacterManage({
+                action: 'create',
+                name: 'Spellbook Test',
+                class: 'Wizard',
+                cantripsKnown: ['Fire Bolt'],
+                knownSpells: ['Magic Missile'],
+                preparedSpells: ['Magic Missile'],
+            }, ctx);
+            const created = extractJson(createdResult.content[0].text);
+
+            expect(created.cantripsKnown).toEqual(['Fire Bolt']);
+
+            const updatedResult = await handleCharacterManage({
+                action: 'update',
+                characterId: created.id,
+                cantripsKnown: ['Ray of Frost'],
+            }, ctx);
+            const updated = extractJson(updatedResult.content[0].text);
+
+            expect(updated.cantripsKnown).toEqual(['Ray of Frost']);
+        });
+
         it('round-trips all character proficiency fields through get and update', async () => {
             const createdResult = await handleCharacterManage({
                 action: 'create',
