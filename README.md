@@ -55,7 +55,7 @@ This release consolidates 195 individual tools into **29 action-based tools** pl
 - **Guiding errors** - Clear feedback when actions don't match
 
 **Before:** `create_character`, `get_character`, `update_character`, `delete_character`, `list_characters`...
-**After:** `character_manage` with actions: `create`, `get`, `update`, `delete`, `list`, `search`
+**After:** `character_manage` with action-based CRUD, progression, and source-backed creation options
 
 ### Key Metrics
 
@@ -124,7 +124,7 @@ This engine implements the **Event-Driven Agentic AI Architecture**:
 
 | Tool | Actions | Description |
 |------|---------|-------------|
-| `character_manage` | create, get, update, delete, list, search | Full character CRUD with D&D stat blocks |
+| `character_manage` | create, get, update, delete, list, options, add_xp, level_up | Character CRUD plus pinned SRD creation mechanics |
 | `party_manage` | create, get, update, delete, add_member, remove_member, set_leader, context | Party management and member operations |
 
 ### Combat System
@@ -139,7 +139,7 @@ This engine implements the **Event-Driven Agentic AI Architecture**:
 
 | Tool | Actions | Description |
 |------|---------|-------------|
-| `item_manage` | create, get, update, delete, list, search | Item template CRUD |
+| `item_manage` | create, get, update, delete, list, search, catalog_search, catalog_get, materialize | Custom items plus pinned SRD lookup/materialization |
 | `inventory_manage` | give, remove, transfer, equip, unequip, use | Inventory operations between characters |
 | `corpse_manage` | create, get, list, loot, harvest, advance_decay, cleanup | Death and loot mechanics |
 | `theft_manage` | steal, check_stolen, check_recognition, report | Theft with heat tracking |

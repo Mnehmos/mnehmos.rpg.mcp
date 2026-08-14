@@ -4,6 +4,8 @@
 
 This document defines how Open5e research becomes stable engine data. It is not a runtime integration design.
 
+The first reviewed runtime slice is checked in at `config/open5e-srd-2014-runtime.json`. The engine reads that local artifact; it does not call Open5e during play. Regenerate it manually with `npm run open5e:sync-runtime -- --pack-dir <pinned-pack>` after reviewing and updating the expected pack hash in the generator.
+
 ## 2. Source boundary
 
 Use the local Open5e MCP during development to:
@@ -63,9 +65,9 @@ For every record:
 
 - Ability scores and modifiers.
 - Proficiency bonus.
-- Four starting classes.
-- Four to six ancestries.
-- Background/personality fields.
+- Twelve SRD base classes (runtime catalog landed).
+- Thirteen SRD species profiles (runtime catalog landed).
+- Source-backed background mechanics where the reviewed SRD pack has a selectable profile; custom backgrounds remain supported.
 
 ### Slice B: basic play
 
@@ -75,6 +77,8 @@ For every record:
 - Basic equipment.
 - Armor Class.
 - Carrying and inventory limits only if already supported.
+
+The checked-in first slice contains 237 SRD item definitions. Source items are materialized into deterministic engine templates, and reviewed equip-slot/AC mechanics are enforced by the inventory engine.
 
 ### Slice C: combat
 

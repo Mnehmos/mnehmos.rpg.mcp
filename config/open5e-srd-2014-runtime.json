@@ -1,0 +1,5771 @@
+{
+  "schemaVersion": 1,
+  "provenance": {
+    "provider": "Open5e",
+    "sourceApiVersion": "v2",
+    "sourceFetchedAt": "2026-08-07T06:16:36.932Z",
+    "packVersion": "open5e-v2-full-corpus-s8",
+    "packHash": "fbd846cf7b7833560b22f4ebffaf950fb6b2adf62cf9c6fff469266325ac31fa",
+    "rulesVersion": "open5e-v2-full-corpus-s8@fbd846cf7b7833560b22f4ebffaf950fb6b2adf62cf9c6fff469266325ac31fa",
+    "gamesystem": "5e-2014",
+    "documents": [
+      "core",
+      "srd-2014"
+    ],
+    "license": {
+      "key": "cc-by-40",
+      "name": "Creative Commons Attribution 4.0",
+      "url": "https://creativecommons.org/licenses/by/4.0/",
+      "source": "https://dnd.wizards.com/resources/systems-reference-document",
+      "attribution": "System Reference Document 5.1 by Wizards of the Coast, via Open5e."
+    }
+  },
+  "classes": [
+    {
+      "sourceKey": "srd_barbarian",
+      "contentKey": "open5e:class:5e-2014:srd-2014:srd_barbarian",
+      "name": "Barbarian",
+      "hitDie": 12,
+      "savingThrows": [
+        "str",
+        "con"
+      ],
+      "armorProficiencies": [
+        "light armor",
+        "medium armor",
+        "shields"
+      ],
+      "weaponProficiencies": [
+        "simple weapons",
+        "martial weapons"
+      ],
+      "toolProficiencies": [],
+      "toolChoice": null,
+      "skillChoice": {
+        "count": 2,
+        "options": [
+          {
+            "key": "animal_handling",
+            "name": "Animal Handling"
+          },
+          {
+            "key": "athletics",
+            "name": "Athletics"
+          },
+          {
+            "key": "intimidation",
+            "name": "Intimidation"
+          },
+          {
+            "key": "nature",
+            "name": "Nature"
+          },
+          {
+            "key": "perception",
+            "name": "Perception"
+          },
+          {
+            "key": "survival",
+            "name": "Survival"
+          }
+        ]
+      },
+      "levelOneFeatures": [
+        "Rage",
+        "Unarmored Defense"
+      ],
+      "startingEquipmentDescription": "You start with the following equipment, in addition to the equipment granted by your background:\r\n* (*a*) a greataxe or (*b*) any martial melee weapon\r\n* (*a*) two handaxes or (*b*) any simple weapon\r\n* An explorer’s pack and four javelins"
+    },
+    {
+      "sourceKey": "srd_bard",
+      "contentKey": "open5e:class:5e-2014:srd-2014:srd_bard",
+      "name": "Bard",
+      "hitDie": 8,
+      "savingThrows": [
+        "dex",
+        "cha"
+      ],
+      "armorProficiencies": [
+        "light armor"
+      ],
+      "weaponProficiencies": [
+        "simple weapons",
+        "hand crossbows",
+        "longswords",
+        "rapiers",
+        "shortswords"
+      ],
+      "toolProficiencies": [],
+      "toolChoice": {
+        "count": 3,
+        "description": "Three musical instruments of your choice"
+      },
+      "skillChoice": {
+        "count": 3,
+        "options": [
+          {
+            "key": "acrobatics",
+            "name": "Acrobatics"
+          },
+          {
+            "key": "animal_handling",
+            "name": "Animal Handling"
+          },
+          {
+            "key": "arcana",
+            "name": "Arcana"
+          },
+          {
+            "key": "athletics",
+            "name": "Athletics"
+          },
+          {
+            "key": "deception",
+            "name": "Deception"
+          },
+          {
+            "key": "history",
+            "name": "History"
+          },
+          {
+            "key": "insight",
+            "name": "Insight"
+          },
+          {
+            "key": "intimidation",
+            "name": "Intimidation"
+          },
+          {
+            "key": "investigation",
+            "name": "Investigation"
+          },
+          {
+            "key": "medicine",
+            "name": "Medicine"
+          },
+          {
+            "key": "nature",
+            "name": "Nature"
+          },
+          {
+            "key": "perception",
+            "name": "Perception"
+          },
+          {
+            "key": "performance",
+            "name": "Performance"
+          },
+          {
+            "key": "persuasion",
+            "name": "Persuasion"
+          },
+          {
+            "key": "religion",
+            "name": "Religion"
+          },
+          {
+            "key": "sleight_of_hand",
+            "name": "Sleight of Hand"
+          },
+          {
+            "key": "stealth",
+            "name": "Stealth"
+          },
+          {
+            "key": "survival",
+            "name": "Survival"
+          }
+        ]
+      },
+      "levelOneFeatures": [
+        "Bardic Inspiration",
+        "Spellcasting"
+      ],
+      "startingEquipmentDescription": "You start with the following equipment, in addition to the equipment granted by your background:\r\n* (*a*) a rapier, (*b*) a longsword, or (*c*) any simple weapon\r\n* (*a*) a diplomat’s pack or (*b*) an entertainer’s pack\r\n* (*a*) a lute or (*b*) any other musical instrument\r\n* Leather armor and a dagger"
+    },
+    {
+      "sourceKey": "srd_cleric",
+      "contentKey": "open5e:class:5e-2014:srd-2014:srd_cleric",
+      "name": "Cleric",
+      "hitDie": 8,
+      "savingThrows": [
+        "wis",
+        "cha"
+      ],
+      "armorProficiencies": [
+        "light armor",
+        "medium armor",
+        "shields"
+      ],
+      "weaponProficiencies": [
+        "simple weapons"
+      ],
+      "toolProficiencies": [],
+      "toolChoice": null,
+      "skillChoice": {
+        "count": 2,
+        "options": [
+          {
+            "key": "history",
+            "name": "History"
+          },
+          {
+            "key": "insight",
+            "name": "Insight"
+          },
+          {
+            "key": "medicine",
+            "name": "Medicine"
+          },
+          {
+            "key": "persuasion",
+            "name": "Persuasion"
+          },
+          {
+            "key": "religion",
+            "name": "Religion"
+          }
+        ]
+      },
+      "levelOneFeatures": [
+        "Divine Domain",
+        "Spellcasting"
+      ],
+      "startingEquipmentDescription": "You start with the following equipment, in addition to the equipment granted by your background:\r\n* (*a*) a mace or (*b*) a warhammer (if proficient)\r\n* (*a*) scale mail, (*b*) leather armor, or (*c*) chain mail (if proficient)\r\n* (*a*) a light crossbow and 20 bolts or (*b*) any simple weapon\r\n* (*a*) a priest’s pack or (*b*) an explorer’s pack\r\n* A shield and a holy symbol"
+    },
+    {
+      "sourceKey": "srd_druid",
+      "contentKey": "open5e:class:5e-2014:srd-2014:srd_druid",
+      "name": "Druid",
+      "hitDie": 8,
+      "savingThrows": [
+        "int",
+        "wis"
+      ],
+      "armorProficiencies": [
+        "light armor",
+        "medium armor",
+        "shields"
+      ],
+      "weaponProficiencies": [
+        "clubs",
+        "daggers",
+        "darts",
+        "javelins",
+        "maces",
+        "quarterstaffs",
+        "scimitars",
+        "sickles",
+        "slings",
+        "spears"
+      ],
+      "toolProficiencies": [
+        "herbalism kit"
+      ],
+      "toolChoice": null,
+      "skillChoice": {
+        "count": 2,
+        "options": [
+          {
+            "key": "animal_handling",
+            "name": "Animal Handling"
+          },
+          {
+            "key": "arcana",
+            "name": "Arcana"
+          },
+          {
+            "key": "insight",
+            "name": "Insight"
+          },
+          {
+            "key": "medicine",
+            "name": "Medicine"
+          },
+          {
+            "key": "nature",
+            "name": "Nature"
+          },
+          {
+            "key": "perception",
+            "name": "Perception"
+          },
+          {
+            "key": "religion",
+            "name": "Religion"
+          },
+          {
+            "key": "survival",
+            "name": "Survival"
+          }
+        ]
+      },
+      "levelOneFeatures": [
+        "Druidic",
+        "Spellcasting"
+      ],
+      "startingEquipmentDescription": "You start with the following equipment, in addition to the equipment granted by your background:\r\n* (*a*) a wooden shield or (*b*) any simple weapon\r\n* (*a*) a scimitar or (*b*) any simple melee weapon\r\n* Leather armor, an explorer’s pack, and a druidic focus"
+    },
+    {
+      "sourceKey": "srd_fighter",
+      "contentKey": "open5e:class:5e-2014:srd-2014:srd_fighter",
+      "name": "Fighter",
+      "hitDie": 10,
+      "savingThrows": [
+        "str",
+        "con"
+      ],
+      "armorProficiencies": [
+        "all armor",
+        "shields"
+      ],
+      "weaponProficiencies": [
+        "simple weapons",
+        "martial weapons"
+      ],
+      "toolProficiencies": [],
+      "toolChoice": null,
+      "skillChoice": {
+        "count": 2,
+        "options": [
+          {
+            "key": "acrobatics",
+            "name": "Acrobatics"
+          },
+          {
+            "key": "animal_handling",
+            "name": "Animal Handling"
+          },
+          {
+            "key": "athletics",
+            "name": "Athletics"
+          },
+          {
+            "key": "history",
+            "name": "History"
+          },
+          {
+            "key": "insight",
+            "name": "Insight"
+          },
+          {
+            "key": "intimidation",
+            "name": "Intimidation"
+          },
+          {
+            "key": "perception",
+            "name": "Perception"
+          },
+          {
+            "key": "survival",
+            "name": "Survival"
+          }
+        ]
+      },
+      "levelOneFeatures": [
+        "Fighting Style",
+        "Second Wind"
+      ],
+      "startingEquipmentDescription": "You start with the following equipment, in addition to the equipment granted by your background:\r\n* (*a*) chain mail or (*b*) leather armor, longbow, and 20 arrows\r\n* (*a*) a martial weapon and a shield or (*b*) two martial weapons\r\n* (*a*) a light crossbow and 20 bolts or (*b*) two handaxes\r\n* (*a*) a dungeoneer’s pack or (*b*) an explorer’s pack"
+    },
+    {
+      "sourceKey": "srd_monk",
+      "contentKey": "open5e:class:5e-2014:srd-2014:srd_monk",
+      "name": "Monk",
+      "hitDie": 8,
+      "savingThrows": [
+        "str",
+        "dex"
+      ],
+      "armorProficiencies": [],
+      "weaponProficiencies": [
+        "simple weapons",
+        "shortswords"
+      ],
+      "toolProficiencies": [],
+      "toolChoice": {
+        "count": 1,
+        "description": "Choose one type of artisan's tools or one musical instrument"
+      },
+      "skillChoice": {
+        "count": 2,
+        "options": [
+          {
+            "key": "acrobatics",
+            "name": "Acrobatics"
+          },
+          {
+            "key": "athletics",
+            "name": "Athletics"
+          },
+          {
+            "key": "history",
+            "name": "History"
+          },
+          {
+            "key": "insight",
+            "name": "Insight"
+          },
+          {
+            "key": "religion",
+            "name": "Religion"
+          },
+          {
+            "key": "stealth",
+            "name": "Stealth"
+          }
+        ]
+      },
+      "levelOneFeatures": [
+        "Martial Arts",
+        "Unarmored Defense"
+      ],
+      "startingEquipmentDescription": "You start with the following equipment, in addition to the equipment granted by your background:\r\n* (*a*) a shortsword or (*b*) any simple weapon\r\n* (*a*) a dungeoneer’s pack or (*b*) an explorer’s pack\r\n* 10 darts"
+    },
+    {
+      "sourceKey": "srd_paladin",
+      "contentKey": "open5e:class:5e-2014:srd-2014:srd_paladin",
+      "name": "Paladin",
+      "hitDie": 10,
+      "savingThrows": [
+        "wis",
+        "cha"
+      ],
+      "armorProficiencies": [
+        "all armor",
+        "shields"
+      ],
+      "weaponProficiencies": [
+        "simple weapons",
+        "martial weapons"
+      ],
+      "toolProficiencies": [],
+      "toolChoice": null,
+      "skillChoice": {
+        "count": 2,
+        "options": [
+          {
+            "key": "athletics",
+            "name": "Athletics"
+          },
+          {
+            "key": "insight",
+            "name": "Insight"
+          },
+          {
+            "key": "intimidation",
+            "name": "Intimidation"
+          },
+          {
+            "key": "medicine",
+            "name": "Medicine"
+          },
+          {
+            "key": "persuasion",
+            "name": "Persuasion"
+          },
+          {
+            "key": "religion",
+            "name": "Religion"
+          }
+        ]
+      },
+      "levelOneFeatures": [
+        "Divine Sense",
+        "Lay on Hands"
+      ],
+      "startingEquipmentDescription": "You start with the following equipment, in addition to the equipment granted by your background:\r\n* (*a*) a martial weapon and a shield or (*b*) two martial weapons\r\n* (*a*) five javelins or (*b*) any simple melee weapon\r\n* (*a*) a priest’s pack or (*b*) an explorer’s pack\r\n* Chain mail and a holy symbol"
+    },
+    {
+      "sourceKey": "srd_ranger",
+      "contentKey": "open5e:class:5e-2014:srd-2014:srd_ranger",
+      "name": "Ranger",
+      "hitDie": 10,
+      "savingThrows": [
+        "str",
+        "dex"
+      ],
+      "armorProficiencies": [
+        "light armor",
+        "medium armor",
+        "shields"
+      ],
+      "weaponProficiencies": [
+        "simple weapons",
+        "martial weapons"
+      ],
+      "toolProficiencies": [],
+      "toolChoice": null,
+      "skillChoice": {
+        "count": 3,
+        "options": [
+          {
+            "key": "animal_handling",
+            "name": "Animal Handling"
+          },
+          {
+            "key": "athletics",
+            "name": "Athletics"
+          },
+          {
+            "key": "insight",
+            "name": "Insight"
+          },
+          {
+            "key": "investigation",
+            "name": "Investigation"
+          },
+          {
+            "key": "nature",
+            "name": "Nature"
+          },
+          {
+            "key": "perception",
+            "name": "Perception"
+          },
+          {
+            "key": "stealth",
+            "name": "Stealth"
+          },
+          {
+            "key": "survival",
+            "name": "Survival"
+          }
+        ]
+      },
+      "levelOneFeatures": [
+        "Favored Enemy",
+        "Natural Explorer"
+      ],
+      "startingEquipmentDescription": "You start with the following equipment, in addition to the equipment granted by your background:\r\n* (*a*) scale mail or (*b*) leather armor\r\n* (*a*) two shortswords or (*b*) two simple melee weapons\r\n* (*a*) a dungeoneer’s pack or (*b*) an explorer’s pack\r\n* A longbow and a quiver of 20 arrows"
+    },
+    {
+      "sourceKey": "srd_rogue",
+      "contentKey": "open5e:class:5e-2014:srd-2014:srd_rogue",
+      "name": "Rogue",
+      "hitDie": 8,
+      "savingThrows": [
+        "dex",
+        "int"
+      ],
+      "armorProficiencies": [
+        "light armor"
+      ],
+      "weaponProficiencies": [
+        "simple weapons",
+        "hand crossbows",
+        "longswords",
+        "rapiers",
+        "shortswords"
+      ],
+      "toolProficiencies": [
+        "thieves' tools"
+      ],
+      "toolChoice": null,
+      "skillChoice": {
+        "count": 4,
+        "options": [
+          {
+            "key": "acrobatics",
+            "name": "Acrobatics"
+          },
+          {
+            "key": "athletics",
+            "name": "Athletics"
+          },
+          {
+            "key": "deception",
+            "name": "Deception"
+          },
+          {
+            "key": "insight",
+            "name": "Insight"
+          },
+          {
+            "key": "intimidation",
+            "name": "Intimidation"
+          },
+          {
+            "key": "investigation",
+            "name": "Investigation"
+          },
+          {
+            "key": "perception",
+            "name": "Perception"
+          },
+          {
+            "key": "performance",
+            "name": "Performance"
+          },
+          {
+            "key": "persuasion",
+            "name": "Persuasion"
+          },
+          {
+            "key": "sleight_of_hand",
+            "name": "Sleight of Hand"
+          },
+          {
+            "key": "stealth",
+            "name": "Stealth"
+          }
+        ]
+      },
+      "levelOneFeatures": [
+        "Expertise",
+        "Sneak Attack",
+        "Thieves' Cant"
+      ],
+      "startingEquipmentDescription": "You start with the following equipment, in addition to the equipment granted by your background:\r\n* (*a*) a rapier or (*b*) a shortsword\r\n* (*a*) a shortbow and quiver of 20 arrows or (*b*) a shortsword\r\n* (*a*) a burglar’s pack, (*b*) a dungeoneer’s pack, or (*c*) an explorer’s pack\r\n* (*a*) Leather armor, two daggers, and thieves’ tools"
+    },
+    {
+      "sourceKey": "srd_sorcerer",
+      "contentKey": "open5e:class:5e-2014:srd-2014:srd_sorcerer",
+      "name": "Sorcerer",
+      "hitDie": 6,
+      "savingThrows": [
+        "con",
+        "cha"
+      ],
+      "armorProficiencies": [],
+      "weaponProficiencies": [
+        "daggers",
+        "darts",
+        "slings",
+        "quarterstaffs",
+        "light crossbows"
+      ],
+      "toolProficiencies": [],
+      "toolChoice": null,
+      "skillChoice": {
+        "count": 2,
+        "options": [
+          {
+            "key": "arcana",
+            "name": "Arcana"
+          },
+          {
+            "key": "deception",
+            "name": "Deception"
+          },
+          {
+            "key": "insight",
+            "name": "Insight"
+          },
+          {
+            "key": "intimidation",
+            "name": "Intimidation"
+          },
+          {
+            "key": "persuasion",
+            "name": "Persuasion"
+          },
+          {
+            "key": "religion",
+            "name": "Religion"
+          }
+        ]
+      },
+      "levelOneFeatures": [
+        "Sorcerous Origin",
+        "Spellcasting"
+      ],
+      "startingEquipmentDescription": "You start with the following equipment, in addition to the equipment granted by your background:\r\n* (*a*) a light crossbow and 20 bolts or (*b*) any simple weapon\r\n* (*a*) a component pouch or (*b*) an arcane focus\r\n* (*a*) a dungeoneer’s pack or (*b*) an explorer’s pack\r\n* Two daggers"
+    },
+    {
+      "sourceKey": "srd_warlock",
+      "contentKey": "open5e:class:5e-2014:srd-2014:srd_warlock",
+      "name": "Warlock",
+      "hitDie": 8,
+      "savingThrows": [
+        "wis",
+        "cha"
+      ],
+      "armorProficiencies": [
+        "light armor"
+      ],
+      "weaponProficiencies": [
+        "simple weapons"
+      ],
+      "toolProficiencies": [],
+      "toolChoice": null,
+      "skillChoice": {
+        "count": 2,
+        "options": [
+          {
+            "key": "arcana",
+            "name": "Arcana"
+          },
+          {
+            "key": "deception",
+            "name": "Deception"
+          },
+          {
+            "key": "history",
+            "name": "History"
+          },
+          {
+            "key": "intimidation",
+            "name": "Intimidation"
+          },
+          {
+            "key": "investigation",
+            "name": "Investigation"
+          },
+          {
+            "key": "nature",
+            "name": "Nature"
+          },
+          {
+            "key": "religion",
+            "name": "Religion"
+          }
+        ]
+      },
+      "levelOneFeatures": [
+        "Otherworldly Patron",
+        "Pact Magic"
+      ],
+      "startingEquipmentDescription": "You start with the following equipment, in addition to the equipment granted by your background:\r\n* (*a*) a light crossbow and 20 bolts or (*b*) any simple weapon\r\n* (*a*) a component pouch or (*b*) an arcane focus\r\n* (*a*) a scholar’s pack or (*b*) a dungeoneer’s pack\r\n* Leather armor, any simple weapon, and two daggers"
+    },
+    {
+      "sourceKey": "srd_wizard",
+      "contentKey": "open5e:class:5e-2014:srd-2014:srd_wizard",
+      "name": "Wizard",
+      "hitDie": 6,
+      "savingThrows": [
+        "int",
+        "wis"
+      ],
+      "armorProficiencies": [],
+      "weaponProficiencies": [
+        "daggers",
+        "darts",
+        "slings",
+        "quarterstaffs",
+        "light crossbows"
+      ],
+      "toolProficiencies": [],
+      "toolChoice": null,
+      "skillChoice": {
+        "count": 2,
+        "options": [
+          {
+            "key": "arcana",
+            "name": "Arcana"
+          },
+          {
+            "key": "history",
+            "name": "History"
+          },
+          {
+            "key": "insight",
+            "name": "Insight"
+          },
+          {
+            "key": "investigation",
+            "name": "Investigation"
+          },
+          {
+            "key": "medicine",
+            "name": "Medicine"
+          },
+          {
+            "key": "religion",
+            "name": "Religion"
+          }
+        ]
+      },
+      "levelOneFeatures": [
+        "Arcane Recovery",
+        "Spellcasting"
+      ],
+      "startingEquipmentDescription": "You start with the following equipment, in addition to the equipment granted by your background:\r\n* (*a*) a quarterstaff or (*b*) a dagger\r\n* (*a*) a component pouch or (*b*) an arcane focus\r\n* (*a*) a scholar’s pack or (*b*) an explorer’s pack\r\n* A spellbook"
+    }
+  ],
+  "species": [
+    {
+      "sourceKey": "srd_dragonborn",
+      "contentKey": "open5e:species:5e-2014:srd-2014:srd_dragonborn",
+      "name": "Dragonborn",
+      "parent": null,
+      "abilityBonuses": {
+        "str": 2,
+        "dex": 0,
+        "con": 0,
+        "int": 0,
+        "wis": 0,
+        "cha": 1
+      },
+      "abilityChoice": null,
+      "size": "Medium",
+      "speedFeet": 30,
+      "languages": [
+        "Common",
+        "Draconic"
+      ],
+      "languageChoiceCount": 0,
+      "featureNames": [
+        "Draconic Ancestry table",
+        "Draconic Ancestry",
+        "Breath Weapon",
+        "Damage Resistance"
+      ]
+    },
+    {
+      "sourceKey": "srd_dwarf",
+      "contentKey": "open5e:species:5e-2014:srd-2014:srd_dwarf",
+      "name": "Dwarf",
+      "parent": null,
+      "abilityBonuses": {
+        "str": 0,
+        "dex": 0,
+        "con": 2,
+        "int": 0,
+        "wis": 0,
+        "cha": 0
+      },
+      "abilityChoice": null,
+      "size": "Medium",
+      "speedFeet": 25,
+      "languages": [
+        "Common",
+        "Dwarvish"
+      ],
+      "languageChoiceCount": 0,
+      "featureNames": [
+        "Darkvision",
+        "Dwarven Resilience",
+        "Dwarven Combat Training",
+        "Tool Proficiency",
+        "Stonecunning"
+      ]
+    },
+    {
+      "sourceKey": "srd_elf",
+      "contentKey": "open5e:species:5e-2014:srd-2014:srd_elf",
+      "name": "Elf",
+      "parent": null,
+      "abilityBonuses": {
+        "str": 0,
+        "dex": 2,
+        "con": 0,
+        "int": 0,
+        "wis": 0,
+        "cha": 0
+      },
+      "abilityChoice": null,
+      "size": "Medium",
+      "speedFeet": 30,
+      "languages": [
+        "Common",
+        "Elvish"
+      ],
+      "languageChoiceCount": 0,
+      "featureNames": [
+        "Darkvision",
+        "Keen Senses",
+        "Fey Ancestry",
+        "Trance"
+      ]
+    },
+    {
+      "sourceKey": "srd_gnome",
+      "contentKey": "open5e:species:5e-2014:srd-2014:srd_gnome",
+      "name": "Gnome",
+      "parent": null,
+      "abilityBonuses": {
+        "str": 0,
+        "dex": 0,
+        "con": 0,
+        "int": 2,
+        "wis": 0,
+        "cha": 0
+      },
+      "abilityChoice": null,
+      "size": "Small",
+      "speedFeet": 25,
+      "languages": [
+        "Common",
+        "Gnomish"
+      ],
+      "languageChoiceCount": 0,
+      "featureNames": [
+        "Darkvision",
+        "Gnome Cunning"
+      ]
+    },
+    {
+      "sourceKey": "srd_half-elf",
+      "contentKey": "open5e:species:5e-2014:srd-2014:srd_half-elf",
+      "name": "Half-Elf",
+      "parent": null,
+      "abilityBonuses": {
+        "str": 0,
+        "dex": 0,
+        "con": 0,
+        "int": 0,
+        "wis": 0,
+        "cha": 2
+      },
+      "abilityChoice": {
+        "count": 2,
+        "bonus": 1,
+        "excluded": [
+          "cha"
+        ]
+      },
+      "size": "Medium",
+      "speedFeet": 30,
+      "languages": [
+        "Common",
+        "Elvish"
+      ],
+      "languageChoiceCount": 1,
+      "featureNames": [
+        "Darkvision",
+        "Fey Ancestry",
+        "Skill Versatility"
+      ]
+    },
+    {
+      "sourceKey": "srd_half-orc",
+      "contentKey": "open5e:species:5e-2014:srd-2014:srd_half-orc",
+      "name": "Half-Orc",
+      "parent": null,
+      "abilityBonuses": {
+        "str": 2,
+        "dex": 0,
+        "con": 1,
+        "int": 0,
+        "wis": 0,
+        "cha": 0
+      },
+      "abilityChoice": null,
+      "size": "Medium",
+      "speedFeet": 30,
+      "languages": [
+        "Common",
+        "Orc"
+      ],
+      "languageChoiceCount": 0,
+      "featureNames": [
+        "Darkvision",
+        "Menacing",
+        "Relentless Endurance",
+        "Savage Attacks"
+      ]
+    },
+    {
+      "sourceKey": "srd_halfling",
+      "contentKey": "open5e:species:5e-2014:srd-2014:srd_halfling",
+      "name": "Halfling",
+      "parent": null,
+      "abilityBonuses": {
+        "str": 0,
+        "dex": 2,
+        "con": 0,
+        "int": 0,
+        "wis": 0,
+        "cha": 0
+      },
+      "abilityChoice": null,
+      "size": "Small",
+      "speedFeet": 25,
+      "languages": [
+        "Common",
+        "Halfling"
+      ],
+      "languageChoiceCount": 0,
+      "featureNames": [
+        "Lucky",
+        "Brave",
+        "Halfling Nimbleness"
+      ]
+    },
+    {
+      "sourceKey": "srd_high-elf",
+      "contentKey": "open5e:species:5e-2014:srd-2014:srd_high-elf",
+      "name": "High Elf",
+      "parent": {
+        "sourceKey": "srd_elf",
+        "contentKey": "open5e:species:5e-2014:srd-2014:srd_elf",
+        "name": "Elf"
+      },
+      "abilityBonuses": {
+        "str": 0,
+        "dex": 2,
+        "con": 0,
+        "int": 1,
+        "wis": 0,
+        "cha": 0
+      },
+      "abilityChoice": null,
+      "size": "Medium",
+      "speedFeet": 30,
+      "languages": [
+        "Common",
+        "Elvish"
+      ],
+      "languageChoiceCount": 1,
+      "featureNames": [
+        "Darkvision",
+        "Keen Senses",
+        "Fey Ancestry",
+        "Trance",
+        "Elf Weapon Training",
+        "Cantrip"
+      ]
+    },
+    {
+      "sourceKey": "srd_hill-dwarf",
+      "contentKey": "open5e:species:5e-2014:srd-2014:srd_hill-dwarf",
+      "name": "Hill Dwarf",
+      "parent": {
+        "sourceKey": "srd_dwarf",
+        "contentKey": "open5e:species:5e-2014:srd-2014:srd_dwarf",
+        "name": "Dwarf"
+      },
+      "abilityBonuses": {
+        "str": 0,
+        "dex": 0,
+        "con": 2,
+        "int": 0,
+        "wis": 1,
+        "cha": 0
+      },
+      "abilityChoice": null,
+      "size": "Medium",
+      "speedFeet": 25,
+      "languages": [
+        "Common",
+        "Dwarvish"
+      ],
+      "languageChoiceCount": 0,
+      "featureNames": [
+        "Darkvision",
+        "Dwarven Resilience",
+        "Dwarven Combat Training",
+        "Tool Proficiency",
+        "Stonecunning",
+        "Dwarven Toughness"
+      ]
+    },
+    {
+      "sourceKey": "srd_human",
+      "contentKey": "open5e:species:5e-2014:srd-2014:srd_human",
+      "name": "Human",
+      "parent": null,
+      "abilityBonuses": {
+        "str": 1,
+        "dex": 1,
+        "con": 1,
+        "int": 1,
+        "wis": 1,
+        "cha": 1
+      },
+      "abilityChoice": null,
+      "size": "Medium",
+      "speedFeet": 30,
+      "languages": [
+        "Common"
+      ],
+      "languageChoiceCount": 1,
+      "featureNames": []
+    },
+    {
+      "sourceKey": "srd_lightfoot",
+      "contentKey": "open5e:species:5e-2014:srd-2014:srd_lightfoot",
+      "name": "Lightfoot",
+      "parent": {
+        "sourceKey": "srd_halfling",
+        "contentKey": "open5e:species:5e-2014:srd-2014:srd_halfling",
+        "name": "Halfling"
+      },
+      "abilityBonuses": {
+        "str": 0,
+        "dex": 2,
+        "con": 0,
+        "int": 0,
+        "wis": 0,
+        "cha": 1
+      },
+      "abilityChoice": null,
+      "size": "Small",
+      "speedFeet": 25,
+      "languages": [
+        "Common",
+        "Halfling"
+      ],
+      "languageChoiceCount": 0,
+      "featureNames": [
+        "Lucky",
+        "Brave",
+        "Halfling Nimbleness",
+        "Naturally Stealthy"
+      ]
+    },
+    {
+      "sourceKey": "srd_rock-gnome",
+      "contentKey": "open5e:species:5e-2014:srd-2014:srd_rock-gnome",
+      "name": "Rock Gnome",
+      "parent": {
+        "sourceKey": "srd_gnome",
+        "contentKey": "open5e:species:5e-2014:srd-2014:srd_gnome",
+        "name": "Gnome"
+      },
+      "abilityBonuses": {
+        "str": 0,
+        "dex": 0,
+        "con": 1,
+        "int": 2,
+        "wis": 0,
+        "cha": 0
+      },
+      "abilityChoice": null,
+      "size": "Small",
+      "speedFeet": 25,
+      "languages": [
+        "Common",
+        "Gnomish"
+      ],
+      "languageChoiceCount": 0,
+      "featureNames": [
+        "Darkvision",
+        "Gnome Cunning",
+        "Artificer's Lore",
+        "Tinker"
+      ]
+    },
+    {
+      "sourceKey": "srd_tiefling",
+      "contentKey": "open5e:species:5e-2014:srd-2014:srd_tiefling",
+      "name": "Tiefling",
+      "parent": null,
+      "abilityBonuses": {
+        "str": 0,
+        "dex": 0,
+        "con": 0,
+        "int": 1,
+        "wis": 0,
+        "cha": 2
+      },
+      "abilityChoice": null,
+      "size": "Medium",
+      "speedFeet": 30,
+      "languages": [
+        "Common",
+        "Infernal"
+      ],
+      "languageChoiceCount": 0,
+      "featureNames": [
+        "Darkvision",
+        "Hellish Resistance",
+        "Infernal Legacy"
+      ]
+    }
+  ],
+  "backgrounds": [
+    {
+      "sourceKey": "srd_acolyte",
+      "contentKey": "open5e:background:5e-2014:srd-2014:srd_acolyte",
+      "name": "Acolyte",
+      "skillProficiencies": [
+        "insight",
+        "religion"
+      ],
+      "skillChoice": null,
+      "fixedLanguages": [],
+      "languageChoiceCount": 2,
+      "toolProficiencies": [],
+      "toolChoice": null,
+      "startingCurrencyCopper": 1500,
+      "startingItemSourceKeys": [
+        "srd_clothes-common",
+        "srd_pouch"
+      ],
+      "startingEquipmentDescription": "A holy symbol (a gift to you when you entered the priesthood), a prayer book or prayer wheel, 5 sticks of incense, vestments, a set of common clothes, and a pouch containing 15 gp"
+    }
+  ],
+  "skills": [
+    {
+      "key": "acrobatics",
+      "name": "Acrobatics",
+      "ability": "dex"
+    },
+    {
+      "key": "animal_handling",
+      "name": "Animal Handling",
+      "ability": "wis"
+    },
+    {
+      "key": "arcana",
+      "name": "Arcana",
+      "ability": "int"
+    },
+    {
+      "key": "athletics",
+      "name": "Athletics",
+      "ability": "str"
+    },
+    {
+      "key": "deception",
+      "name": "Deception",
+      "ability": "cha"
+    },
+    {
+      "key": "history",
+      "name": "History",
+      "ability": "int"
+    },
+    {
+      "key": "insight",
+      "name": "Insight",
+      "ability": "wis"
+    },
+    {
+      "key": "intimidation",
+      "name": "Intimidation",
+      "ability": "cha"
+    },
+    {
+      "key": "investigation",
+      "name": "Investigation",
+      "ability": "int"
+    },
+    {
+      "key": "medicine",
+      "name": "Medicine",
+      "ability": "wis"
+    },
+    {
+      "key": "nature",
+      "name": "Nature",
+      "ability": "int"
+    },
+    {
+      "key": "perception",
+      "name": "Perception",
+      "ability": "wis"
+    },
+    {
+      "key": "performance",
+      "name": "Performance",
+      "ability": "cha"
+    },
+    {
+      "key": "persuasion",
+      "name": "Persuasion",
+      "ability": "cha"
+    },
+    {
+      "key": "religion",
+      "name": "Religion",
+      "ability": "int"
+    },
+    {
+      "key": "sleight_of_hand",
+      "name": "Sleight of Hand",
+      "ability": "dex"
+    },
+    {
+      "key": "stealth",
+      "name": "Stealth",
+      "ability": "dex"
+    },
+    {
+      "key": "survival",
+      "name": "Survival",
+      "ability": "wis"
+    }
+  ],
+  "languages": [
+    {
+      "key": "abyssal",
+      "name": "Abyssal",
+      "isExotic": true
+    },
+    {
+      "key": "celestial",
+      "name": "Celestial",
+      "isExotic": true
+    },
+    {
+      "key": "common",
+      "name": "Common",
+      "isExotic": false
+    },
+    {
+      "key": "deep-speech",
+      "name": "Deep Speech",
+      "isExotic": true
+    },
+    {
+      "key": "draconic",
+      "name": "Draconic",
+      "isExotic": true
+    },
+    {
+      "key": "dwarvish",
+      "name": "Dwarvish",
+      "isExotic": false
+    },
+    {
+      "key": "elvish",
+      "name": "Elvish",
+      "isExotic": false
+    },
+    {
+      "key": "giant",
+      "name": "Giant",
+      "isExotic": false
+    },
+    {
+      "key": "gnomish",
+      "name": "Gnomish",
+      "isExotic": false
+    },
+    {
+      "key": "goblin",
+      "name": "Goblin",
+      "isExotic": false
+    },
+    {
+      "key": "halfling",
+      "name": "Halfling",
+      "isExotic": false
+    },
+    {
+      "key": "infernal",
+      "name": "Infernal",
+      "isExotic": true
+    },
+    {
+      "key": "orc",
+      "name": "Orc",
+      "isExotic": false
+    },
+    {
+      "key": "primordial",
+      "name": "Primordial",
+      "isExotic": true
+    },
+    {
+      "key": "sylvan",
+      "name": "Sylvan",
+      "isExotic": true
+    },
+    {
+      "key": "undercommon",
+      "name": "Undercommon",
+      "isExotic": true
+    }
+  ],
+  "alignments": [
+    {
+      "key": "chaotic-evil",
+      "name": "Chaotic-Evil",
+      "shortName": "CE"
+    },
+    {
+      "key": "chaotic-good",
+      "name": "Chaotic-Good",
+      "shortName": "CG"
+    },
+    {
+      "key": "chaotic-neutral",
+      "name": "Chaotic-Neutral",
+      "shortName": "CN"
+    },
+    {
+      "key": "lawful-evil",
+      "name": "Lawful-Evil",
+      "shortName": "LE"
+    },
+    {
+      "key": "lawful-good",
+      "name": "Lawful-Good",
+      "shortName": "LG"
+    },
+    {
+      "key": "lawful-neutral",
+      "name": "Lawful-Neutral",
+      "shortName": "LN"
+    },
+    {
+      "key": "neutral",
+      "name": "Neutral",
+      "shortName": "N"
+    },
+    {
+      "key": "neutral-evil",
+      "name": "Neutral-Evil",
+      "shortName": "NE"
+    },
+    {
+      "key": "neutral-good",
+      "name": "Neutral-Good",
+      "shortName": "NG"
+    }
+  ],
+  "items": [
+    {
+      "sourceKey": "srd_abacus",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_abacus",
+      "name": "Abacus",
+      "description": "An abacus.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_acid",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_acid",
+      "name": "Acid",
+      "description": "As an action, you can splash the contents of this vial onto a creature within 5 feet of you or throw the vial up to 20 feet, shattering it on impact. In either case, make a ranged attack against a creature or object, treating the acid as an improvised weapon. On a hit, the target takes 2d6 acid damage.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "consumable",
+      "weight": 0,
+      "valueCopper": 0,
+      "properties": {
+        "category": "Adventuring Gear",
+        "effect": "As an action, you can splash the contents of this vial onto a creature within 5 feet of you or throw the vial up to 20 feet, shattering it on impact. In either case, make a ranged attack against a creature or object, treating the acid as an improvised weapon. On a hit, the target takes 2d6 acid damage."
+      }
+    },
+    {
+      "sourceKey": "srd_acid-vial",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_acid-vial",
+      "name": "Acid (vial)",
+      "description": "As an action, you can splash the contents of this vial onto a creature within 5 feet of you or throw the vial up to 20 feet, shattering it on impact. In either case, make a ranged attack against a creature or object, treating the acid as an improvised weapon. On a hit, the target takes 2d6 acid damage.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "consumable",
+      "weight": 1,
+      "valueCopper": 2500,
+      "properties": {
+        "category": "Adventuring Gear",
+        "effect": "As an action, you can splash the contents of this vial onto a creature within 5 feet of you or throw the vial up to 20 feet, shattering it on impact. In either case, make a ranged attack against a creature or object, treating the acid as an improvised weapon. On a hit, the target takes 2d6 acid damage."
+      }
+    },
+    {
+      "sourceKey": "srd_alchemists-fire-flask",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_alchemists-fire-flask",
+      "name": "Alchemist's Fire (Flask)",
+      "description": "This sticky, adhesive fluid ignites when exposed to air. As an action, you can throw this flask up to 20 feet, shattering it on impact. Make a ranged attack against a creature or object, treating the alchemist's fire as an improvised weapon. On a hit, the target takes 1d4 fire damage at the start of each of its turns. A creature can end this damage by using its action to make a DC 10 Dexterity check to extinguish the flames.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "consumable",
+      "weight": 1,
+      "valueCopper": 5000,
+      "properties": {
+        "category": "Adventuring Gear",
+        "effect": "This sticky, adhesive fluid ignites when exposed to air. As an action, you can throw this flask up to 20 feet, shattering it on impact. Make a ranged attack against a creature or object, treating the alchemist's fire as an improvised weapon. On a hit, the target takes 1d4 fire damage at the start of each of its turns. A creature can end this damage by using its action to make a DC 10 Dexterity check to extinguish the flames."
+      }
+    },
+    {
+      "sourceKey": "srd_alchemists-supplies",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_alchemists-supplies",
+      "name": "Alchemist's Supplies",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 8,
+      "valueCopper": 5000,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_amulet",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_amulet",
+      "name": "Amulet",
+      "description": "Can be used as a holy symbol.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_antitoxin-vial",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_antitoxin-vial",
+      "name": "Antitoxin (Vial)",
+      "description": "A creature that drinks this vial of liquid gains advantage on saving throws against poison for 1 hour. It confers no benefit to undead or constructs.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 5000,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_arrow-bow",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_arrow-bow",
+      "name": "Arrow (bow)",
+      "description": "An arrow for a bow.",
+      "categoryKey": "ammunition",
+      "categoryName": "Ammunition",
+      "type": "misc",
+      "weight": 0.05,
+      "valueCopper": 5,
+      "properties": {
+        "category": "Ammunition"
+      }
+    },
+    {
+      "sourceKey": "srd_assassins-blood",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_assassins-blood",
+      "name": "Assassin's Blood",
+      "description": "A creature subjected to this poison must make a DC 10 Constitution saving throw. On a failed save, it takes 6 (1d12) poison damage and is poisoned for 24 hours. On a successful save, the creature takes half damage and isn't poisoned.\\n\\n\r\n\r\n**_Ingested._** A creature must swallow an entire dose of ingested poison to suffer its effects. The dose can be delivered in food or a liquid. You may decide that a partial dose has a reduced effect, such as allowing advantage on the saving throw or dealing only half damage on a failed save.",
+      "categoryKey": "poison",
+      "categoryName": "Poison",
+      "type": "consumable",
+      "weight": 0,
+      "valueCopper": 15000,
+      "properties": {
+        "category": "Poison",
+        "effect": "A creature subjected to this poison must make a DC 10 Constitution saving throw. On a failed save, it takes 6 (1d12) poison damage and is poisoned for 24 hours. On a successful save, the creature takes half damage and isn't poisoned.\\n\\n\r\n\r\n**_Ingested._** A creature must swallow an entire dose of ingested poison to suffer its effects. The dose can be delivered in food or a liquid. You may decide that a partial dose has a reduced effect, such as allowing advantage on the saving throw or dealing only half damage on a failed save."
+      }
+    },
+    {
+      "sourceKey": "srd_backpack",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_backpack",
+      "name": "Backpack",
+      "description": "A backpack. Capacity: 1 cubic foot/30 pounds of gear.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 5,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_bagpipes",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_bagpipes",
+      "name": "Bagpipes",
+      "description": "Several of the most common types of musical instruments are shown on the table as examples. If you have proficiency with a given musical instrument, you can add your proficiency bonus to any ability checks you make to play music with the instrument. A bard can use a musical instrument as a spellcasting focus. Each type of musical instrument requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 6,
+      "valueCopper": 3000,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_ball-bearings-bag-of-1000",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_ball-bearings-bag-of-1000",
+      "name": "Ball Bearings (bag of 1000)",
+      "description": "As an action, you can spill these tiny metal balls from their pouch to cover a level, square area that is 10 feet on a side. A creature moving across the covered area must succeed on a DC 10 Dexterity saving throw or fall prone. A creature moving through the area at half speed doesn't need to make the save.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_barrel",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_barrel",
+      "name": "Barrel",
+      "description": "A barrel. Capacity: 40 gallons liquid, 4 cubic feet solid.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 70,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_basket",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_basket",
+      "name": "Basket",
+      "description": "A basket. Capacity: 2 cubic feet/40 pounds of gear.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 40,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_battleaxe",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_battleaxe",
+      "name": "Battleaxe",
+      "description": "A battleaxe.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 4,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d8",
+        "damageDice": "1d8",
+        "damageType": "slashing",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Versatile",
+            "detail": "1d10"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "versatile": "1d10"
+      }
+    },
+    {
+      "sourceKey": "srd_bedroll",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_bedroll",
+      "name": "Bedroll",
+      "description": "A bedroll.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 7,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_bell",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_bell",
+      "name": "Bell",
+      "description": "A bell.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_blanket",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_blanket",
+      "name": "Blanket",
+      "description": "A blanket.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 50,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_block-and-tackle",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_block-and-tackle",
+      "name": "Block and Tackle",
+      "description": "A set of pulleys with a cable threaded through them and a hook to attach to objects, a block and tackle allows you to hoist up to four times the weight you can normally lift.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 5,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_blowgun",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_blowgun",
+      "name": "Blowgun",
+      "description": "A blowgun.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 1,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1",
+        "damageDice": "1",
+        "damageType": "piercing",
+        "range": "25/100",
+        "rangeFeet": {
+          "normal": 25,
+          "long": 100,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Ammunition",
+            "detail": "range 25/100"
+          },
+          {
+            "name": "Loading"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "ammunition": "range 25/100",
+        "loading": true
+      }
+    },
+    {
+      "sourceKey": "srd_blowgun-needles",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_blowgun-needles",
+      "name": "Blowgun needles",
+      "description": "Needles to be fired with a blowgun.",
+      "categoryKey": "ammunition",
+      "categoryName": "Ammunition",
+      "type": "misc",
+      "weight": 0.02,
+      "valueCopper": 2,
+      "properties": {
+        "category": "Ammunition"
+      }
+    },
+    {
+      "sourceKey": "srd_book",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_book",
+      "name": "Book",
+      "description": "A book might contain poetry, historical accounts, information pertaining to a particular field of lore, diagrams and notes on gnomish contraptions, or just about anything else that can be represented using text or pictures. A book of spells is a spellbook (described later in this section).",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 5,
+      "valueCopper": 2500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_bottle-glass",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_bottle-glass",
+      "name": "Bottle, glass",
+      "description": "A glass bottle. Capacity: 1.5 pints liquid.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_breastplate",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_breastplate",
+      "name": "Breastplate",
+      "description": "This armor consists of a fitted metal chest piece worn with supple leather. Although it leaves the legs and arms relatively unprotected, this armor provides good protection for the wearer's vital organs while leaving the wearer relatively unencumbered.",
+      "categoryKey": "armor",
+      "categoryName": "Armor",
+      "type": "armor",
+      "weight": 20,
+      "valueCopper": 40000,
+      "properties": {
+        "category": "Armor",
+        "armorCategory": "medium",
+        "ac": 14,
+        "baseAC": 14,
+        "addDexterityModifier": true,
+        "maxDexBonus": 2,
+        "stealthDisadvantage": false,
+        "equipSlots": [
+          "armor"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_brewers-supplies",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_brewers-supplies",
+      "name": "Brewer's Supplies",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 9,
+      "valueCopper": 2000,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_bucket",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_bucket",
+      "name": "Bucket",
+      "description": "A bucket. Capacity: 3 gallons liquid, 1/2 cubic foot solid.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 5,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_burnt-othur-fumes",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_burnt-othur-fumes",
+      "name": "Burnt othur fumes",
+      "description": "A creature subjected to this poison must succeed on a DC 13 Constitution saving throw or take 10 (3d6) poison damage, and must repeat the saving throw at the start of each of its turns. On each successive failed save, the character takes 3 (1d6) poison damage. After three successful saves, the poison ends.\\n\\n**_Inhaled._** These poisons are powders or gases that take effect when inhaled. Blowing the powder or releasing the gas subjects creatures in a 5-foot cube to its effect. The resulting cloud dissipates immediately afterward. Holding one's breath is ineffective against inhaled poisons, as they affect nasal membranes, tear ducts, and other parts of the body.",
+      "categoryKey": "poison",
+      "categoryName": "Poison",
+      "type": "consumable",
+      "weight": 0,
+      "valueCopper": 50000,
+      "properties": {
+        "category": "Poison",
+        "effect": "A creature subjected to this poison must succeed on a DC 13 Constitution saving throw or take 10 (3d6) poison damage, and must repeat the saving throw at the start of each of its turns. On each successive failed save, the character takes 3 (1d6) poison damage. After three successful saves, the poison ends.\\n\\n**_Inhaled._** These poisons are powders or gases that take effect when inhaled. Blowing the powder or releasing the gas subjects creatures in a 5-foot cube to its effect. The resulting cloud dissipates immediately afterward. Holding one's breath is ineffective against inhaled poisons, as they affect nasal membranes, tear ducts, and other parts of the body."
+      }
+    },
+    {
+      "sourceKey": "srd_calligraphers-supplies",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_calligraphers-supplies",
+      "name": "Calligrapher's supplies",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 5,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_caltrops-bag-of-20",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_caltrops-bag-of-20",
+      "name": "Caltrops (bag of 20)",
+      "description": "As an action, you can spread a bag of caltrops to cover a square area that is 5 feet on a side. Any creature that enters the area must succeed on a DC 15 Dexterity saving throw or stop moving this turn and take 1 piercing damage. Taking this damage reduces the creature's walking speed by 10 feet until the creature regains at least 1 hit point. A creature moving through the area at half speed doesn't need to make the save.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_candle",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_candle",
+      "name": "Candle",
+      "description": "For 1 hour, a candle sheds bright light in a 5-foot radius and dim light for an additional 5 feet.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 1,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_canvas",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_canvas",
+      "name": "Canvas",
+      "description": "1 sq. yd. of canvas",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 10,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_carpenters-tools",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_carpenters-tools",
+      "name": "Carpenter's Tools",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 6,
+      "valueCopper": 800,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_carriage",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_carriage",
+      "name": "Carriage",
+      "description": "Drawn vehicle.",
+      "categoryKey": "land-vehicle",
+      "categoryName": "Land Vehicle",
+      "type": "misc",
+      "weight": 600,
+      "valueCopper": 10000,
+      "properties": {
+        "category": "Land Vehicle"
+      }
+    },
+    {
+      "sourceKey": "srd_cart",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_cart",
+      "name": "Cart",
+      "description": "Drawn vehicle",
+      "categoryKey": "land-vehicle",
+      "categoryName": "Land Vehicle",
+      "type": "misc",
+      "weight": 200,
+      "valueCopper": 1500,
+      "properties": {
+        "category": "Land Vehicle"
+      }
+    },
+    {
+      "sourceKey": "srd_cartographers-tools",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_cartographers-tools",
+      "name": "Cartographer's Tools",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 6,
+      "valueCopper": 1500,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_case-crossbow-bolt",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_case-crossbow-bolt",
+      "name": "Case, Crossbow Bolt",
+      "description": "This wooden case can hold up to twenty crossbow bolts.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_case-map-or-scroll",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_case-map-or-scroll",
+      "name": "Case, Map or Scroll",
+      "description": "This cylindrical leather case can hold up to ten rolled-up sheets of paper or five rolled-up sheets of parchment.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "scroll",
+      "weight": 1,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_chain-10-feet",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_chain-10-feet",
+      "name": "Chain (10 feet)",
+      "description": "A chain has 10 hit points. It can be burst with a successful DC 20 Strength check.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 10,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_chain-mail",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_chain-mail",
+      "name": "Chain mail",
+      "description": "Made of interlocking metal rings, chain mail includes a layer of quilted fabric worn underneath the mail to prevent chafing and to cushion the impact of blows. The suit includes gauntlets.",
+      "categoryKey": "armor",
+      "categoryName": "Armor",
+      "type": "armor",
+      "weight": 55,
+      "valueCopper": 7500,
+      "properties": {
+        "category": "Armor",
+        "armorCategory": "heavy",
+        "ac": 16,
+        "baseAC": 16,
+        "addDexterityModifier": false,
+        "maxDexBonus": 0,
+        "stealthDisadvantage": true,
+        "strengthRequired": 13,
+        "equipSlots": [
+          "armor"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_chain-shirt",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_chain-shirt",
+      "name": "Chain shirt",
+      "description": "Made of interlocking metal rings, a chain shirt is worn between layers of clothing or leather. This armor offers modest protection to the wearer's upper body and allows the sound of the rings rubbing against one another to be muffled by outer layers.",
+      "categoryKey": "armor",
+      "categoryName": "Armor",
+      "type": "armor",
+      "weight": 20,
+      "valueCopper": 5000,
+      "properties": {
+        "category": "Armor",
+        "armorCategory": "medium",
+        "ac": 13,
+        "baseAC": 13,
+        "addDexterityModifier": true,
+        "maxDexBonus": 2,
+        "stealthDisadvantage": false,
+        "equipSlots": [
+          "armor"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_chalk-1-piece",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_chalk-1-piece",
+      "name": "Chalk (1 piece)",
+      "description": "A piece of chalk.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 1,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_chariot",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_chariot",
+      "name": "Chariot",
+      "description": "Drawn vehicle.",
+      "categoryKey": "land-vehicle",
+      "categoryName": "Land Vehicle",
+      "type": "misc",
+      "weight": 100,
+      "valueCopper": 25000,
+      "properties": {
+        "category": "Land Vehicle"
+      }
+    },
+    {
+      "sourceKey": "srd_chest",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_chest",
+      "name": "Chest",
+      "description": "A chest. Capacity: 12 cubic feet/300 pounds of gear.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 25,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_chicken",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_chicken",
+      "name": "Chicken",
+      "description": "One chicken",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 3,
+      "valueCopper": 2,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_cinnamon",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_cinnamon",
+      "name": "Cinnamon",
+      "description": "1lb of cinnamon",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_climbers-kit",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_climbers-kit",
+      "name": "Climber's Kit",
+      "description": "A climber's kit includes special pitons, boot tips, gloves, and a harness. You can use the climber's kit as an action to anchor yourself; when you do, you can't fall more than 25 feet from the point where you anchored yourself, and you can't climb more than 25 feet away from that point without undoing the anchor.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 12,
+      "valueCopper": 2500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_clothes-common",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_clothes-common",
+      "name": "Clothes, Common",
+      "description": "Common clothes.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 3,
+      "valueCopper": 50,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_clothes-costume",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_clothes-costume",
+      "name": "Clothes, costume",
+      "description": "A costume.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 4,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_clothes-fine",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_clothes-fine",
+      "name": "Clothes, fine",
+      "description": "Fine clothing.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 6,
+      "valueCopper": 1500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_clothes-travelers",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_clothes-travelers",
+      "name": "Clothes, traveler's",
+      "description": "Traveler's clothing.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 4,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_cloves",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_cloves",
+      "name": "Cloves",
+      "description": "1lb of cloves.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 300,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_club",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_club",
+      "name": "Club",
+      "description": "A club",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 2,
+      "valueCopper": 10,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d4",
+        "damageDice": "1d4",
+        "damageType": "bludgeoning",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": true,
+        "isMartial": false,
+        "weaponClass": "simple",
+        "weaponProperties": [
+          {
+            "name": "Light"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "light": true
+      }
+    },
+    {
+      "sourceKey": "srd_cobblers-tools",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_cobblers-tools",
+      "name": "Cobbler's Tools",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 5,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_component-pouch",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_component-pouch",
+      "name": "Component Pouch",
+      "description": "A component pouch is a small, watertight leather belt pouch that has compartments to hold all the material components and other special items you need to cast your spells, except for those components that have a specific cost (as indicated in a spell's description).",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 2500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_cooks-utensils",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_cooks-utensils",
+      "name": "Cook's utensils",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 8,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_copper",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_copper",
+      "name": "Copper",
+      "description": "1lb of copper.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 50,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_copper-piece",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_copper-piece",
+      "name": "Copper Piece",
+      "description": "One silver piece is worth ten copper pieces, which are common among laborers and beggars. A single copper piece buys a candle, a torch, or a piece of chalk.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 0.02,
+      "valueCopper": 1,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_cotton-cloth",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_cotton-cloth",
+      "name": "Cotton Cloth",
+      "description": "1 sq. yd. of cotton cloth.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 50,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_cow",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_cow",
+      "name": "Cow",
+      "description": "One cow.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1000,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_crawler-mucus",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_crawler-mucus",
+      "name": "Crawler mucus",
+      "description": "This poison must be harvested from a dead or incapacitated crawler. A creature subjected to this poison must succeed on a DC 13 Constitution saving throw or be poisoned for 1 minute. The poisoned creature is paralyzed. The creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success.\\n\\n\r\n**_Contact._** Contact poison can be smeared on an object and remains potent until it is touched or washed off. A creature that touches contact poison with exposed skin suffers its effects.",
+      "categoryKey": "poison",
+      "categoryName": "Poison",
+      "type": "consumable",
+      "weight": 0,
+      "valueCopper": 20000,
+      "properties": {
+        "category": "Poison",
+        "effect": "This poison must be harvested from a dead or incapacitated crawler. A creature subjected to this poison must succeed on a DC 13 Constitution saving throw or be poisoned for 1 minute. The poisoned creature is paralyzed. The creature can repeat the saving throw at the end of each of its turns, ending the effect on itself on a success.\\n\\n\r\n**_Contact._** Contact poison can be smeared on an object and remains potent until it is touched or washed off. A creature that touches contact poison with exposed skin suffers its effects."
+      }
+    },
+    {
+      "sourceKey": "srd_crossbow-bolt",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_crossbow-bolt",
+      "name": "Crossbow bolt",
+      "description": "Bolts to be used in a crossbow.",
+      "categoryKey": "ammunition",
+      "categoryName": "Ammunition",
+      "type": "misc",
+      "weight": 0.08,
+      "valueCopper": 5,
+      "properties": {
+        "category": "Ammunition"
+      }
+    },
+    {
+      "sourceKey": "srd_crossbow-hand",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_crossbow-hand",
+      "name": "Crossbow, hand",
+      "description": "A hand crossbow.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 3,
+      "valueCopper": 7500,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d6",
+        "damageDice": "1d6",
+        "damageType": "piercing",
+        "range": "30/120",
+        "rangeFeet": {
+          "normal": 30,
+          "long": 120,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Ammunition",
+            "detail": "range 30/120"
+          },
+          {
+            "name": "Light"
+          },
+          {
+            "name": "Loading"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "ammunition": "range 30/120",
+        "light": true,
+        "loading": true
+      }
+    },
+    {
+      "sourceKey": "srd_crossbow-heavy",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_crossbow-heavy",
+      "name": "Crossbow, heavy",
+      "description": "A heavy crossbow",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 18,
+      "valueCopper": 5000,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d10",
+        "damageDice": "1d10",
+        "damageType": "piercing",
+        "range": "100/400",
+        "rangeFeet": {
+          "normal": 100,
+          "long": 400,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Loading"
+          },
+          {
+            "name": "Two-Handed"
+          }
+        ],
+        "equipSlots": [
+          "mainhand"
+        ],
+        "loading": true,
+        "twoHanded": true
+      }
+    },
+    {
+      "sourceKey": "srd_crossbow-light",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_crossbow-light",
+      "name": "Crossbow, light",
+      "description": "A light crossbow.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 5,
+      "valueCopper": 2500,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d8",
+        "damageDice": "1d8",
+        "damageType": "piercing",
+        "range": "80/320",
+        "rangeFeet": {
+          "normal": 80,
+          "long": 320,
+          "unit": "feet"
+        },
+        "isSimple": true,
+        "isMartial": false,
+        "weaponClass": "simple",
+        "weaponProperties": [
+          {
+            "name": "Ammunition",
+            "detail": "range 80/320"
+          },
+          {
+            "name": "Loading"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "ammunition": "range 80/320",
+        "loading": true
+      }
+    },
+    {
+      "sourceKey": "srd_crowbar",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_crowbar",
+      "name": "Crowbar",
+      "description": "Using a crowbar grants advantage to Strength checks where the crowbar's leverage can be applied.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 5,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_crystal",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_crystal",
+      "name": "Crystal",
+      "description": "Can be used as an arcane focus.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_dagger",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_dagger",
+      "name": "Dagger",
+      "description": "A dagger.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 1,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d4",
+        "damageDice": "1d4",
+        "damageType": "piercing",
+        "range": "20/60",
+        "rangeFeet": {
+          "normal": 20,
+          "long": 60,
+          "unit": "feet"
+        },
+        "isSimple": true,
+        "isMartial": false,
+        "weaponClass": "simple",
+        "weaponProperties": [
+          {
+            "name": "Finesse"
+          },
+          {
+            "name": "Light"
+          },
+          {
+            "name": "Thrown",
+            "detail": "range 20/60"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "finesse": true,
+        "light": true,
+        "thrown": "range 20/60"
+      }
+    },
+    {
+      "sourceKey": "srd_dart",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_dart",
+      "name": "Dart",
+      "description": "A dart.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 0.25,
+      "valueCopper": 5,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d4",
+        "damageDice": "1d4",
+        "damageType": "piercing",
+        "range": "20/60",
+        "rangeFeet": {
+          "normal": 20,
+          "long": 60,
+          "unit": "feet"
+        },
+        "isSimple": true,
+        "isMartial": false,
+        "weaponClass": "simple",
+        "weaponProperties": [
+          {
+            "name": "Finesse"
+          },
+          {
+            "name": "Thrown",
+            "detail": "range 20/60"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "finesse": true,
+        "thrown": "range 20/60"
+      }
+    },
+    {
+      "sourceKey": "srd_dice-set",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_dice-set",
+      "name": "Dice set",
+      "description": "This item encompasses a wide range of game pieces, including dice and decks of cards (for games such as Three-­‐‑Dragon Ante). A few common examples appear on the Tools table, but other kinds of gaming sets exist. If you are proficient with a gaming set, you can add your proficiency bonus to ability checks you make to play a game with that set. Each type of gaming set requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 10,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_disguise-kit",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_disguise-kit",
+      "name": "Disguise kit",
+      "description": "This pouch of cosmetics, hair dye, and small props lets you create disguises that change your physical appearance. Proficiency with this kit lets you add your proficiency bonus to any ability checks you make to create a visual disguise.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 3,
+      "valueCopper": 2500,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_drow-poison",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_drow-poison",
+      "name": "Drow poison",
+      "description": "This poison is typically made only by the drow, and only in a place far removed from sunlight. A creature subjected to this poison must succeed on a DC 13 Constitution saving throw or be poisoned for 1 hour. If the saving throw fails by 5 or more, the creature is also unconscious while poisoned in this way. The creature wakes up if it takes damage or if another creature takes an action to shake it awake.\r\n\\n\\n**_Injury._** Injury poison can be applied to weapons, ammunition, trap components, and other objects that deal piercing or slashing damage and remains potent until delivered through a wound or washed off. A creature that takes piercing or slashing damage from an object coated with the poison is exposed to its effects.",
+      "categoryKey": "poison",
+      "categoryName": "Poison",
+      "type": "consumable",
+      "weight": 0,
+      "valueCopper": 20000,
+      "properties": {
+        "category": "Poison",
+        "effect": "This poison is typically made only by the drow, and only in a place far removed from sunlight. A creature subjected to this poison must succeed on a DC 13 Constitution saving throw or be poisoned for 1 hour. If the saving throw fails by 5 or more, the creature is also unconscious while poisoned in this way. The creature wakes up if it takes damage or if another creature takes an action to shake it awake.\r\n\\n\\n**_Injury._** Injury poison can be applied to weapons, ammunition, trap components, and other objects that deal piercing or slashing damage and remains potent until delivered through a wound or washed off. A creature that takes piercing or slashing damage from an object coated with the poison is exposed to its effects."
+      }
+    },
+    {
+      "sourceKey": "srd_drum",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_drum",
+      "name": "Drum",
+      "description": "Several of the most common types of musical instruments are shown on the table as examples. If you have proficiency with a given musical instrument, you can add your proficiency bonus to any ability checks you make to play music with the instrument. A bard can use a musical instrument as a spellcasting focus. Each type of musical instrument requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 3,
+      "valueCopper": 600,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_dulcimer",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_dulcimer",
+      "name": "Dulcimer",
+      "description": "Several of the most common types of musical instruments are shown on the table as examples. If you have proficiency with a given musical instrument, you can add your proficiency bonus to any ability checks you make to play music with the instrument. A bard can use a musical instrument as a spellcasting focus. Each type of musical instrument requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 10,
+      "valueCopper": 2500,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_electrum-piece",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_electrum-piece",
+      "name": "Electrum Piece",
+      "description": "In addition, unusual coins made of other precious metals sometimes appear in treasure hoards. The electrum piece (ep) and the platinum piece (pp) originate from fallen empires and lost kingdoms, and they sometimes arouse suspicion and skepticism when used in transactions. An electrum piece is worth five silver pieces, and a platinum piece is worth ten gold pieces.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 0.02,
+      "valueCopper": 50,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_emblem",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_emblem",
+      "name": "Emblem",
+      "description": "Can be used as a holy symbol.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_essense-of-either",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_essense-of-either",
+      "name": "Essense of either",
+      "description": "A creature subjected to this poison must succeed on a DC 15 Constitution saving throw or become poisoned for 8 hours. The poisoned creature is unconscious. The creature wakes up if it takes damage or if another creature takes an action to shake it awake.\\n\\n**_Inhaled._** These poisons are powders or gases that take effect when inhaled. Blowing the powder or releasing the gas subjects creatures in a 5-foot cube to its effect. The resulting cloud dissipates immediately afterward. Holding one's breath is ineffective against inhaled poisons, as they affect nasal membranes, tear ducts, and other parts of the body.",
+      "categoryKey": "poison",
+      "categoryName": "Poison",
+      "type": "consumable",
+      "weight": 0,
+      "valueCopper": 30000,
+      "properties": {
+        "category": "Poison",
+        "effect": "A creature subjected to this poison must succeed on a DC 15 Constitution saving throw or become poisoned for 8 hours. The poisoned creature is unconscious. The creature wakes up if it takes damage or if another creature takes an action to shake it awake.\\n\\n**_Inhaled._** These poisons are powders or gases that take effect when inhaled. Blowing the powder or releasing the gas subjects creatures in a 5-foot cube to its effect. The resulting cloud dissipates immediately afterward. Holding one's breath is ineffective against inhaled poisons, as they affect nasal membranes, tear ducts, and other parts of the body."
+      }
+    },
+    {
+      "sourceKey": "srd_fishing-tackle",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_fishing-tackle",
+      "name": "Fishing Tackle",
+      "description": "This kit includes a wooden rod, silken line, corkwood bobbers, steel hooks, lead sinkers, velvet lures, and narrow netting.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 4,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_flail",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_flail",
+      "name": "Flail",
+      "description": "A flail.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 2,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d8",
+        "damageDice": "1d8",
+        "damageType": "bludgeoning",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_flask-or-tankard",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_flask-or-tankard",
+      "name": "Flask or tankard",
+      "description": "For drinking. Capacity: 1 pint liquid.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 2,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_flour",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_flour",
+      "name": "Flour",
+      "description": "1lb of flour",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 2,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_flute",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_flute",
+      "name": "Flute",
+      "description": "Several of the most common types of musical instruments are shown on the table as examples. If you have proficiency with a given musical instrument, you can add your proficiency bonus to any ability checks you make to play music with the instrument. A bard can use a musical instrument as a spellcasting focus. Each type of musical instrument requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_forgery-kit",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_forgery-kit",
+      "name": "Forgery kit",
+      "description": "This small box contains a variety of papers and parchments, pens and inks, seals and sealing wax, gold and silver leaf, and other supplies necessary to create convincing forgeries of physical documents. \\n\\nProficiency with this kit lets you add your proficiency bonus to any ability checks you make to create a physical forgery of a document.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 5,
+      "valueCopper": 1500,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_galley",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_galley",
+      "name": "Galley",
+      "description": "A waterborne vehicle. Speed 4 mph",
+      "categoryKey": "waterborne-vehicle",
+      "categoryName": "Waterborne Vehicle",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 3000000,
+      "properties": {
+        "category": "Waterborne Vehicle"
+      }
+    },
+    {
+      "sourceKey": "srd_ginger",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_ginger",
+      "name": "Ginger",
+      "description": "1lb of Ginger.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_glaive",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_glaive",
+      "name": "Glaive",
+      "description": "A glaive.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 6,
+      "valueCopper": 2000,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d10",
+        "damageDice": "1d10",
+        "damageType": "slashing",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Reach"
+          },
+          {
+            "name": "Two-Handed"
+          }
+        ],
+        "equipSlots": [
+          "mainhand"
+        ],
+        "reach": true,
+        "twoHanded": true
+      }
+    },
+    {
+      "sourceKey": "srd_glassblowers-tools",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_glassblowers-tools",
+      "name": "Glassblower's Tools",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 5,
+      "valueCopper": 3000,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_goat",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_goat",
+      "name": "Goat",
+      "description": "One goat.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 75,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_gold",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_gold",
+      "name": "Gold",
+      "description": "1lb of gold.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 5000,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_gold-piece",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_gold-piece",
+      "name": "Gold Piece",
+      "description": "With one gold piece, a character can buy a bedroll, 50 feet of good rope, or a goat. A skilled (but not exceptional) artisan can earn one gold piece a day. The gold piece is the standard unit of measure for wealth, even if the coin itself is not commonly used. When merchants discuss deals that involve goods or services worth hundreds or thousands of gold pieces, the transactions don't usually involve the exchange of individual coins. Rather, the gold piece is a standard measure of value, and the actual exchange is in gold bars, letters of credit, or valuable goods.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 0.02,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_grappling-hook",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_grappling-hook",
+      "name": "Grappling hook",
+      "description": "A grappling hook.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 4,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_greataxe",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_greataxe",
+      "name": "Greataxe",
+      "description": "A greataxe.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 7,
+      "valueCopper": 3000,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d12",
+        "damageDice": "1d12",
+        "damageType": "slashing",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Two-Handed"
+          }
+        ],
+        "equipSlots": [
+          "mainhand"
+        ],
+        "twoHanded": true
+      }
+    },
+    {
+      "sourceKey": "srd_greatclub",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_greatclub",
+      "name": "Greatclub",
+      "description": "A greatclub.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 10,
+      "valueCopper": 20,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d8",
+        "damageDice": "1d8",
+        "damageType": "bludgeoning",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": true,
+        "isMartial": false,
+        "weaponClass": "simple",
+        "weaponProperties": [
+          {
+            "name": "Two-Handed"
+          }
+        ],
+        "equipSlots": [
+          "mainhand"
+        ],
+        "twoHanded": true
+      }
+    },
+    {
+      "sourceKey": "srd_greatsword",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_greatsword",
+      "name": "Greatsword",
+      "description": "A great sword.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 0,
+      "valueCopper": 5000,
+      "properties": {
+        "category": "Weapon",
+        "damage": "2d6",
+        "damageDice": "2d6",
+        "damageType": "slashing",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Two-Handed"
+          }
+        ],
+        "equipSlots": [
+          "mainhand"
+        ],
+        "twoHanded": true
+      }
+    },
+    {
+      "sourceKey": "srd_halberd",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_halberd",
+      "name": "Halberd",
+      "description": "A halberd.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 6,
+      "valueCopper": 2000,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d10",
+        "damageDice": "1d10",
+        "damageType": "slashing",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Reach"
+          },
+          {
+            "name": "Two-Handed"
+          }
+        ],
+        "equipSlots": [
+          "mainhand"
+        ],
+        "reach": true,
+        "twoHanded": true
+      }
+    },
+    {
+      "sourceKey": "srd_half-plate",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_half-plate",
+      "name": "Half plate",
+      "description": "Half plate consists of shaped metal plates that cover most of the wearer's body. It does not include leg protection beyond simple greaves that are attached with leather straps.",
+      "categoryKey": "armor",
+      "categoryName": "Armor",
+      "type": "armor",
+      "weight": 40,
+      "valueCopper": 75000,
+      "properties": {
+        "category": "Armor",
+        "armorCategory": "medium",
+        "ac": 15,
+        "baseAC": 15,
+        "addDexterityModifier": true,
+        "maxDexBonus": 2,
+        "stealthDisadvantage": true,
+        "equipSlots": [
+          "armor"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_hammer",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_hammer",
+      "name": "Hammer",
+      "description": "A hammer.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 3,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_hammer-sledge",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_hammer-sledge",
+      "name": "Hammer, sledge",
+      "description": "A sledgehammer",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 10,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_handaxe",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_handaxe",
+      "name": "Handaxe",
+      "description": "A handaxe.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 2,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d6",
+        "damageDice": "1d6",
+        "damageType": "slashing",
+        "range": "20/60",
+        "rangeFeet": {
+          "normal": 20,
+          "long": 60,
+          "unit": "feet"
+        },
+        "isSimple": true,
+        "isMartial": false,
+        "weaponClass": "simple",
+        "weaponProperties": [
+          {
+            "name": "Light"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "light": true
+      }
+    },
+    {
+      "sourceKey": "srd_healers-kit",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_healers-kit",
+      "name": "Healer's Kit",
+      "description": "This kit is a leather pouch containing bandages, salves, and splints. The kit has ten uses. As an action, you can expend one use of the kit to stabilize a creature that has 0 hit points, without needing to make a Wisdom (Medicine) check.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 3,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_herbalism-kit",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_herbalism-kit",
+      "name": "Herbalism Kit",
+      "description": "This kit contains a variety of instruments such as clippers, mortar and pestle, and pouches and vials used by herbalists to create remedies and potions. Proficiency with this kit lets you add your proficiency bonus to any ability checks you make to identify or apply herbs. Also, proficiency with this kit is required to create antitoxin and potions of healing.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 3,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_hide-armor",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_hide-armor",
+      "name": "Hide Armor",
+      "description": "This crude armor consists of thick furs and pelts. It is commonly worn by barbarian tribes, evil humanoids, and other folk who lack access to the tools and materials needed to create better armor.",
+      "categoryKey": "armor",
+      "categoryName": "Armor",
+      "type": "armor",
+      "weight": 12,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Armor",
+        "armorCategory": "medium",
+        "ac": 12,
+        "baseAC": 12,
+        "addDexterityModifier": true,
+        "maxDexBonus": 2,
+        "stealthDisadvantage": false,
+        "equipSlots": [
+          "armor"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_holy-water-flask",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_holy-water-flask",
+      "name": "Holy Water (flask)",
+      "description": "As an action, you can splash the contents of this flask onto a creature within 5 feet of you or throw it up to 20 feet, shattering it on impact.In either case, make a ranged attack against a target creature, treating the holy water as an improvised weapon. If the target is a fiend or undead, it takes 2d6 radiant damage.\\n\\nA cleric or paladin may create holy water by performing a special ritual. The ritual takes 1 hour to perform, uses 25 gp worth of powdered silver, and requires the caster to expend a 1st-­‐‑level spell slot.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "consumable",
+      "weight": 1,
+      "valueCopper": 2500,
+      "properties": {
+        "category": "Adventuring Gear",
+        "effect": "As an action, you can splash the contents of this flask onto a creature within 5 feet of you or throw it up to 20 feet, shattering it on impact.In either case, make a ranged attack against a target creature, treating the holy water as an improvised weapon. If the target is a fiend or undead, it takes 2d6 radiant damage.\\n\\nA cleric or paladin may create holy water by performing a special ritual. The ritual takes 1 hour to perform, uses 25 gp worth of powdered silver, and requires the caster to expend a 1st-­‐‑level spell slot."
+      }
+    },
+    {
+      "sourceKey": "srd_horn",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_horn",
+      "name": "Horn",
+      "description": "Several of the most common types of musical instruments are shown on the table as examples. If you have proficiency with a given musical instrument, you can add your proficiency bonus to any ability checks you make to play music with the instrument. A bard can use a musical instrument as a spellcasting focus. Each type of musical instrument requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 300,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_hourglass",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_hourglass",
+      "name": "Hourglass",
+      "description": "An hourglass.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 2500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_hunting-trap",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_hunting-trap",
+      "name": "Hunting Trap",
+      "description": "When you use your action to set it, this trap forms a saw-­‐‑toothed steel ring that snaps shut when a creature steps on a pressure plate in the center. The trap is affixed by a heavy chain to an immobile object, such as a tree or a spike driven into the ground. A creature that steps on the plate must succeed on a DC 13 Dexterity saving throw or take 1d4 piercing damage and stop moving. Thereafter, until the creature breaks free of the trap, its movement is limited by the length of the chain (typically 3 feet long). A creature can use its action to make a DC 13 Strength check, freeing itself or another creature within its reach on a success. Each failed check deals 1 piercing damage to the trapped creature.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 25,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_ink-1-ounce-bottle",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_ink-1-ounce-bottle",
+      "name": "Ink (1 ounce bottle)",
+      "description": "A bottle of ink.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_ink-pen",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_ink-pen",
+      "name": "Ink pen",
+      "description": "A pen for writing with ink.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 2,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_iron",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_iron",
+      "name": "Iron",
+      "description": "1lb of iron.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 10,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_javelin",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_javelin",
+      "name": "Javelin",
+      "description": "A javelin",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 2,
+      "valueCopper": 50,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d6",
+        "damageDice": "1d6",
+        "damageType": "piercing",
+        "range": "30/120",
+        "rangeFeet": {
+          "normal": 30,
+          "long": 120,
+          "unit": "feet"
+        },
+        "isSimple": true,
+        "isMartial": false,
+        "weaponClass": "simple",
+        "weaponProperties": [
+          {
+            "name": "Thrown",
+            "detail": "range 30/120"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "thrown": "range 30/120"
+      }
+    },
+    {
+      "sourceKey": "srd_jewelers-tools",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_jewelers-tools",
+      "name": "Jeweler's Tools",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 2500,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_jug-or-pitcher",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_jug-or-pitcher",
+      "name": "Jug or pitcher",
+      "description": "For drinking a lot. Capacity: 1 gallon liquid.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 4,
+      "valueCopper": 2,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_keelboat",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_keelboat",
+      "name": "Keelboat",
+      "description": "Waterborne vehicle. Speed is 1mph.",
+      "categoryKey": "waterborne-vehicle",
+      "categoryName": "Waterborne Vehicle",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 300000,
+      "properties": {
+        "category": "Waterborne Vehicle"
+      }
+    },
+    {
+      "sourceKey": "srd_ladder-10-foot",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_ladder-10-foot",
+      "name": "Ladder (10-foot)",
+      "description": "A 10 foot ladder.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 25,
+      "valueCopper": 10,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_lamp",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_lamp",
+      "name": "Lamp",
+      "description": "A lamp casts bright light in a 15-foot radius and dim light for an additional 30 feet. Once lit, it burns for 6 hours on a flask (1 pint) of oil.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 50,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_lamp-oil-flask",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_lamp-oil-flask",
+      "name": "Lamp oil (flask)",
+      "description": "Oil usually comes in a clay flask that holds 1 pint. As an action, you can splash the oil in this flask onto a creature within 5 feet of you or throw it up to 20 feet, shattering it on impact. Make a ranged attack against a target creature or object, treating the oil as an improvised weapon. On a hit, the target is covered in oil. If the target takes any fire damage before the oil dries (after 1 minute), the target takes an additional 5 fire damage from the burning oil. You can also pour a flask of oil on the ground to cover a 5-­foot‑square area, provided that the surface is level. If lit, the oil burns for 2 rounds and deals 5 fire damage to any creature that enters the area or ends its turn in the area. A creature can take this damage only once per turn.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 10,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_lance",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_lance",
+      "name": "Lance",
+      "description": "A lance.\r\n\r\nYou have disadvantage when you use a lance to attack a target within 5 feet of you. Also, a lance requires two hands to wield when you aren't mounted.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 6,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d12",
+        "damageDice": "1d12",
+        "damageType": "piercing",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Special (Lance)"
+          },
+          {
+            "name": "Reach"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "specialLance": true,
+        "reach": true
+      }
+    },
+    {
+      "sourceKey": "srd_lantern-bullseye",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_lantern-bullseye",
+      "name": "Lantern, Bullseye",
+      "description": "A bullseye lantern casts bright light in a 60-­‐‑foot cone and dim light for an additional 60 feet. Once lit, it burns for 6 hours on a flask (1 pint) of oil.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_lantern-hooded",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_lantern-hooded",
+      "name": "Lantern, Hooded",
+      "description": "A hooded lantern casts bright light in a 30-­‐‑foot radius and dim light for an additional 30 feet. Once lit, it burns for 6 hours on a flask (1 pint) of oil. As an action, you can lower the hood, reducing the light to dim light in a 5-­‐‑foot radius.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_leather-armor",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_leather-armor",
+      "name": "Leather Armor",
+      "description": "The breastplate and shoulder protectors of this armor are made of leather that has been stiffened by being boiled in oil. The rest of the armor is made of softer and more flexible materials.",
+      "categoryKey": "armor",
+      "categoryName": "Armor",
+      "type": "armor",
+      "weight": 10,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Armor",
+        "armorCategory": "light",
+        "ac": 11,
+        "baseAC": 11,
+        "addDexterityModifier": true,
+        "stealthDisadvantage": false,
+        "equipSlots": [
+          "armor"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_leatherworkers-tools",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_leatherworkers-tools",
+      "name": "Leatherworker's Tools",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 5,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_light-hammer",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_light-hammer",
+      "name": "Light hammer",
+      "description": "A light hammer.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 2,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d4",
+        "damageDice": "1d4",
+        "damageType": "bludgeoning",
+        "range": "20/60",
+        "rangeFeet": {
+          "normal": 20,
+          "long": 60,
+          "unit": "feet"
+        },
+        "isSimple": true,
+        "isMartial": false,
+        "weaponClass": "simple",
+        "weaponProperties": [
+          {
+            "name": "Light"
+          },
+          {
+            "name": "Thrown",
+            "detail": "range 20/60"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "light": true,
+        "thrown": "range 20/60"
+      }
+    },
+    {
+      "sourceKey": "srd_linen",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_linen",
+      "name": "Linen",
+      "description": "1 sq. yd. of linen.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_lock",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_lock",
+      "name": "Lock",
+      "description": "A key is provided with the lock. Without the key, a creature proficient with thieves’ tools can pick this lock with a successful DC 15 Dexterity check. Your GM may decide that better locks are available for higher prices.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_longbow",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_longbow",
+      "name": "Longbow",
+      "description": "A longbow.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 2,
+      "valueCopper": 5000,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d8",
+        "damageDice": "1d8",
+        "damageType": "piercing",
+        "range": "150/600",
+        "rangeFeet": {
+          "normal": 150,
+          "long": 600,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Ammunition",
+            "detail": "range 150/600"
+          },
+          {
+            "name": "Two-Handed"
+          }
+        ],
+        "equipSlots": [
+          "mainhand"
+        ],
+        "ammunition": "range 150/600",
+        "twoHanded": true
+      }
+    },
+    {
+      "sourceKey": "srd_longship",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_longship",
+      "name": "Longship",
+      "description": "Waterborne vehicle. Speed 3mph.",
+      "categoryKey": "waterborne-vehicle",
+      "categoryName": "Waterborne Vehicle",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 1000000,
+      "properties": {
+        "category": "Waterborne Vehicle"
+      }
+    },
+    {
+      "sourceKey": "srd_longsword",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_longsword",
+      "name": "Longsword",
+      "description": "A longsword",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 3,
+      "valueCopper": 1500,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d8",
+        "damageDice": "1d8",
+        "damageType": "slashing",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Versatile",
+            "detail": "1d10"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "versatile": "1d10"
+      }
+    },
+    {
+      "sourceKey": "srd_lute",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_lute",
+      "name": "Lute",
+      "description": "Several of the most common types of musical instruments are shown on the table as examples. If you have proficiency with a given musical instrument, you can add your proficiency bonus to any ability checks you make to play music with the instrument. A bard can use a musical instrument as a spellcasting focus. Each type of musical instrument requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 3500,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_lyre",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_lyre",
+      "name": "Lyre",
+      "description": "Several of the most common types of musical instruments are shown on the table as examples. If you have proficiency with a given musical instrument, you can add your proficiency bonus to any ability checks you make to play music with the instrument. A bard can use a musical instrument as a spellcasting focus. Each type of musical instrument requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 3000,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_mace",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_mace",
+      "name": "Mace",
+      "description": "A mace.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 4,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d6",
+        "damageDice": "1d6",
+        "damageType": "bludgeoning",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": true,
+        "isMartial": false,
+        "weaponClass": "simple",
+        "weaponProperties": [],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_magnifying-glass",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_magnifying-glass",
+      "name": "Magnifying Glass",
+      "description": "This lens allows a closer look at small objects. It is also useful as a substitute for flint and steel when starting fires. Lighting a fire with a magnifying glass requires light as bright as sunlight to focus, tinder to ignite, and about 5 minutes for the fire to ignite. A magnifying glass grants advantage on any ability check made to appraise or inspect an item that is small or highly detailed.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 10000,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_malice",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_malice",
+      "name": "Malice",
+      "description": "A creature subjected to this poison must succeed on a DC 15 Constitution saving throw or become poisoned for 1 hour. The poisoned creature is blinded.\\n\\n**_Inhaled._** These poisons are powders or gases that take effect when inhaled. Blowing the powder or releasing the gas subjects creatures in a 5-foot cube to its effect. The resulting cloud dissipates immediately afterward. Holding one's breath is ineffective against inhaled poisons, as they affect nasal membranes, tear ducts, and other parts of the body.",
+      "categoryKey": "poison",
+      "categoryName": "Poison",
+      "type": "consumable",
+      "weight": 0,
+      "valueCopper": 25000,
+      "properties": {
+        "category": "Poison",
+        "effect": "A creature subjected to this poison must succeed on a DC 15 Constitution saving throw or become poisoned for 1 hour. The poisoned creature is blinded.\\n\\n**_Inhaled._** These poisons are powders or gases that take effect when inhaled. Blowing the powder or releasing the gas subjects creatures in a 5-foot cube to its effect. The resulting cloud dissipates immediately afterward. Holding one's breath is ineffective against inhaled poisons, as they affect nasal membranes, tear ducts, and other parts of the body."
+      }
+    },
+    {
+      "sourceKey": "srd_manacles",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_manacles",
+      "name": "Manacles",
+      "description": "These metal restraints can bind a Small or Medium creature. Escaping the manacles requires a successful DC 20 Dexterity check. Breaking them requires a successful DC 20 Strength check. Each set of manacles comes with one key. Without the key, a creature proficient with thieves’ tools can pick the manacles’ lock with a successful DC 15 Dexterity check. Manacles have 15 hit points.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 6,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_masons-tools",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_masons-tools",
+      "name": "Mason's Tools",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 8,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_maul",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_maul",
+      "name": "Maul",
+      "description": "A maul.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 10,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Weapon",
+        "damage": "2d6",
+        "damageDice": "2d6",
+        "damageType": "bludgeoning",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Two-Handed"
+          }
+        ],
+        "equipSlots": [
+          "mainhand"
+        ],
+        "twoHanded": true
+      }
+    },
+    {
+      "sourceKey": "srd_mess-kit",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_mess-kit",
+      "name": "Mess Kit",
+      "description": "This tin box contains a cup and simple cutlery. The box clamps together, and one side can be used as a cooking pan and the other as a plate or shallow bowl.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 20,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_midnight-tears",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_midnight-tears",
+      "name": "Midnight tears",
+      "description": "A creature that ingests this poison suffers no effect until the stroke of midnight. If the poison has not been neutralized before then, the creature must succeed on a DC 17 Constitution saving throw, taking 31 (9d6) poison damage on a failed save, or half as much damage on a successful one.\\n\\n **_Ingested._** A creature must swallow an entire dose of ingested poison to suffer its effects. The dose can be delivered in food or a liquid. You may decide that a partial dose has a reduced effect, such as allowing advantage on the saving throw or dealing only half damage on a failed save.",
+      "categoryKey": "poison",
+      "categoryName": "Poison",
+      "type": "consumable",
+      "weight": 0,
+      "valueCopper": 150000,
+      "properties": {
+        "category": "Poison",
+        "effect": "A creature that ingests this poison suffers no effect until the stroke of midnight. If the poison has not been neutralized before then, the creature must succeed on a DC 17 Constitution saving throw, taking 31 (9d6) poison damage on a failed save, or half as much damage on a successful one.\\n\\n **_Ingested._** A creature must swallow an entire dose of ingested poison to suffer its effects. The dose can be delivered in food or a liquid. You may decide that a partial dose has a reduced effect, such as allowing advantage on the saving throw or dealing only half damage on a failed save."
+      }
+    },
+    {
+      "sourceKey": "srd_mirror-steel",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_mirror-steel",
+      "name": "Mirror, steel",
+      "description": "A mirror.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0.5,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_morningstar",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_morningstar",
+      "name": "Morningstar",
+      "description": "A morningstar",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 4,
+      "valueCopper": 1500,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d8",
+        "damageDice": "1d8",
+        "damageType": "piercing",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_navigators-tools",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_navigators-tools",
+      "name": "Navigator's tools",
+      "description": "This set of instruments is used for navigation at sea. Proficiency with navigator's tools lets you chart a ship's course and follow navigation charts. In addition, these tools allow you to add your proficiency bonus to any ability check you make to avoid getting lost at sea.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 2500,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_net",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_net",
+      "name": "Net",
+      "description": "A net.\r\n\r\nA Large or smaller creature hit by a net is restrained until it is freed. A net has no effect on creatures that are formless, or creatures that are Huge or larger. A creature can use its action to make a DC 10 Strength check, freeing itself or another creature within its reach on a success. Dealing 5 slashing damage to the net (AC 10) also frees the creature without harming it, ending the effect and destroying the net.\r\n\r\nWhen you use an action, bonus action, or reaction to attack with a net, you can make only one attack regardless of the number of attacks you can normally make.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 3,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Weapon",
+        "damage": "0",
+        "damageDice": "0",
+        "damageType": "bludgeoning",
+        "range": "5/15",
+        "rangeFeet": {
+          "normal": 5,
+          "long": 15,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Special (Net)"
+          },
+          {
+            "name": "Thrown",
+            "detail": "range 5/15"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "specialNet": true,
+        "thrown": "range 5/15"
+      }
+    },
+    {
+      "sourceKey": "srd_oil-of-taggit",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_oil-of-taggit",
+      "name": "Oil of taggit",
+      "description": "A creature subjected to this poison must succeed on a DC 13 Constitution saving throw or become poisoned for 24 hours. The poisoned creature is unconscious. The creature wakes up if it takes damage.\\n\\n **_Contact._** Contact poison can be smeared on an object and remains potent until it is touched or washed off. A creature that touches contact poison with exposed skin suffers its effects.",
+      "categoryKey": "poison",
+      "categoryName": "Poison",
+      "type": "consumable",
+      "weight": 0,
+      "valueCopper": 40000,
+      "properties": {
+        "category": "Poison",
+        "effect": "A creature subjected to this poison must succeed on a DC 13 Constitution saving throw or become poisoned for 24 hours. The poisoned creature is unconscious. The creature wakes up if it takes damage.\\n\\n **_Contact._** Contact poison can be smeared on an object and remains potent until it is touched or washed off. A creature that touches contact poison with exposed skin suffers its effects."
+      }
+    },
+    {
+      "sourceKey": "srd_orb",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_orb",
+      "name": "Orb",
+      "description": "Can be used as an Arcane Focus.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 3,
+      "valueCopper": 2000,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_ox",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_ox",
+      "name": "Ox",
+      "description": "One ox.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1500,
+      "valueCopper": 1500,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_padded-armor",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_padded-armor",
+      "name": "Padded Armor",
+      "description": "Padded armor consists of quilted layers of cloth and batting.",
+      "categoryKey": "armor",
+      "categoryName": "Armor",
+      "type": "armor",
+      "weight": 8,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Armor",
+        "armorCategory": "light",
+        "ac": 11,
+        "baseAC": 11,
+        "addDexterityModifier": true,
+        "stealthDisadvantage": true,
+        "equipSlots": [
+          "armor"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_painters-supplies",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_painters-supplies",
+      "name": "Painter's Supplies",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 5,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_pale-tincture",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_pale-tincture",
+      "name": "Pale tincture",
+      "description": "A creature subjected to this poison must succeed on a DC 16 Constitution saving throw or take 3 (1d6) poison damage and become poisoned. The poisoned creature must repeat the saving throw every 24 hours, taking 3 (1d6) poison damage on a failed save. Until this poison ends, the damage the poison deals can't be healed by any means. After seven successful saving throws, the effect ends and the creature can heal normally. \\n\\n **_Ingested._** A creature must swallow an entire dose of ingested poison to suffer its effects. The dose can be delivered in food or a liquid. You may decide that a partial dose has a reduced effect, such as allowing advantage on the saving throw or dealing only half damage on a failed save.",
+      "categoryKey": "poison",
+      "categoryName": "Poison",
+      "type": "consumable",
+      "weight": 0,
+      "valueCopper": 25000,
+      "properties": {
+        "category": "Poison",
+        "effect": "A creature subjected to this poison must succeed on a DC 16 Constitution saving throw or take 3 (1d6) poison damage and become poisoned. The poisoned creature must repeat the saving throw every 24 hours, taking 3 (1d6) poison damage on a failed save. Until this poison ends, the damage the poison deals can't be healed by any means. After seven successful saving throws, the effect ends and the creature can heal normally. \\n\\n **_Ingested._** A creature must swallow an entire dose of ingested poison to suffer its effects. The dose can be delivered in food or a liquid. You may decide that a partial dose has a reduced effect, such as allowing advantage on the saving throw or dealing only half damage on a failed save."
+      }
+    },
+    {
+      "sourceKey": "srd_pan-flute",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_pan-flute",
+      "name": "Pan flute",
+      "description": "Several of the most common types of musical instruments are shown on the table as examples. If you have proficiency with a given musical instrument, you can add your proficiency bonus to any ability checks you make to play music with the instrument. A bard can use a musical instrument as a spellcasting focus. Each type of musical instrument requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 1200,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_paper-one-sheet",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_paper-one-sheet",
+      "name": "Paper (one sheet)",
+      "description": "A sheet of paper",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 20,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_parchment-one-sheet",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_parchment-one-sheet",
+      "name": "Parchment (one sheet)",
+      "description": "A sheet of parchment",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 10,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_pepper",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_pepper",
+      "name": "Pepper",
+      "description": "1lb of pepper.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_perfume-vial",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_perfume-vial",
+      "name": "Perfume (vial)",
+      "description": "A vial of perfume.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_pick-miners",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_pick-miners",
+      "name": "Pick, miner's",
+      "description": "A pick for mining.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 10,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_pig",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_pig",
+      "name": "Pig",
+      "description": "One pig.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 400,
+      "valueCopper": 300,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_pike",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_pike",
+      "name": "Pike",
+      "description": "A pike.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 18,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d10",
+        "damageDice": "1d10",
+        "damageType": "piercing",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Reach"
+          },
+          {
+            "name": "Two-Handed"
+          }
+        ],
+        "equipSlots": [
+          "mainhand"
+        ],
+        "reach": true,
+        "twoHanded": true
+      }
+    },
+    {
+      "sourceKey": "srd_piton",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_piton",
+      "name": "Piton",
+      "description": "A piton for climbing.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0.25,
+      "valueCopper": 5,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_plate-armor",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_plate-armor",
+      "name": "Plate Armor",
+      "description": "Plate consists of shaped, interlocking metal plates to cover the entire body. A suit of plate includes gauntlets, heavy leather boots, a visored helmet, and thick layers of padding underneath the armor. Buckles and straps distribute the weight over the body.",
+      "categoryKey": "armor",
+      "categoryName": "Armor",
+      "type": "armor",
+      "weight": 65,
+      "valueCopper": 150000,
+      "properties": {
+        "category": "Armor",
+        "armorCategory": "heavy",
+        "ac": 18,
+        "baseAC": 18,
+        "addDexterityModifier": false,
+        "maxDexBonus": 0,
+        "stealthDisadvantage": true,
+        "strengthRequired": 15,
+        "equipSlots": [
+          "armor"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_platinum",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_platinum",
+      "name": "Platinum",
+      "description": "1 lb. of platinum.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 50000,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_platinum-piece",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_platinum-piece",
+      "name": "Platinum Piece",
+      "description": "In addition, unusual coins made of other precious metals sometimes appear in treasure hoards. The electrum piece (ep) and the platinum piece (pp) originate from fallen empires and lost kingdoms, and they sometimes arouse suspicion and skepticism when used in transactions. An electrum piece is worth five silver pieces, and a platinum piece is worth ten gold pieces.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 0.02,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_playing-card-set",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_playing-card-set",
+      "name": "Playing card set",
+      "description": "This item encompasses a wide range of game pieces, including dice and decks of cards (for games such as Three-­‐‑Dragon Ante). A few common examples appear on the Tools table, but other kinds of gaming sets exist. If you are proficient with a gaming set, you can add your proficiency bonus to ability checks you make to play a game with that set. Each type of gaming set requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 50,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_poison-basic",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_poison-basic",
+      "name": "Poison, Basic",
+      "description": "You can use the poison in this vial to coat one slashing or piercing weapon or up to three pieces of ammunition. Applying the poison takes an action. A creature hit by the poisoned weapon or ammunition must make a DC 10 Constitution saving throw or take 1d4 poison damage. Once applied, the poison retains potency for 1 minute before drying.",
+      "categoryKey": "poison",
+      "categoryName": "Poison",
+      "type": "consumable",
+      "weight": 0,
+      "valueCopper": 10000,
+      "properties": {
+        "category": "Poison",
+        "effect": "You can use the poison in this vial to coat one slashing or piercing weapon or up to three pieces of ammunition. Applying the poison takes an action. A creature hit by the poisoned weapon or ammunition must make a DC 10 Constitution saving throw or take 1d4 poison damage. Once applied, the poison retains potency for 1 minute before drying."
+      }
+    },
+    {
+      "sourceKey": "srd_poisoners-kit",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_poisoners-kit",
+      "name": "Poisoner's kit",
+      "description": "A poisoner’s kit includes the vials, chemicals, and other equipment necessary for the creation of poisons. Proficiency with this kit lets you add your proficiency bonus to any ability checks you make to craft or use poisons.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 5000,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_pole-10-foot",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_pole-10-foot",
+      "name": "Pole (10-foot)",
+      "description": "A 10 foot pole.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 7,
+      "valueCopper": 5,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_pot-iron",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_pot-iron",
+      "name": "Pot, iron",
+      "description": "An iron pot. Capacity: 1 gallon liquid.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 10,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_potters-tools",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_potters-tools",
+      "name": "Potter's tools",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 3,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_pouch",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_pouch",
+      "name": "Pouch",
+      "description": "A cloth or leather pouch can hold up to 20 sling bullets or 50 blowgun needles, among other things. A compartmentalized pouch for holding spell components is called a component pouch (described earlier in this section).\r\nCapacity: 1/5 cubic foot/6 pounds of gear.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 50,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_purple-worm-poison",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_purple-worm-poison",
+      "name": "Purple worm poison",
+      "description": "This poison must be harvested from a dead or incapacitated purple worm. A creature subjected to this poison must make a DC 19 Constitution saving throw, taking 42 (12d6) poison damage on a failed save, or half as much damage on a successful one.\r\n\\n\\n\r\n**_Injury._** Injury poison can be applied to weapons, ammunition, trap components, and other objects that deal piercing or slashing damage and remains potent until delivered through a wound or washed off. A creature that takes piercing or slashing damage from an object coated with the poison is exposed to its effects.",
+      "categoryKey": "poison",
+      "categoryName": "Poison",
+      "type": "consumable",
+      "weight": 0,
+      "valueCopper": 200000,
+      "properties": {
+        "category": "Poison",
+        "effect": "This poison must be harvested from a dead or incapacitated purple worm. A creature subjected to this poison must make a DC 19 Constitution saving throw, taking 42 (12d6) poison damage on a failed save, or half as much damage on a successful one.\r\n\\n\\n\r\n**_Injury._** Injury poison can be applied to weapons, ammunition, trap components, and other objects that deal piercing or slashing damage and remains potent until delivered through a wound or washed off. A creature that takes piercing or slashing damage from an object coated with the poison is exposed to its effects."
+      }
+    },
+    {
+      "sourceKey": "srd_quarterstaff",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_quarterstaff",
+      "name": "Quarterstaff",
+      "description": "A quarterstaff.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 4,
+      "valueCopper": 20,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d6",
+        "damageDice": "1d6",
+        "damageType": "bludgeoning",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": true,
+        "isMartial": false,
+        "weaponClass": "simple",
+        "weaponProperties": [
+          {
+            "name": "Versatile",
+            "detail": "1d8"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "versatile": "1d8"
+      }
+    },
+    {
+      "sourceKey": "srd_quiver",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_quiver",
+      "name": "Quiver",
+      "description": "A quiver can hold up to 20 arrows.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_ram-portable",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_ram-portable",
+      "name": "Ram, Portable",
+      "description": "You can use a portable ram to break down doors. When doing so, you gain a +4 bonus on the Strength check. One other character can help you use the ram, giving you advantage on this check.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 35,
+      "valueCopper": 400,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_rapier",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_rapier",
+      "name": "Rapier",
+      "description": "A rapier.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 2,
+      "valueCopper": 2500,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d8",
+        "damageDice": "1d8",
+        "damageType": "piercing",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Finesse"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "finesse": true
+      }
+    },
+    {
+      "sourceKey": "srd_rations-1-day",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_rations-1-day",
+      "name": "Rations (1 day)",
+      "description": "Rations consist of dry foods suitable for extended travel, including jerky, dried fruit, hardtack, and nuts.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "consumable",
+      "weight": 2,
+      "valueCopper": 50,
+      "properties": {
+        "category": "Adventuring Gear",
+        "effect": "Rations consist of dry foods suitable for extended travel, including jerky, dried fruit, hardtack, and nuts."
+      }
+    },
+    {
+      "sourceKey": "srd_reliquary",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_reliquary",
+      "name": "Reliquary",
+      "description": "Can be used as a holy symbol.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 2,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_ring-mail",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_ring-mail",
+      "name": "Ring mail",
+      "description": "This armor is leather armor with heavy rings sewn into it. The rings help reinforce the armor against blows from swords and axes. Ring mail is inferior to chain mail, and it's usually worn only by those who can't afford better armor.",
+      "categoryKey": "armor",
+      "categoryName": "Armor",
+      "type": "armor",
+      "weight": 40,
+      "valueCopper": 3000,
+      "properties": {
+        "category": "Armor",
+        "armorCategory": "heavy",
+        "ac": 14,
+        "baseAC": 14,
+        "addDexterityModifier": false,
+        "maxDexBonus": 0,
+        "stealthDisadvantage": true,
+        "equipSlots": [
+          "armor"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_robes",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_robes",
+      "name": "Robes",
+      "description": "Robes, for wearing.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 4,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_rod",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_rod",
+      "name": "Rod",
+      "description": "Can be used as an arcane focus.",
+      "categoryKey": "rod",
+      "categoryName": "Rod",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Rod"
+      }
+    },
+    {
+      "sourceKey": "srd_rope-hempen-50-feet",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_rope-hempen-50-feet",
+      "name": "Rope, hempen (50 feet)",
+      "description": "Rope, whether made of hemp or silk, has 2 hit points and can be burst with a DC 17 Strength check.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 10,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_rope-silk-50-feet",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_rope-silk-50-feet",
+      "name": "Rope, silk (50 feet)",
+      "description": "Rope, whether made of hemp or silk, has 2 hit points and can be burst with a DC 17 Strength check.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 5,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_rowboat",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_rowboat",
+      "name": "Rowboat",
+      "description": "Waterborne vehicle. Speed 1.5mph",
+      "categoryKey": "waterborne-vehicle",
+      "categoryName": "Waterborne Vehicle",
+      "type": "misc",
+      "weight": 100,
+      "valueCopper": 5000,
+      "properties": {
+        "category": "Waterborne Vehicle"
+      }
+    },
+    {
+      "sourceKey": "srd_sack",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_sack",
+      "name": "Sack",
+      "description": "A sack. Capacity: 1 cubic foot/30 pounds of gear.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0.5,
+      "valueCopper": 1,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_saffron",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_saffron",
+      "name": "Saffron",
+      "description": "1lb of saffron.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 1500,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_sailing-ship",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_sailing-ship",
+      "name": "Sailing Ship",
+      "description": "Waterborne vehicle. Speed 2mph",
+      "categoryKey": "waterborne-vehicle",
+      "categoryName": "Waterborne Vehicle",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 1000000,
+      "properties": {
+        "category": "Waterborne Vehicle"
+      }
+    },
+    {
+      "sourceKey": "srd_salt",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_salt",
+      "name": "Salt",
+      "description": "1lb of salt.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 5,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_scale-mail",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_scale-mail",
+      "name": "Scale mail",
+      "description": "This armor consists of a coat and leggings (and perhaps a separate skirt) of leather covered with overlapping pieces of metal, much like the scales of a fish. The suit includes gauntlets.",
+      "categoryKey": "armor",
+      "categoryName": "Armor",
+      "type": "armor",
+      "weight": 45,
+      "valueCopper": 5000,
+      "properties": {
+        "category": "Armor",
+        "armorCategory": "medium",
+        "ac": 14,
+        "baseAC": 14,
+        "addDexterityModifier": true,
+        "maxDexBonus": 2,
+        "stealthDisadvantage": true,
+        "equipSlots": [
+          "armor"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_scale-merchants",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_scale-merchants",
+      "name": "Scale, Merchant's",
+      "description": "A scale includes a small balance, pans, and a suitable assortment of weights up to 2 pounds. With it, you can measure the exact weight of small objects, such as raw precious metals or trade goods, to help determine their worth.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 3,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_scimitar",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_scimitar",
+      "name": "Scimitar",
+      "description": "A scimitar.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 3,
+      "valueCopper": 2500,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d6",
+        "damageDice": "1d6",
+        "damageType": "slashing",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Finesse"
+          },
+          {
+            "name": "Light"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "finesse": true,
+        "light": true
+      }
+    },
+    {
+      "sourceKey": "srd_sealing-wax",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_sealing-wax",
+      "name": "Sealing wax",
+      "description": "For sealing written letters.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 50,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_serpent-venom",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_serpent-venom",
+      "name": "Serpent venom",
+      "description": "This poison must be harvested from a dead or incapacitated giant poisonous snake. A creature subjected to this poison must succeed on a DC 11 Constitution saving throw, taking 10 (3d6) poison damage on a failed save, or half as much damage on a successful one.\r\n\\n\\n\r\n**_Injury._** Injury poison can be applied to weapons, ammunition, trap components, and other objects that deal piercing or slashing damage and remains potent until delivered through a wound or washed off. A creature that takes piercing or slashing damage from an object coated with the poison is exposed to its effects.",
+      "categoryKey": "poison",
+      "categoryName": "Poison",
+      "type": "consumable",
+      "weight": 0,
+      "valueCopper": 20000,
+      "properties": {
+        "category": "Poison",
+        "effect": "This poison must be harvested from a dead or incapacitated giant poisonous snake. A creature subjected to this poison must succeed on a DC 11 Constitution saving throw, taking 10 (3d6) poison damage on a failed save, or half as much damage on a successful one.\r\n\\n\\n\r\n**_Injury._** Injury poison can be applied to weapons, ammunition, trap components, and other objects that deal piercing or slashing damage and remains potent until delivered through a wound or washed off. A creature that takes piercing or slashing damage from an object coated with the poison is exposed to its effects."
+      }
+    },
+    {
+      "sourceKey": "srd_shawm",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_shawm",
+      "name": "Shawm",
+      "description": "Several of the most common types of musical instruments are shown on the table as examples. If you have proficiency with a given musical instrument, you can add your proficiency bonus to any ability checks you make to play music with the instrument. A bard can use a musical instrument as a spellcasting focus. Each type of musical instrument requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_sheep",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_sheep",
+      "name": "Sheep",
+      "description": "One sheep.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 75,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_shield",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_shield",
+      "name": "Shield",
+      "description": "A shield is made from wood or metal and is carried in one hand. Wielding a shield increases your Armor Class by 2. You can benefit from only one shield at a time.",
+      "categoryKey": "shield",
+      "categoryName": "Shield",
+      "type": "armor",
+      "weight": 6,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Shield",
+        "acBonus": 2,
+        "equipSlots": [
+          "offhand"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_shortbow",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_shortbow",
+      "name": "Shortbow",
+      "description": "A shortbow",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 2,
+      "valueCopper": 2500,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d6",
+        "damageDice": "1d6",
+        "damageType": "piercing",
+        "range": "80/320",
+        "rangeFeet": {
+          "normal": 80,
+          "long": 320,
+          "unit": "feet"
+        },
+        "isSimple": true,
+        "isMartial": false,
+        "weaponClass": "simple",
+        "weaponProperties": [
+          {
+            "name": "Ammunition",
+            "detail": "range 80/320"
+          },
+          {
+            "name": "Two-Handed"
+          }
+        ],
+        "equipSlots": [
+          "mainhand"
+        ],
+        "ammunition": "range 80/320",
+        "twoHanded": true
+      }
+    },
+    {
+      "sourceKey": "srd_shortsword",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_shortsword",
+      "name": "Shortsword",
+      "description": "A short sword.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 2,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d6",
+        "damageDice": "1d6",
+        "damageType": "slashing",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Finesse"
+          },
+          {
+            "name": "Light"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "finesse": true,
+        "light": true
+      }
+    },
+    {
+      "sourceKey": "srd_shovel",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_shovel",
+      "name": "Shovel",
+      "description": "A shovel.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 5,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_sickle",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_sickle",
+      "name": "Sickle",
+      "description": "A sickle.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 2,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d4",
+        "damageDice": "1d4",
+        "damageType": "slashing",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": true,
+        "isMartial": false,
+        "weaponClass": "simple",
+        "weaponProperties": [
+          {
+            "name": "Light"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "light": true
+      }
+    },
+    {
+      "sourceKey": "srd_signal-whistle",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_signal-whistle",
+      "name": "Signal whistle",
+      "description": "For signalling.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 5,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_signet-ring",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_signet-ring",
+      "name": "Signet Ring",
+      "description": "A ring with a signet on it.",
+      "categoryKey": "ring",
+      "categoryName": "Ring",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Ring"
+      }
+    },
+    {
+      "sourceKey": "srd_silk",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_silk",
+      "name": "Silk",
+      "description": "1 sq. yd. of silk.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_silver",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_silver",
+      "name": "Silver",
+      "description": "1lb of silver",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_silver-piece",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_silver-piece",
+      "name": "Silver Piece",
+      "description": "One gold piece is worth ten silver pieces, the most prevalent coin among commoners. A silver piece buys a laborer's work for half a day, a flask of lamp oil, or a night's rest in a poor inn.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 0.02,
+      "valueCopper": 10,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_sled",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_sled",
+      "name": "Sled",
+      "description": "Drawn vehicle",
+      "categoryKey": "land-vehicle",
+      "categoryName": "Land Vehicle",
+      "type": "misc",
+      "weight": 300,
+      "valueCopper": 2000,
+      "properties": {
+        "category": "Land Vehicle"
+      }
+    },
+    {
+      "sourceKey": "srd_sling",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_sling",
+      "name": "Sling",
+      "description": "A sling.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 0,
+      "valueCopper": 10,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d4",
+        "damageDice": "1d4",
+        "damageType": "bludgeoning",
+        "range": "30/120",
+        "rangeFeet": {
+          "normal": 30,
+          "long": 120,
+          "unit": "feet"
+        },
+        "isSimple": true,
+        "isMartial": false,
+        "weaponClass": "simple",
+        "weaponProperties": [
+          {
+            "name": "Ammunition",
+            "detail": "range 80/320"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "ammunition": "range 80/320"
+      }
+    },
+    {
+      "sourceKey": "srd_sling-bullets",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_sling-bullets",
+      "name": "Sling bullets",
+      "description": "Technically their cost is 20 for 4cp.",
+      "categoryKey": "ammunition",
+      "categoryName": "Ammunition",
+      "type": "misc",
+      "weight": 0.075,
+      "valueCopper": 1,
+      "properties": {
+        "category": "Ammunition"
+      }
+    },
+    {
+      "sourceKey": "srd_smiths-tools",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_smiths-tools",
+      "name": "Smith's tools",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 8,
+      "valueCopper": 2000,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_soap",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_soap",
+      "name": "Soap",
+      "description": "For cleaning.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 2,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_spear",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_spear",
+      "name": "Spear",
+      "description": "A spear.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 3,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d6",
+        "damageDice": "1d6",
+        "damageType": "piercing",
+        "range": "20/60",
+        "rangeFeet": {
+          "normal": 20,
+          "long": 60,
+          "unit": "feet"
+        },
+        "isSimple": true,
+        "isMartial": false,
+        "weaponClass": "simple",
+        "weaponProperties": [
+          {
+            "name": "Thrown",
+            "detail": "range 20/60"
+          },
+          {
+            "name": "Versatile",
+            "detail": "1d8"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "thrown": "range 20/60",
+        "versatile": "1d8"
+      }
+    },
+    {
+      "sourceKey": "srd_spellbook",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_spellbook",
+      "name": "Spellbook",
+      "description": "Essential for wizards, a spellbook is a leather-­‐‑bound tome with 100 blank vellum pages suitable for recording spells.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 3,
+      "valueCopper": 5000,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_spike-iron",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_spike-iron",
+      "name": "Spike, iron",
+      "description": "An iron spike.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0.5,
+      "valueCopper": 10,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_splint-armor",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_splint-armor",
+      "name": "Splint Armor",
+      "description": "This armor is made of narrow vertical strips of metal riveted to a backing of leather that is worn over cloth padding. Flexible chain mail protects the joints.",
+      "categoryKey": "armor",
+      "categoryName": "Armor",
+      "type": "armor",
+      "weight": 60,
+      "valueCopper": 20000,
+      "properties": {
+        "category": "Armor",
+        "armorCategory": "heavy",
+        "ac": 17,
+        "baseAC": 17,
+        "addDexterityModifier": false,
+        "maxDexBonus": 0,
+        "stealthDisadvantage": true,
+        "strengthRequired": 15,
+        "equipSlots": [
+          "armor"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_sprig-of-mistletoe",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_sprig-of-mistletoe",
+      "name": "Sprig of mistletoe",
+      "description": "A sprig of mistletoe that can be used as a druidic focus.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_spyglass",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_spyglass",
+      "name": "Spyglass",
+      "description": "Objects viewed through a spyglass are magnified to twice their size.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 100000,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_staff",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_staff",
+      "name": "Staff",
+      "description": "Can be used as an arcane focus.",
+      "categoryKey": "staff",
+      "categoryName": "Staff",
+      "type": "weapon",
+      "weight": 4,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Staff",
+        "damage": "1d6",
+        "damageDice": "1d6",
+        "damageType": "bludgeoning",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": true,
+        "isMartial": false,
+        "weaponClass": "simple",
+        "weaponProperties": [
+          {
+            "name": "Versatile",
+            "detail": "1d8"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "versatile": "1d8"
+      }
+    },
+    {
+      "sourceKey": "srd_studded-leather-armor",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_studded-leather-armor",
+      "name": "Studded Leather Armor",
+      "description": "Made from tough but flexible leather, studded leather is reinforced with close-set rivets or spikes.",
+      "categoryKey": "armor",
+      "categoryName": "Armor",
+      "type": "armor",
+      "weight": 13,
+      "valueCopper": 4500,
+      "properties": {
+        "category": "Armor",
+        "armorCategory": "light",
+        "ac": 12,
+        "baseAC": 12,
+        "addDexterityModifier": true,
+        "stealthDisadvantage": false,
+        "equipSlots": [
+          "armor"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_tent",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_tent",
+      "name": "Tent",
+      "description": "A simple and portable canvas shelter, a tent sleeps two.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 20,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_thieves-tools",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_thieves-tools",
+      "name": "Thieves' tools",
+      "description": "This set of tools includes a small file, a set of lock picks, a small mirror mounted on a metal handle, a set of narrow-­‐‑bladed scissors, and a pair of pliers. Proficiency with these tools lets you add your proficiency bonus to any ability checks you make to disarm traps or open locks.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 2500,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_tinderbox",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_tinderbox",
+      "name": "Tinderbox",
+      "description": "This small container holds flint, fire steel, and tinder (usually dry cloth soaked in light oil) used to kindle a fire. Using it to light a torch—or anything else with abundant, exposed fuel—takes an action. Lighting any other fire takes 1 minute.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 50,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_tinkers-tools",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_tinkers-tools",
+      "name": "Tinker's tools",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 10,
+      "valueCopper": 5000,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_torch",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_torch",
+      "name": "Torch",
+      "description": "A torch burns for 1 hour, providing bright light in a 20-­‐‑foot radius and dim light for an additional 20 feet. If you make a melee attack with a burning torch and hit, it deals 1 fire damage.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 1,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_torpor",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_torpor",
+      "name": "Torpor",
+      "description": "A creature subjected to this poison must succeed on a DC 15 Constitution saving throw or become poisoned for 4d6 hours. The poisoned creature is incapacitated.\r\n\\n\\n\r\n**_Ingested._** A creature must swallow an entire dose of ingested poison to suffer its effects. The dose can be delivered in food or a liquid. You may decide that a partial dose has a reduced effect, such as allowing advantage on the saving throw or dealing only half damage on a failed save.",
+      "categoryKey": "poison",
+      "categoryName": "Poison",
+      "type": "consumable",
+      "weight": 0,
+      "valueCopper": 60000,
+      "properties": {
+        "category": "Poison",
+        "effect": "A creature subjected to this poison must succeed on a DC 15 Constitution saving throw or become poisoned for 4d6 hours. The poisoned creature is incapacitated.\r\n\\n\\n\r\n**_Ingested._** A creature must swallow an entire dose of ingested poison to suffer its effects. The dose can be delivered in food or a liquid. You may decide that a partial dose has a reduced effect, such as allowing advantage on the saving throw or dealing only half damage on a failed save."
+      }
+    },
+    {
+      "sourceKey": "srd_totem",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_totem",
+      "name": "Totem",
+      "description": "Can be used as a druidic focus.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_trident",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_trident",
+      "name": "Trident",
+      "description": "A trident.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 4,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d6",
+        "damageDice": "1d6",
+        "damageType": "piercing",
+        "range": "20/60",
+        "rangeFeet": {
+          "normal": 20,
+          "long": 60,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Two-Handed"
+          },
+          {
+            "name": "Thrown",
+            "detail": "range 20/60"
+          },
+          {
+            "name": "Versatile",
+            "detail": "1d8"
+          }
+        ],
+        "equipSlots": [
+          "mainhand"
+        ],
+        "twoHanded": true,
+        "thrown": "range 20/60",
+        "versatile": "1d8"
+      }
+    },
+    {
+      "sourceKey": "srd_truth-serum",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_truth-serum",
+      "name": "Truth serum",
+      "description": "A creature subjected to this poison must succeed on a DC 11 Constitution saving throw or become poisoned for 1 hour. The poisoned creature can't knowingly speak a lie, as if under the effect of a zone of truth spell.\r\n\\n\\n\r\n**_Ingested._** A creature must swallow an entire dose of ingested poison to suffer its effects. The dose can be delivered in food or a liquid. You may decide that a partial dose has a reduced effect, such as allowing advantage on the saving throw or dealing only half damage on a failed save.",
+      "categoryKey": "poison",
+      "categoryName": "Poison",
+      "type": "consumable",
+      "weight": 0,
+      "valueCopper": 15000,
+      "properties": {
+        "category": "Poison",
+        "effect": "A creature subjected to this poison must succeed on a DC 11 Constitution saving throw or become poisoned for 1 hour. The poisoned creature can't knowingly speak a lie, as if under the effect of a zone of truth spell.\r\n\\n\\n\r\n**_Ingested._** A creature must swallow an entire dose of ingested poison to suffer its effects. The dose can be delivered in food or a liquid. You may decide that a partial dose has a reduced effect, such as allowing advantage on the saving throw or dealing only half damage on a failed save."
+      }
+    },
+    {
+      "sourceKey": "srd_vial",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_vial",
+      "name": "Vial",
+      "description": "For holding liquids. Capacity: 4 ounces liquid.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_viol",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_viol",
+      "name": "Viol",
+      "description": "Several of the most common types of musical instruments are shown on the table as examples. If you have proficiency with a given musical instrument, you can add your proficiency bonus to any ability checks you make to play music with the instrument. A bard can use a musical instrument as a spellcasting focus. Each type of musical instrument requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 3000,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_wagon",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_wagon",
+      "name": "Wagon",
+      "description": "Drawn vehicle.",
+      "categoryKey": "land-vehicle",
+      "categoryName": "Land Vehicle",
+      "type": "misc",
+      "weight": 400,
+      "valueCopper": 3500,
+      "properties": {
+        "category": "Land Vehicle"
+      }
+    },
+    {
+      "sourceKey": "srd_wand",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_wand",
+      "name": "Wand",
+      "description": "Can be used as an arcane focus.",
+      "categoryKey": "wand",
+      "categoryName": "Wand",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Wand"
+      }
+    },
+    {
+      "sourceKey": "srd_war-pick",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_war-pick",
+      "name": "War pick",
+      "description": "A war pick.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 2,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d8",
+        "damageDice": "1d8",
+        "damageType": "piercing",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ]
+      }
+    },
+    {
+      "sourceKey": "srd_warhammer",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_warhammer",
+      "name": "Warhammer",
+      "description": "A warhammer.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 2,
+      "valueCopper": 1500,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d8",
+        "damageDice": "1d8",
+        "damageType": "bludgeoning",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Versatile",
+            "detail": "1d10"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "versatile": "1d10"
+      }
+    },
+    {
+      "sourceKey": "srd_warship",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_warship",
+      "name": "Warship",
+      "description": "Waterborne vehicle. Speed 2.5mph",
+      "categoryKey": "waterborne-vehicle",
+      "categoryName": "Waterborne Vehicle",
+      "type": "misc",
+      "weight": 0,
+      "valueCopper": 2500000,
+      "properties": {
+        "category": "Waterborne Vehicle"
+      }
+    },
+    {
+      "sourceKey": "srd_waterskin",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_waterskin",
+      "name": "Waterskin",
+      "description": "For drinking. 5lb is the full weight. Capacity: 4 pints liquid.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 5,
+      "valueCopper": 20,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_weavers-tools",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_weavers-tools",
+      "name": "Weaver's tools",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 5,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_wheat",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_wheat",
+      "name": "Wheat",
+      "description": "1 pound of wheat.",
+      "categoryKey": "trade-good",
+      "categoryName": "Trade Good",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 1,
+      "properties": {
+        "category": "Trade Good"
+      }
+    },
+    {
+      "sourceKey": "srd_whetstone",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_whetstone",
+      "name": "Whetstone",
+      "description": "For sharpening.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 1,
+      "properties": {
+        "category": "Adventuring Gear"
+      }
+    },
+    {
+      "sourceKey": "srd_whip",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_whip",
+      "name": "Whip",
+      "description": "A whip.",
+      "categoryKey": "weapon",
+      "categoryName": "Weapon",
+      "type": "weapon",
+      "weight": 3,
+      "valueCopper": 200,
+      "properties": {
+        "category": "Weapon",
+        "damage": "1d4",
+        "damageDice": "1d4",
+        "damageType": "slashing",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": false,
+        "isMartial": true,
+        "weaponClass": "martial",
+        "weaponProperties": [
+          {
+            "name": "Reach"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "reach": true
+      }
+    },
+    {
+      "sourceKey": "srd_woodcarvers-tools",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_woodcarvers-tools",
+      "name": "Woodcarver's tools",
+      "description": "These special tools include the items needed to pursue a craft or trade.\\n\\n\r\nProficiency with a set of artisan’s tools lets you add your proficiency bonus to any ability checks you make using the tools in your craft. Each type of artisan’s tools requires a separate proficiency.",
+      "categoryKey": "tools",
+      "categoryName": "Tools",
+      "type": "misc",
+      "weight": 5,
+      "valueCopper": 100,
+      "properties": {
+        "category": "Tools"
+      }
+    },
+    {
+      "sourceKey": "srd_wooden-staff",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_wooden-staff",
+      "name": "Wooden staff",
+      "description": "Can be used as a druidic focus.",
+      "categoryKey": "adventuring-gear",
+      "categoryName": "Adventuring Gear",
+      "type": "weapon",
+      "weight": 4,
+      "valueCopper": 500,
+      "properties": {
+        "category": "Adventuring Gear",
+        "damage": "1d6",
+        "damageDice": "1d6",
+        "damageType": "bludgeoning",
+        "rangeFeet": {
+          "normal": 0,
+          "long": 0,
+          "unit": "feet"
+        },
+        "isSimple": true,
+        "isMartial": false,
+        "weaponClass": "simple",
+        "weaponProperties": [
+          {
+            "name": "Versatile",
+            "detail": "1d8"
+          }
+        ],
+        "equipSlots": [
+          "mainhand",
+          "offhand"
+        ],
+        "versatile": "1d8"
+      }
+    },
+    {
+      "sourceKey": "srd_wyvern-poison",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_wyvern-poison",
+      "name": "Wyvern poison",
+      "description": "This poison must be harvested from a dead or incapacitated wyvern. A creature subjected to this poison must make a DC 15 Constitution saving throw, taking 24 (7d6) poison damage on a failed save, or half as much damage on a successful one.\r\n\\n\\n\r\n**_Injury._** Injury poison can be applied to weapons, ammunition, trap components, and other objects that deal piercing or slashing damage and remains potent until delivered through a wound or washed off. A creature that takes piercing or slashing damage from an object coated with the poison is exposed to its effects.",
+      "categoryKey": "poison",
+      "categoryName": "Poison",
+      "type": "consumable",
+      "weight": 0,
+      "valueCopper": 120000,
+      "properties": {
+        "category": "Poison",
+        "effect": "This poison must be harvested from a dead or incapacitated wyvern. A creature subjected to this poison must make a DC 15 Constitution saving throw, taking 24 (7d6) poison damage on a failed save, or half as much damage on a successful one.\r\n\\n\\n\r\n**_Injury._** Injury poison can be applied to weapons, ammunition, trap components, and other objects that deal piercing or slashing damage and remains potent until delivered through a wound or washed off. A creature that takes piercing or slashing damage from an object coated with the poison is exposed to its effects."
+      }
+    },
+    {
+      "sourceKey": "srd_yew-wand",
+      "contentKey": "open5e:item:5e-2014:srd-2014:srd_yew-wand",
+      "name": "Yew wand",
+      "description": "Can be used as a druidic focus.",
+      "categoryKey": "wand",
+      "categoryName": "Wand",
+      "type": "misc",
+      "weight": 1,
+      "valueCopper": 1000,
+      "properties": {
+        "category": "Wand"
+      }
+    }
+  ]
+}

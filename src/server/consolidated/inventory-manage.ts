@@ -72,6 +72,24 @@ function equippedArmorClass(
     return armorBase + equipmentBonus;
 }
 
+function allowedEquipSlots(item: {
+    type: string;
+    properties?: Record<string, unknown>;
+}): string[] {
+    const properties = item.properties ?? {};
+    if (properties.requiresSelection === true) return [];
+
+    if (Array.isArray(properties.equipSlots)) {
+        return properties.equipSlots.filter((slot): slot is string => typeof slot === 'string');
+    }
+
+    if (item.type === 'weapon') return ['mainhand', 'offhand'];
+    if (item.type === 'armor') {
+        return typeof properties.acBonus === 'number' ? ['offhand'] : ['armor'];
+    }
+    return [];
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ACTION SCHEMAS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -330,6 +348,17 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
             const item = itemRepo.findById(params.itemId);
             if (!item) {
                 throw new Error(`Item not found: ${params.itemId}`);
+            }
+
+            const allowedSlots = allowedEquipSlots(item);
+            if (item.properties?.requiresSelection === true) {
+                throw new Error(`Item "${item.name}" is an unresolved equipment choice; materialize a concrete item first`);
+            }
+            if (!allowedSlots.includes(params.slot)) {
+                const guidance = allowedSlots.length > 0
+                    ? `Allowed slots: ${allowedSlots.join(', ')}`
+                    : 'This item is not equippable; custom equippable items must define properties.equipSlots';
+                throw new Error(`Cannot equip "${item.name}" in ${params.slot}. ${guidance}`);
             }
 
             inventoryRepo.equipItem(params.characterId, params.itemId, params.slot);
