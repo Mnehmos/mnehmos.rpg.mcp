@@ -324,6 +324,7 @@ async function main() {
     await startHttpServerTransport(() => buildServer(pubsub, auditLogger), port, {
       host: httpHost,
       authToken: transportToken,
+      maxBodyBytes: maxMessageBytes,
     });
     console.error(`RPG MCP Server running on HTTP ${httpHost}:${port} (POST /mcp, GET /health)`);
   } else {
