@@ -33,6 +33,45 @@ function ensureDb() {
     };
 }
 
+/**
+ * Rebuild AC from the character's currently equipped armor instead of
+ * incrementally adding/subtracting bonuses. Older starter items persisted
+ * their armor base as `ac`; newer/authored items may use `baseAC`.
+ */
+function equippedArmorClass(
+    dexterity: number,
+    items: ReturnType<InventoryRepository['getInventoryWithDetails']>['items']
+): number {
+    const dexMod = Math.floor((dexterity - 10) / 2);
+    let armorBase = 10 + dexMod;
+    let equipmentBonus = 0;
+
+    for (const entry of items) {
+        if (!entry.equipped || !entry.item.properties) continue;
+        const props = entry.item.properties as Record<string, unknown>;
+        if (typeof props.acBonus === 'number') equipmentBonus += props.acBonus;
+
+        const baseAC = typeof props.baseAC === 'number'
+            ? props.baseAC
+            : typeof props.ac === 'number'
+                ? props.ac
+                : null;
+        if (baseAC === null || entry.slot !== 'armor') continue;
+
+        // Legacy heavy starter armor has no explicit maxDexBonus, but does
+        // carry a Strength requirement. Heavy armor never adds Dexterity.
+        const maxDexBonus = typeof props.maxDexBonus === 'number'
+            ? props.maxDexBonus
+            : typeof props.strengthRequired === 'number'
+                ? 0
+                : Number.POSITIVE_INFINITY;
+        const dexContribution = maxDexBonus === 0 ? 0 : Math.min(dexMod, maxDexBonus);
+        armorBase = Math.max(armorBase, baseAC + dexContribution);
+    }
+
+    return armorBase + equipmentBonus;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ACTION SCHEMAS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -295,30 +334,15 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
 
             inventoryRepo.equipItem(params.characterId, params.itemId, params.slot);
 
-            // Update character AC if item has AC properties
+            // Rebuild AC from all equipped items. This supports legacy starter
+            // armor (`properties.ac`) and avoids bonus drift after replacements.
             const character = charRepo.findById(params.characterId);
             let acChange: string | null = null;
 
-            if (character && item.properties) {
-                const props = item.properties as Record<string, unknown>;
-                let newAc = character.ac;
-
-                if (props.acBonus && typeof props.acBonus === 'number') {
-                    newAc = character.ac + props.acBonus;
-                    acChange = `AC increased by ${props.acBonus} (now ${newAc})`;
-                }
-
-                if (props.baseAC && typeof props.baseAC === 'number' && params.slot === 'armor') {
-                    const dexMod = Math.floor((character.stats.dex - 10) / 2);
-                    const maxDexBonus = props.maxDexBonus !== undefined ? Number(props.maxDexBonus) : 99;
-                    const effectiveDexBonus = Math.min(dexMod, maxDexBonus);
-                    newAc = props.baseAC + (maxDexBonus > 0 ? effectiveDexBonus : 0);
-                    acChange = `AC set to ${newAc} (base ${props.baseAC}${maxDexBonus < 99 ? ` + DEX max ${maxDexBonus}` : ' + DEX'})`;
-                }
-
-                if (newAc !== character.ac) {
-                    charRepo.update(params.characterId, { ac: newAc });
-                }
+            if (character) {
+                const newAc = equippedArmorClass(character.stats.dex, inventoryRepo.getInventoryWithDetails(params.characterId).items);
+                if (newAc !== character.ac) charRepo.update(params.characterId, { ac: newAc });
+                acChange = `AC recalculated from equipped armor (now ${newAc})`;
             }
 
             return {
@@ -340,36 +364,18 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
             const { inventoryRepo, itemRepo, charRepo } = ensureDb();
 
             const item = itemRepo.findById(params.itemId);
-            const inventory = inventoryRepo.getInventory(params.characterId);
-            const equippedItem = inventory.items.find((i: { itemId: string; equipped: boolean }) =>
-                i.itemId === params.itemId && i.equipped
-            );
-            const slot = equippedItem?.slot;
 
             inventoryRepo.unequipItem(params.characterId, params.itemId);
 
-            // Update character AC
+            // Rebuild AC after removing the item so remaining armor and shield
+            // bonuses stay authoritative.
             const character = charRepo.findById(params.characterId);
             let acChange: string | null = null;
 
-            if (character && item?.properties) {
-                const props = item.properties as Record<string, unknown>;
-                let newAc = character.ac;
-
-                if (props.acBonus && typeof props.acBonus === 'number') {
-                    newAc = Math.max(10, character.ac - props.acBonus);
-                    acChange = `AC decreased by ${props.acBonus} (now ${newAc})`;
-                }
-
-                if (props.baseAC && typeof props.baseAC === 'number' && slot === 'armor') {
-                    const dexMod = Math.floor((character.stats.dex - 10) / 2);
-                    newAc = 10 + dexMod;
-                    acChange = `AC reverted to unarmored (${newAc})`;
-                }
-
-                if (newAc !== character.ac) {
-                    charRepo.update(params.characterId, { ac: newAc });
-                }
+            if (character) {
+                const newAc = equippedArmorClass(character.stats.dex, inventoryRepo.getInventoryWithDetails(params.characterId).items);
+                if (newAc !== character.ac) charRepo.update(params.characterId, { ac: newAc });
+                acChange = `AC recalculated from equipped armor (now ${newAc})`;
             }
 
             return {
