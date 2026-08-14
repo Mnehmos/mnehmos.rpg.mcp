@@ -50,9 +50,10 @@ describe('inventory_manage consolidated tool', () => {
             race: 'human',
             hp: 10,
             maxHp: 10,
-            ac: 10,
-            stats: { str: 14, dex: 12, con: 13, int: 10, wis: 11, cha: 10 },
-            speed: 30,
+             ac: 10,
+             stats: { str: 14, dex: 12, con: 13, int: 10, wis: 11, cha: 10 },
+             currency: { gold: 5, silver: 0, copper: 0 },
+             speed: 30,
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString()
         });
@@ -298,6 +299,39 @@ describe('inventory_manage consolidated tool', () => {
             expect(data.effect).toBe('Restore 2d4+2 HP');
         });
 
+        it('should roll and persist healing when the effect declares healing', async () => {
+            const db = getDb(':memory:');
+            const charRepo = new CharacterRepository(db);
+            charRepo.update(testCharId, { hp: 2 });
+            const potionResult = await handleItemManage({
+                action: 'create',
+                name: 'Greater Healing Potion',
+                type: 'consumable',
+                weight: 0.5,
+                value: 100,
+                properties: { healing: 4, effect: 'Restore 4 HP' }
+            }, ctx);
+            const healingId = parseItemResult(potionResult).item.id;
+            await handleInventoryManage({
+                action: 'give',
+                characterId: testCharId,
+                itemId: healingId,
+                quantity: 1
+            }, ctx);
+
+            const data = parseResult(await handleInventoryManage({
+                action: 'use',
+                characterId: testCharId,
+                itemId: healingId
+            }, ctx));
+
+            expect(data.success).toBe(true);
+            expect(data.healing).toBe(4);
+            expect(data.hpBefore).toBe(2);
+            expect(data.hpAfter).toBe(6);
+            expect(new CharacterRepository(getDb(':memory:')).findById(testCharId)?.hp).toBe(6);
+        });
+
         it('should accept "consume" alias', async () => {
             const result = await handleInventoryManage({
                 action: 'consume',
@@ -351,6 +385,60 @@ describe('inventory_manage consolidated tool', () => {
             expect(data.success).toBe(true);
             expect(data.actionType).toBe('equip');
             expect(data.slot).toBe('mainhand');
+        });
+
+        it('should recompute legacy starter armor and shield AC as equipment changes', async () => {
+            const armorResult = await handleItemManage({
+                action: 'create',
+                name: 'Chain Mail',
+                type: 'armor',
+                weight: 55,
+                value: 75,
+                properties: { ac: 16, stealthDisadvantage: true, strengthRequired: 13 }
+            }, ctx);
+            const armorId = parseItemResult(armorResult).item.id;
+            await handleInventoryManage({ action: 'give', characterId: testCharId, itemId: armorId, quantity: 1 }, ctx);
+
+            const equipped = parseResult(await handleInventoryManage({
+                action: 'equip',
+                characterId: testCharId,
+                itemId: armorId,
+                slot: 'armor'
+            }, ctx));
+
+            expect(equipped.success).toBe(true);
+            expect(equipped.acChange).toContain('now 16');
+            expect(new CharacterRepository(getDb(':memory:')).findById(testCharId)?.ac).toBe(16);
+
+            const shieldResult = await handleItemManage({
+                action: 'create',
+                name: 'Shield',
+                type: 'armor',
+                weight: 6,
+                value: 10,
+                properties: { acBonus: 2 }
+            }, ctx);
+            const shieldId = parseItemResult(shieldResult).item.id;
+            await handleInventoryManage({ action: 'give', characterId: testCharId, itemId: shieldId, quantity: 1 }, ctx);
+            const shieldEquipped = parseResult(await handleInventoryManage({
+                action: 'equip',
+                characterId: testCharId,
+                itemId: shieldId,
+                slot: 'offhand'
+            }, ctx));
+
+            expect(shieldEquipped.acChange).toContain('now 18');
+            expect(new CharacterRepository(getDb(':memory:')).findById(testCharId)?.ac).toBe(18);
+
+            const unequipped = parseResult(await handleInventoryManage({
+                action: 'unequip',
+                characterId: testCharId,
+                itemId: armorId
+            }, ctx));
+
+            expect(unequipped.success).toBe(true);
+            expect(unequipped.acChange).toContain('now 13');
+            expect(new CharacterRepository(getDb(':memory:')).findById(testCharId)?.ac).toBe(13);
         });
 
         it('should accept "wield" alias', async () => {
@@ -449,6 +537,8 @@ describe('inventory_manage consolidated tool', () => {
             expect(data.actionType).toBe('get');
             expect(data.inventory).toBeDefined();
             expect(data.itemCount).toBeGreaterThan(0);
+            expect(data.inventory[0].item.name).toBe('Test Sword');
+            expect(data.currency).toEqual({ gold: 5, silver: 0, copper: 0 });
         });
 
         it('should accept "list" alias', async () => {
@@ -482,7 +572,8 @@ describe('inventory_manage consolidated tool', () => {
             expect(data.success).toBe(true);
             expect(data.actionType).toBe('get_detailed');
             expect(data.totalWeight).toBeDefined();
-            expect(data.capacity).toBeDefined();
+            expect(data.capacity).toBe(210);
+            expect(data.currency).toEqual({ gold: 5, silver: 0, copper: 0 });
         });
 
         it('should accept "detailed" alias', async () => {

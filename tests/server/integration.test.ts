@@ -6,10 +6,13 @@ import {
     handleGetRegionMap,
     handlePreviewMapPatch
 } from '../../src/server/tools';
+import { useInMemoryDatabase } from '../helpers/test-db.js';
 
 const mockCtx = { sessionId: 'test-session' };
 
 describe('MCP Server Tools', () => {
+    useInMemoryDatabase();
+
     it('should generate a world successfully', async () => {
         const args = {
             seed: 'test-seed',
@@ -80,6 +83,8 @@ describe('MCP Server Tools', () => {
     });
 
     describe('get_world_map_overview', () => {
+    useInMemoryDatabase();
+
         it('should return overview with biome distribution when world exists', async () => {
             // Generate a world first
             const genResult = await handleGenerateWorld({
@@ -114,6 +119,8 @@ describe('MCP Server Tools', () => {
     });
 
     describe('get_region_map', () => {
+    useInMemoryDatabase();
+
         it('should return region details when valid regionId provided', async () => {
             // Generate a world
             const genResult = await handleGenerateWorld({
@@ -152,6 +159,8 @@ describe('MCP Server Tools', () => {
     });
 
     describe('preview_map_patch', () => {
+    useInMemoryDatabase();
+
         it('should preview patch without applying it', async () => {
             // Generate a world
             const genResult = await handleGenerateWorld({

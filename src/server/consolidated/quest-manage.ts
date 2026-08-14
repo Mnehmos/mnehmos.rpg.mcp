@@ -29,12 +29,7 @@ type QuestManageAction = typeof ACTIONS[number];
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureDb() {
-    const dbPath = process.env.NODE_ENV === 'test'
-        ? ':memory:'
-        : process.env.RPG_DATA_DIR
-            ? `${process.env.RPG_DATA_DIR}/rpg.db`
-            : 'rpg.db';
-    const db = getDb(dbPath);
+    const db = getDb();
     return {
         questRepo: new QuestRepository(db),
         characterRepo: new CharacterRepository(db),
@@ -563,8 +558,8 @@ export async function handleQuestManage(args: unknown, _ctx: SessionContext): Pr
         output += RichFormatter.alert(parsed.message || 'Unknown error', 'error');
         if (parsed.suggestions) {
             output += '\n**Did you mean:**\n';
-            parsed.suggestions.forEach((s: { action: string; similarity: number }) => {
-                output += `  • ${s.action} (${s.similarity}% match)\n`;
+            parsed.suggestions.forEach((s: { value: string; similarity: number }) => {
+                output += `  • ${s.value} (${s.similarity}% match)\n`;
             });
         }
     } else {

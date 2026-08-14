@@ -1,12 +1,40 @@
 import Database from 'better-sqlite3';
-import { join, isAbsolute } from 'path';
-import { existsSync, mkdirSync } from 'fs';
+import { join, isAbsolute, dirname } from 'path';
+import { existsSync, mkdirSync, readdirSync, rmSync } from 'fs';
 import { homedir } from 'os';
 import { initDB } from './db.js';
 import { migrate } from './migrations.js';
+import { requireTenant } from './tenant-context.js';
 
-let dbInstance: Database.Database | null = null;
+/**
+ * Explicitly injected database, used only by tests.
+ *
+ * Tests drive tool handlers directly, outside any HTTP request, so there is no
+ * verified tenant to resolve against. They install an in-memory database here
+ * (via setDb, or implicitly via getDb(':memory:')) and handlers then receive it
+ * from the no-argument getDb() they use in production.
+ */
+let overrideDb: Database.Database | null = null;
 let configuredDbPath: string | null = null;
+
+/**
+ * Open per-campaign handles, most-recently-used last.
+ *
+ * A Map preserves insertion order, which is all an LRU needs here: re-inserting
+ * on read moves an entry to the end, so the oldest key is always evicted first.
+ * Opening a SQLite file is sub-millisecond, so a modest cap serves far more
+ * campaigns than it holds.
+ */
+const pool = new Map<string, Database.Database>();
+const MAX_OPEN_DATABASES = 64;
+
+/**
+ * Campaign ids are UUIDs minted by the web host (reference-engine-adapter.ts).
+ * The id becomes a path segment, so this is validated rather than sanitized —
+ * a rejected id is a bug or an attack, and neither should be repaired into
+ * something that opens a file.
+ */
+const CAMPAIGN_ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
  * Get the platform-specific app data directory for rpg-mcp.
@@ -55,6 +83,10 @@ function getDefaultDbPath(): string {
         return process.env.RPG_MCP_DB_PATH;
     }
 
+    if (process.env.RPG_DATA_DIR) {
+        return join(process.env.RPG_DATA_DIR, 'rpg.db');
+    }
+
     // Check for CLI argument --db-path
     const args = process.argv;
     const dbPathIndex = args.indexOf('--db-path');
@@ -96,7 +128,7 @@ function resolveDbPath(path?: string): string {
  * Call this before getDb() to set a custom path.
  */
 export function configureDbPath(path: string): void {
-    if (dbInstance) {
+    if (overrideDb) {
         throw new Error('Cannot configure database path after database has been initialized');
     }
     configuredDbPath = isAbsolute(path) ? path : join(process.cwd(), path);
@@ -109,37 +141,224 @@ export function getDbPath(): string {
     return resolveDbPath();
 }
 
-export function getDb(path?: string): Database.Database {
-    if (!dbInstance) {
-        const resolvedPath = resolveDbPath(path);
-        console.error(`[Database] Initializing database at: ${resolvedPath}`);
-        dbInstance = initDB(resolvedPath);
-        migrate(dbInstance);
-    }
-    return dbInstance;
-}
-
-export function setDb(database: Database.Database) {
-    dbInstance = database;
+/**
+ * Absolute path to a campaign's database.
+ *
+ * Sharded on the id's first two hex characters so no single directory ends up
+ * holding tens of thousands of entries.
+ */
+export function campaignDbPath(campaignId: string): string {
+    const root = process.env.RPG_DATA_DIR || getAppDataDir();
+    return join(root, 'campaigns', campaignId.slice(0, 2), `${campaignId}.db`);
 }
 
 /**
- * Close the database with proper WAL checkpoint.
- * This ensures all WAL data is written to the main database file.
+ * Filenames the engine used before campaigns were split into their own files.
+ * Both names existed across the deployment's history — RPG_MCP_DB_PATH pointed
+ * at `rpg-mcp.db` while the tool helpers built `rpg.db` — so both are checked.
+ */
+const LEGACY_DATABASE_NAMES = ['rpg-mcp.db', 'rpg.db'];
+
+/**
+ * Refuses to start when a pre-split database is still present.
+ *
+ * A leftover file means one of two things, and both are worth stopping for: a
+ * cutover that never completed, or a rollback-forward where an older build
+ * wrote every tenant back into one file. Starting anyway would serve empty
+ * campaigns while real data sat in a file nothing reads — silent, and very
+ * confusing to diagnose. Failing loudly at boot is the cheaper outcome.
+ */
+export function assertNoLegacyDatabase(): void {
+    const root = process.env.RPG_DATA_DIR || getAppDataDir();
+    const found = LEGACY_DATABASE_NAMES
+        .map(name => join(root, name))
+        .filter(path => existsSync(path));
+
+    if (found.length === 0) return;
+
+    throw new Error(
+        `Refusing to start: pre-split database(s) still present at ${found.join(', ')}. ` +
+        'Campaigns now live in per-campaign files under <RPG_DATA_DIR>/campaigns/. ' +
+        'Move or delete the legacy file(s) once you are satisfied nothing is needed from them.'
+    );
+}
+
+/**
+ * Campaign ids that have a database on disk.
+ *
+ * Walks the shard directories rather than tracking state, so it reflects what
+ * is actually there — including campaigns whose handles are not currently open.
+ */
+export function listCampaignDatabases(): string[] {
+    const root = join(process.env.RPG_DATA_DIR || getAppDataDir(), 'campaigns');
+    if (!existsSync(root)) return [];
+
+    const ids: string[] = [];
+    for (const shard of readdirSync(root, { withFileTypes: true })) {
+        if (!shard.isDirectory()) continue;
+        for (const entry of readdirSync(join(root, shard.name))) {
+            if (!entry.endsWith('.db')) continue;
+            const id = entry.slice(0, -3);
+            if (CAMPAIGN_ID_PATTERN.test(id)) ids.push(id);
+        }
+    }
+    return ids.sort();
+}
+
+/**
+ * Deletes a campaign's database outright.
+ *
+ * Erasure is a file operation rather than a cascading multi-table delete, which
+ * is the practical dividend of the file boundary: there is no way to miss a
+ * table and leave a fragment of one customer's game behind.
+ *
+ * Returns false when the campaign had no database.
+ */
+export function deleteCampaignDatabase(campaignId: string): boolean {
+    if (!CAMPAIGN_ID_PATTERN.test(campaignId)) {
+        throw new Error('Refusing to delete a database for a malformed campaign id.');
+    }
+
+    const open = pool.get(campaignId);
+    if (open) {
+        pool.delete(campaignId);
+        try {
+            open.close();
+        } catch (e) {
+            console.error(`[Database] Close before delete failed for ${campaignId}: ${(e as Error).message}`);
+        }
+    }
+
+    const path = campaignDbPath(campaignId);
+    const existed = existsSync(path);
+    // WAL and shared-memory sidecars must go too; leaving a -wal behind would
+    // let a later open recover rows from the database just deleted.
+    for (const target of [path, `${path}-wal`, `${path}-shm`]) {
+        if (existsSync(target)) rmSync(target, { force: true });
+    }
+    return existed;
+}
+
+function openCampaignDb(campaignId: string): Database.Database {
+    if (!CAMPAIGN_ID_PATTERN.test(campaignId)) {
+        throw new Error('Refusing to open a database for a malformed campaign id.');
+    }
+
+    const existing = pool.get(campaignId);
+    if (existing) {
+        // Re-insert to mark most-recently-used.
+        pool.delete(campaignId);
+        pool.set(campaignId, existing);
+        return existing;
+    }
+
+    const path = campaignDbPath(campaignId);
+    mkdirSync(dirname(path), { recursive: true });
+    const db = initDB(path);
+    // Migrations run lazily per database on first open, so adding a campaign
+    // never requires a separate migration pass over every existing file.
+    migrate(db);
+    pool.set(campaignId, db);
+    evictBeyondCap();
+    return db;
+}
+
+function evictBeyondCap(): void {
+    while (pool.size > MAX_OPEN_DATABASES) {
+        const oldest = pool.keys().next().value as string | undefined;
+        if (oldest === undefined) return;
+        const db = pool.get(oldest);
+        pool.delete(oldest);
+        try {
+            db?.pragma('wal_checkpoint(TRUNCATE)');
+            db?.close();
+        } catch (e) {
+            console.error(`[Database] Failed to close evicted campaign db: ${(e as Error).message}`);
+        }
+    }
+}
+
+/**
+ * Puts the process in single-user mode against one local database.
+ *
+ * Multi-tenancy is a property of the hosted HTTP server, where every request
+ * carries a signed tenant context. The other transports — stdio, TCP, unix
+ * socket, WebSocket — have nowhere to put one: they serve a single operator
+ * running the engine locally, through the npm package, the standalone
+ * binaries, or an MCP client config. Without this they would resolve no tenant
+ * and every storage call would throw, which is a regression rather than a
+ * boundary: there is no second tenant to isolate from.
+ */
+export function useSingleUserDatabase(path?: string): Database.Database {
+    if (!overrideDb) {
+        const resolvedPath = resolveDbPath(path);
+        console.error(`[Database] Single-user mode: ${resolvedPath}`);
+        overrideDb = initDB(resolvedPath);
+        migrate(overrideDb);
+    }
+    return overrideDb;
+}
+
+/**
+ * The database for the current request's campaign.
+ *
+ * Isolation here is physical rather than a predicate every query has to
+ * remember: a campaign's rows are the only rows in the file, so a query that
+ * forgets to scope cannot reach another tenant's data.
+ *
+ * `path` is a test-only escape hatch. Production callers pass nothing and get
+ * the ambient tenant's database; passing a path outside tests would let a
+ * caller select a database without a verified tenant, which is the whole class
+ * of bug this change exists to remove.
+ */
+export function getDb(path?: string): Database.Database {
+    if (path !== undefined) {
+        if (process.env.NODE_ENV !== 'test') {
+            throw new Error(
+                'getDb(path) is test-only. Production callers must use getDb(), which resolves ' +
+                'the database from the verified tenant context.'
+            );
+        }
+        if (!overrideDb) {
+            overrideDb = initDB(resolveDbPath(path));
+            migrate(overrideDb);
+        }
+        return overrideDb;
+    }
+
+    if (overrideDb) return overrideDb;
+
+    return openCampaignDb(requireTenant().campaignId);
+}
+
+export function setDb(database: Database.Database) {
+    overrideDb = database;
+}
+
+/**
+ * Close the injected database and every pooled campaign handle, checkpointing
+ * WAL so nothing is left in a sidecar file.
  */
 export function closeDb() {
-    if (dbInstance) {
+    const close = (db: Database.Database, label: string) => {
         try {
-            // Checkpoint WAL to ensure all changes are written to main database
-            dbInstance.pragma('wal_checkpoint(TRUNCATE)');
-            console.error('[Database] WAL checkpoint completed');
+            db.pragma('wal_checkpoint(TRUNCATE)');
         } catch (e) {
-            console.error('[Database] WAL checkpoint failed:', (e as Error).message);
+            console.error(`[Database] WAL checkpoint failed for ${label}: ${(e as Error).message}`);
         }
-        dbInstance.close();
-        dbInstance = null;
-        console.error('[Database] Database closed');
+        try {
+            db.close();
+        } catch (e) {
+            console.error(`[Database] Close failed for ${label}: ${(e as Error).message}`);
+        }
+    };
+
+    if (overrideDb) {
+        close(overrideDb, 'override');
+        overrideDb = null;
     }
+    for (const [campaignId, db] of pool) close(db, campaignId);
+    pool.clear();
 }
 
 export * from './db.js';

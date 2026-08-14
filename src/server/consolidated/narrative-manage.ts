@@ -23,25 +23,28 @@ import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/a
 const ACTIONS = ['add', 'batch_add', 'search', 'update', 'get', 'delete', 'get_context'] as const;
 type NarrativeAction = typeof ACTIONS[number];
 
-const NoteTypeEnum = z.enum([
+const NOTE_TYPE_VALUES = [
     'plot_thread',
     'canonical_moment',
     'npc_voice',
     'foreshadowing',
     'session_log'
-]);
+ ] as const;
+const noteTypeSchema = () => z.enum(NOTE_TYPE_VALUES);
 
-const NoteStatusEnum = z.enum([
+const NOTE_STATUS_VALUES = [
     'active',
     'resolved',
     'dormant',
     'archived'
-]);
+ ] as const;
+const noteStatusSchema = () => z.enum(NOTE_STATUS_VALUES);
 
-const VisibilityEnum = z.enum([
+const VISIBILITY_VALUES = [
     'dm_only',
     'player_visible'
-]);
+ ] as const;
+const visibilitySchema = () => z.enum(VISIBILITY_VALUES);
 
 // Type-specific metadata schemas
 const PlotThreadMetadata = z.object({
@@ -83,12 +86,7 @@ const SessionLogMetadata = z.object({
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureDb() {
-    const dbPath = process.env.NODE_ENV === 'test'
-        ? ':memory:'
-        : process.env.RPG_DATA_DIR
-            ? `${process.env.RPG_DATA_DIR}/rpg.db`
-            : 'rpg.db';
-    return getDb(dbPath);
+    return getDb();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -98,28 +96,28 @@ function ensureDb() {
 const AddSchema = z.object({
     action: z.literal('add'),
     worldId: z.string().describe('World/campaign ID'),
-    type: NoteTypeEnum.describe('Note type: plot_thread, canonical_moment, npc_voice, foreshadowing, session_log'),
+    type: noteTypeSchema().describe('Note type: plot_thread, canonical_moment, npc_voice, foreshadowing, session_log'),
     content: z.string().min(1).describe('Main text content'),
     metadata: z.record(z.any()).optional().default({}).describe('Type-specific structured data'),
-    visibility: VisibilityEnum.optional().default('dm_only'),
+    visibility: visibilitySchema().optional().default('dm_only'),
     tags: z.array(z.string()).optional().default([]).describe('Tags for filtering'),
     entityId: z.string().optional().describe('Link to character/NPC/location'),
     entityType: z.enum(['character', 'npc', 'location', 'item']).optional(),
-    status: NoteStatusEnum.optional().default('active')
+    status: noteStatusSchema().optional().default('active')
 });
 
 const BatchAddSchema = z.object({
     action: z.literal('batch_add'),
     worldId: z.string().describe('World/campaign ID'),
     notes: z.array(z.object({
-        type: NoteTypeEnum.describe('Note type'),
+        type: noteTypeSchema().describe('Note type'),
         content: z.string().min(1),
         metadata: z.record(z.any()).optional().default({}),
-        visibility: VisibilityEnum.optional().default('dm_only'),
+        visibility: visibilitySchema().optional().default('dm_only'),
         tags: z.array(z.string()).optional().default([]),
         entityId: z.string().optional(),
         entityType: z.enum(['character', 'npc', 'location', 'item']).optional(),
-        status: NoteStatusEnum.optional().default('active')
+        status: noteStatusSchema().optional().default('active')
     })).min(1).max(20).describe('1–20 notes to create in one transaction')
 });
 
@@ -127,11 +125,11 @@ const SearchSchema = z.object({
     action: z.literal('search'),
     worldId: z.string().describe('World/campaign ID'),
     query: z.string().optional().describe('Text search in content'),
-    type: NoteTypeEnum.optional().describe('Filter by note type'),
-    status: NoteStatusEnum.optional().describe('Filter by status'),
+    type: noteTypeSchema().optional().describe('Filter by note type'),
+    status: noteStatusSchema().optional().describe('Filter by status'),
     tags: z.array(z.string()).optional().describe('Filter by tags (AND logic)'),
     entityId: z.string().optional().describe('Filter by linked entity'),
-    visibility: VisibilityEnum.optional().describe('Filter by visibility'),
+    visibility: visibilitySchema().optional().describe('Filter by visibility'),
     limit: z.number().optional().default(20).describe('Max results'),
     orderBy: z.enum(['created_at', 'updated_at']).optional().default('created_at')
 });
@@ -141,8 +139,8 @@ const UpdateSchema = z.object({
     noteId: z.string().describe('ID of the note to update'),
     content: z.string().optional().describe('New content'),
     metadata: z.record(z.any()).optional().describe('Merge into existing metadata'),
-    status: NoteStatusEnum.optional().describe('Change status'),
-    visibility: VisibilityEnum.optional(),
+    status: noteStatusSchema().optional().describe('Change status'),
+    visibility: visibilitySchema().optional(),
     tags: z.array(z.string()).optional().describe('Replace tags')
 });
 
@@ -159,9 +157,9 @@ const DeleteSchema = z.object({
 const GetContextSchema = z.object({
     action: z.literal('get_context'),
     worldId: z.string().describe('World/campaign ID'),
-    includeTypes: z.array(NoteTypeEnum).optional().default(['plot_thread', 'canonical_moment', 'npc_voice', 'foreshadowing']),
+    includeTypes: z.array(noteTypeSchema()).optional().default(['plot_thread', 'canonical_moment', 'npc_voice', 'foreshadowing']),
     maxPerType: z.number().optional().default(5).describe('Max notes per type'),
-    statusFilter: z.array(NoteStatusEnum).optional().default(['active']).describe('Only notes with these statuses'),
+    statusFilter: z.array(noteStatusSchema()).optional().default(['active']).describe('Only notes with these statuses'),
     forPlayer: z.boolean().optional().default(false).describe('Only return player_visible notes')
 });
 
@@ -646,30 +644,30 @@ Aliases: add_many/bulk_add/log_session→batch_add, create→add, find→search,
         action: z.string().describe('Action: add, batch_add, search, update, get, delete, get_context'),
         worldId: z.string().optional().describe('World ID (required for add, search, get_context)'),
         noteId: z.string().optional().describe('Note ID (required for get, update, delete)'),
-        type: NoteTypeEnum.optional().describe('Note type: plot_thread, canonical_moment, npc_voice, foreshadowing, session_log'),
+        type: noteTypeSchema().optional().describe('Note type: plot_thread, canonical_moment, npc_voice, foreshadowing, session_log'),
         content: z.string().optional().describe('Note content (required for add)'),
         metadata: z.record(z.any()).optional().describe('Type-specific metadata'),
-        visibility: VisibilityEnum.optional(),
+        visibility: visibilitySchema().optional(),
         tags: z.array(z.string()).optional(),
-        status: NoteStatusEnum.optional(),
+        status: noteStatusSchema().optional(),
         entityId: z.string().optional(),
         entityType: z.enum(['character', 'npc', 'location', 'item']).optional(),
         notes: z.array(z.object({
-            type: NoteTypeEnum,
+            type: noteTypeSchema(),
             content: z.string().min(1),
             metadata: z.record(z.any()).optional(),
-            visibility: VisibilityEnum.optional(),
+            visibility: visibilitySchema().optional(),
             tags: z.array(z.string()).optional(),
             entityId: z.string().optional(),
             entityType: z.enum(['character', 'npc', 'location', 'item']).optional(),
-            status: NoteStatusEnum.optional()
+            status: noteStatusSchema().optional()
         })).optional().describe('Array of notes for batch_add (1–20)'),
         query: z.string().optional().describe('Text search (for search action)'),
         limit: z.number().optional(),
         orderBy: z.enum(['created_at', 'updated_at']).optional(),
-        includeTypes: z.array(NoteTypeEnum).optional(),
+        includeTypes: z.array(noteTypeSchema()).optional(),
         maxPerType: z.number().optional(),
-        statusFilter: z.array(NoteStatusEnum).optional(),
+        statusFilter: z.array(noteStatusSchema()).optional(),
         forPlayer: z.boolean().optional()
     })
 };

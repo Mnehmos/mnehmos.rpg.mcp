@@ -12,6 +12,9 @@ import { getDb } from '../storage/index.js';
 import * as zlib from 'zlib';
 import { StructureType } from '../schema/structure.js';
 import { BiomeType } from '../schema/biome.js';
+import { WorldSnapshotRepository } from '../storage/repos/world-snapshot.repo.js';
+import { persistGeneratedWorldEntities } from '../services/generated-world-persistence.service.js';
+export { LEGACY_SURFACE_POLICY } from './legacy-surface-policy.js';
 
 // Global state for the server (in-memory for MVP)
 let pubsub: PubSub | null = null;
@@ -161,7 +164,7 @@ function invalidateTileCache(db: any, worldId: string) {
     }
 }
 
-export async function handleGenerateWorld(args: unknown, ctx: SessionContext) {
+export async function handleGenerateWorld(args: unknown, _ctx: SessionContext) {
     const parsed = Tools.GENERATE_WORLD.inputSchema.parse(args);
     
     console.error(`[WorldGen] Generating world with seed "${parsed.seed}" (${parsed.width}x${parsed.height})`);
@@ -181,10 +184,10 @@ export async function handleGenerateWorld(args: unknown, ctx: SessionContext) {
 
     const worldId = randomUUID();
     // Store with session namespace in runtime manager
-    getWorldManager().create(`${ctx.sessionId}:${worldId}`, world);
+    getWorldManager().create(worldId, world);
 
     // Persist world metadata to database
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const db = getDb();
     const worldRepo = new WorldRepository(db);
     const now = new Date().toISOString();
     worldRepo.create({
@@ -196,6 +199,8 @@ export async function handleGenerateWorld(args: unknown, ctx: SessionContext) {
         createdAt: now,
         updatedAt: now
     });
+    persistGeneratedWorldEntities(db, worldId, world);
+    new WorldSnapshotRepository(db).save(worldId, world);
 
     // Pre-cache the tile data so subsequent loads are instant
     const tileData = buildTileData(world);
@@ -228,11 +233,11 @@ async function getOrRestoreWorld(worldId: string, sessionId: string) {
     const sessionKey = `${sessionId}:${worldId}`;
 
     // Try memory first
-    let world = manager.get(sessionKey);
+    let world = manager.get(worldId) ?? manager.get(sessionKey);
     if (world) return world;
 
     // Try DB
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const db = getDb();
     const worldRepo = new WorldRepository(db);
     const storedWorld = worldRepo.findById(worldId);
 
@@ -240,7 +245,14 @@ async function getOrRestoreWorld(worldId: string, sessionId: string) {
         return null;
     }
 
-    // Re-generate world
+    const snapshots = new WorldSnapshotRepository(db);
+    const snapshot = snapshots.load(worldId);
+    if (snapshot) {
+        manager.create(worldId, snapshot);
+        return snapshot;
+    }
+
+    // Legacy fallback for worlds created before durable snapshots existed.
     console.error(`[WorldGen] Restoring world ${worldId} from seed ${storedWorld.seed}`);
     const startTime = Date.now();
     
@@ -254,7 +266,8 @@ async function getOrRestoreWorld(worldId: string, sessionId: string) {
     console.error(`[WorldGen] World restored in ${genTime}ms`);
 
     // Store in memory
-    manager.create(sessionKey, world);
+    manager.create(worldId, world);
+    snapshots.save(worldId, world);
     return world;
 }
 
@@ -299,9 +312,13 @@ export async function handleApplyMapPatch(args: unknown, ctx: SessionContext) {
         const commands = parseDSL(parsed.script);
         const result = applyPatch(currentWorld, commands);
 
+        if (result.commandsExecuted > 0) {
+            new WorldSnapshotRepository(getDb()).save(parsed.worldId, currentWorld);
+        }
+
         // Only invalidate cache if commands actually executed
         if (result.commandsExecuted > 0) {
-            const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+            const db = getDb();
             invalidateTileCache(db, parsed.worldId);
 
             pubsub?.publish('world', {
@@ -619,7 +636,7 @@ export async function handleGetWorldTiles(args: unknown, ctx: SessionContext) {
     const parsed = Tools.GET_WORLD_TILES.inputSchema.parse(args);
     
     // Check for cached tiles first (much faster)
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const db = getDb();
     const cachedTiles = getCachedTiles(db, parsed.worldId);
     
     if (cachedTiles) {

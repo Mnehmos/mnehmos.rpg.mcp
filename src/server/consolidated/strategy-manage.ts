@@ -32,8 +32,7 @@ type StrategyAction = typeof ACTIONS[number];
 // ═══════════════════════════════════════════════════════════════════════════
 
 function getRepos() {
-    const dbPath = process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db';
-    const db = getDb(dbPath);
+    const db = getDb();
     return {
         nationRepo: new NationRepository(db),
         diplomacyRepo: new DiplomacyRepository(db),
@@ -422,8 +421,8 @@ export async function handleStrategyManage(args: unknown, _ctx: SessionContext):
         output += RichFormatter.alert(parsed.message || 'Unknown error', 'error');
         if (parsed.suggestions) {
             output += '\n**Did you mean:**\n';
-            parsed.suggestions.forEach((s: { action: string; similarity: number }) => {
-                output += `  - ${s.action} (${s.similarity}% match)\n`;
+            parsed.suggestions.forEach((s: { value: string; similarity: number }) => {
+                output += `  - ${s.value} (${s.similarity}% match)\n`;
             });
         }
     } else {

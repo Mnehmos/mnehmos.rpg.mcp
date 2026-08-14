@@ -16,6 +16,7 @@ import { CharacterRepository } from '../../storage/repos/character.repo.js';
 import {
     WILD_SURGE_TABLE,
     SKILL_TO_ABILITY,
+    MechanicTypeSchema,
     SkillName,
     TriggerEvent,
     ActorType
@@ -43,6 +44,21 @@ const DamageTypeEnum = z.enum([
     'thunder', 'poison', 'acid', 'necrotic', 'radiant', 'force', 'psychic'
 ]);
 
+const optionalText = () => z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+    z.string().optional()
+);
+
+const optionalDamageType = () => z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+    DamageTypeEnum.optional()
+);
+
+const defaultText = (fallback: string) => z.preprocess(
+    (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+    z.string().default(fallback)
+);
+
 const SchoolEnum = z.enum([
     'abjuration', 'conjuration', 'divination', 'enchantment',
     'evocation', 'illusion', 'necromancy', 'transmutation'
@@ -60,8 +76,7 @@ const TriggerEventEnum = z.enum([
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureDb() {
-    const dbPath = process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db';
-    const db = getDb(dbPath);
+    const db = getDb();
     const effectsRepo = new CustomEffectsRepository(db);
     const charRepo = new CharacterRepository(db);
     return { db, effectsRepo, charRepo };
@@ -126,42 +141,70 @@ const StuntSchema = z.object({
     actorType: z.enum(['character', 'npc']).default('character'),
     targetIds: z.array(z.string()).optional(),
     targetTypes: z.array(z.enum(['character', 'npc'])).optional(),
-    narrativeIntent: z.string(),
+    narrativeIntent: defaultText('Improvised action')
+        .describe('What the character is attempting; defaults to a generic improvised action'),
     skill: SkillEnum,
     dc: z.number().int().min(5).max(35),
     advantage: z.boolean().optional(),
     disadvantage: z.boolean().optional(),
     actionCost: z.enum(['action', 'bonus_action', 'reaction', 'free']).default('action'),
-    successDamage: z.string().optional(),
-    failureDamage: z.string().optional(),
-    damageType: DamageTypeEnum.optional(),
-    applyCondition: z.string().optional(),
+    effectType: z.enum(['none', 'damage']).optional()
+        .describe('Stunt effect: none for a normal check, damage when damage dice are supplied'),
+    successDamage: optionalText()
+        .describe('Optional damage dice for a successful stunt; omit for non-damaging checks'),
+    failureDamage: optionalText()
+        .describe('Optional self-damage dice on a critical failure'),
+    damageType: optionalDamageType(),
+    applyCondition: optionalText(),
     savingThrowAbility: z.enum(['str', 'dex', 'con', 'int', 'wis', 'cha']).optional(),
     savingThrowDc: z.number().int().optional(),
     halfDamageOnSave: z.boolean().optional()
+}).superRefine((args, ctx) => {
+    const hasDamageFields = Boolean(args.successDamage || args.failureDamage);
+    if (args.effectType === 'damage' && !hasDamageFields) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['successDamage'],
+            message: 'A damage stunt requires successDamage or failureDamage dice'
+        });
+    }
+    if (args.effectType === 'none' && hasDamageFields) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['effectType'],
+            message: 'A non-damaging stunt must omit damage fields'
+        });
+    }
+    if (args.successDamage && (!args.targetIds || args.targetIds.length === 0)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ['targetIds'],
+            message: 'targetIds is required when successDamage is supplied so damage can be committed to state'
+        });
+    }
 });
 
 const ApplyEffectSchema = z.object({
     action: z.literal('apply_effect'),
-    targetId: z.string(),
+    targetId: z.string().describe('ID of the character/npc the effect is applied to'),
     targetType: z.enum(['character', 'npc']),
-    name: z.string(),
-    description: z.string().optional(),
+    name: z.string().describe('Effect name shown on the sheet, e.g. "Blessing of the Forge"'),
+    description: z.string().optional().describe('Human-readable flavor text. NOTE: per-mechanic detail goes in mechanics[], not here'),
     category: z.enum(['boon', 'curse', 'neutral', 'transformative']),
-    powerLevel: z.number().int().min(1).max(5).default(1),
+    powerLevel: z.number().int().min(1).max(5).default(1).describe('1=minor (+1, hours) .. 5=reality-warping (permanent)'),
     sourceType: z.enum(['divine', 'arcane', 'natural', 'cursed', 'psionic', 'unknown']).default('unknown'),
     sourceEntityName: z.string().optional(),
     mechanics: z.array(z.object({
-        type: z.string(),
-        value: z.union([z.string(), z.number()]),
-        condition: z.string().optional()
-    })),
+        type: MechanicTypeSchema.describe('What the mechanic does (closed set). Use custom_trigger for narrative-only effects'),
+        value: z.union([z.string(), z.number()]).describe('Number for bonuses (e.g. 2, -10); string for typed effects (e.g. "fire" for damage_resistance)'),
+        condition: z.string().optional().describe('When it applies, e.g. "against undead", "attack_rolls"')
+    })).describe('One or more mechanical riders. REQUIRED — each needs {type, value}. type is a closed enum; freeform strings are rejected'),
     durationType: z.enum(['rounds', 'minutes', 'hours', 'days', 'permanent', 'until_removed']),
-    durationValue: z.number().int().optional(),
+    durationValue: z.number().int().optional().describe('Magnitude for timed durations; ignored for permanent/until_removed'),
     triggers: z.array(z.object({
         event: TriggerEventEnum,
         condition: z.string().optional()
-    })).optional()
+    })).optional().describe('When mechanics fire. Defaults to always_active if omitted')
 });
 
 const GetEffectsSchema = z.object({
@@ -234,9 +277,22 @@ const GetSpellbookSchema = z.object({
 // ═══════════════════════════════════════════════════════════════════════════
 
 async function handleStunt(args: z.infer<typeof StuntSchema>): Promise<object> {
-    const { charRepo } = ensureDb();
+    const { db, charRepo } = ensureDb();
     const seed = `stunt-${args.encounterId || 'free'}-${args.actorId}-${Date.now()}`;
     const rng = seedrandom(seed);
+
+    // Validate every damage target before rolling or mutating any target. This
+    // keeps a multi-target stunt atomic and prevents a successful response from
+    // claiming damage that was never committed.
+    const damageTargets = args.successDamage && args.targetIds
+        ? args.targetIds.map((targetId) => charRepo.findById(targetId))
+        : [];
+    if (args.successDamage) {
+        const missingTargetIds = (args.targetIds ?? []).filter((_, index) => !damageTargets[index]);
+        if (missingTargetIds.length > 0) {
+            throw new Error(`Damage target(s) not found: ${missingTargetIds.join(', ')}`);
+        }
+    }
 
     let skillModifier = 0;
     let actorName = 'Actor';
@@ -259,7 +315,9 @@ async function handleStunt(args: z.infer<typeof StuntSchema>): Promise<object> {
 
     const result: Record<string, unknown> = {
         success,
+        resolution: success ? 'success' : 'failure',
         actionType: 'stunt',
+        narrativeIntent: args.narrativeIntent,
         roll: d20Result.roll,
         rolls: d20Result.rolls,
         modifier: skillModifier,
@@ -268,7 +326,8 @@ async function handleStunt(args: z.infer<typeof StuntSchema>): Promise<object> {
         criticalSuccess,
         criticalFailure,
         skill: args.skill,
-        actor: actorName
+        actor: actorName,
+        effectType: args.effectType ?? (args.successDamage || args.failureDamage ? 'damage' : 'none')
     };
 
     if (success && args.successDamage) {
@@ -277,7 +336,15 @@ async function handleStunt(args: z.infer<typeof StuntSchema>): Promise<object> {
         result.damageType = args.damageType || 'bludgeoning';
 
         if (args.targetIds) {
-            const targets: Array<{ id: string; damage: number; saved: boolean; condition?: string }> = [];
+            const targets: Array<{
+                id: string;
+                damage: number;
+                saved: boolean;
+                condition?: string;
+                applied: boolean;
+                hpBefore?: number;
+                hpAfter?: number;
+            }> = [];
             for (let i = 0; i < args.targetIds.length; i++) {
                 let targetDamage = result.damage as number;
                 let saved = false;
@@ -289,13 +356,28 @@ async function handleStunt(args: z.infer<typeof StuntSchema>): Promise<object> {
                     else if (saved) targetDamage = 0;
                 }
 
+                const target = damageTargets[i];
+                const hpBefore = target?.hp;
+                const hpAfter = target ? Math.max(0, target.hp - targetDamage) : undefined;
+
                 targets.push({
                     id: args.targetIds[i],
                     damage: targetDamage,
                     saved,
-                    condition: !saved && args.applyCondition ? args.applyCondition : undefined
+                    condition: !saved && args.applyCondition ? args.applyCondition : undefined,
+                    applied: Boolean(target),
+                    hpBefore,
+                    hpAfter
                 });
             }
+            const commitDamage = db.transaction(() => {
+                for (const target of targets) {
+                    if (target.hpBefore !== undefined && target.hpAfter !== undefined && target.hpAfter !== target.hpBefore) {
+                        charRepo.update(target.id, { hp: target.hpAfter } as any);
+                    }
+                }
+            });
+            commitDamage();
             result.targets = targets;
         }
     } else if (!success && criticalFailure && args.failureDamage) {
@@ -620,7 +702,7 @@ const definitions: Record<ImprovisationAction, ActionDefinition> = {
         schema: ApplyEffectSchema,
         handler: handleApplyEffect,
         aliases: ['add_effect', 'boon', 'curse'],
-        description: 'Apply a custom effect (boon/curse)'
+        description: 'Apply a custom effect (boon/curse). Required: targetId, targetType, name, category, durationType, and mechanics[] where each is {type (closed enum), value (number|string), condition?}'
     },
     get_effects: {
         schema: GetEffectsSchema,
@@ -681,11 +763,17 @@ STUNT (Rule of Cool):
 - Supports advantage/disadvantage
 - Critical success doubles damage
 - Critical failure can cause self-damage
+- Use effectType: "none" (or omit it) for a non-damaging check; omit successDamage, failureDamage, and damageType, e.g. { action: "stunt", actorId: "char_1", skill: "investigation", dc: 12, effectType: "none" }
+- Use effectType: "damage" with successDamage/failureDamage when the stunt should cause harm
+- If successDamage is supplied, targetIds is required and every target must exist; the committed HP changes are returned in targets[]
 
-CUSTOM EFFECTS:
-- Categories: boon, curse, neutral, transformative
-- Power levels 1-5
-- Duration types: rounds, minutes, hours, days, permanent
+CUSTOM EFFECTS (apply_effect):
+- Required: targetId, targetType, name, category, mechanics[], durationType
+- mechanics[] = { type, value, condition? } — type is a CLOSED ENUM, value is a number (bonuses) or string (typed effects like "fire")
+- type ∈ ${MechanicTypeSchema.options.join(', ')}
+- Categories: boon, curse, neutral, transformative | Power levels 1-5 | Duration types: rounds, minutes, hours, days, permanent, until_removed
+- Use custom_trigger (value 1) for narrative-only effects with no numeric rider
+- Example: { action: "apply_effect", targetId: "char_1", targetType: "character", name: "Forge Blessing", category: "boon", powerLevel: 2, durationType: "until_removed", mechanics: [{ type: "attack_bonus", value: 2, condition: "melee" }, { type: "damage_resistance", value: "fire" }] }
 
 ARCANE SYNTHESIS:
 - DC = 10 + (spell level x 2) + modifiers
@@ -706,6 +794,7 @@ ARCANE SYNTHESIS:
         advantage: z.boolean().optional(),
         disadvantage: z.boolean().optional(),
         actionCost: z.string().optional(),
+        effectType: z.string().optional().describe('stunt: none or damage; synthesize: damage, healing, status, utility, control, or summoning'),
         successDamage: z.string().optional(),
         failureDamage: z.string().optional(),
         damageType: z.string().optional(),
@@ -722,10 +811,10 @@ ARCANE SYNTHESIS:
         powerLevel: z.number().optional(),
         sourceType: z.string().optional(),
         sourceEntityName: z.string().optional(),
-        mechanics: z.array(z.any()).optional(),
+        mechanics: z.array(z.any()).optional().describe('apply_effect: array of {type, value, condition?}. type is a closed enum (attack_bonus, damage_bonus, ac_bonus, saving_throw_bonus, skill_bonus, advantage_on, disadvantage_on, damage_resistance, damage_vulnerability, damage_immunity, damage_over_time, healing_over_time, extra_action, prevent_action, movement_modifier, sense_granted, sense_removed, speak_language, cannot_speak, custom_trigger). value is number for bonuses or string for typed effects'),
         durationType: z.string().optional(),
         durationValue: z.number().optional(),
-        triggers: z.array(z.any()).optional(),
+        triggers: z.array(z.any()).optional().describe('apply_effect: array of {event, condition?}. event is a closed enum (always_active, start_of_turn, end_of_turn, on_attack, on_hit, on_miss, on_damage_taken, on_heal, on_rest, on_spell_cast, on_death)'),
         effectId: z.number().optional(),
         effectName: z.string().optional(),
         includeInactive: z.boolean().optional(),
@@ -738,7 +827,6 @@ ARCANE SYNTHESIS:
         proposedName: z.string().optional(),
         estimatedLevel: z.number().optional(),
         school: z.string().optional(),
-        effectType: z.string().optional(),
         effectDice: z.string().optional(),
         condition: z.string().optional(),
         targetingType: z.string().optional(),
@@ -767,8 +855,8 @@ export async function handleImprovisationManage(args: unknown, _ctx: SessionCont
         output += RichFormatter.alert(parsed.message || 'Unknown error', 'error');
         if (parsed.suggestions) {
             output += '\n**Did you mean:**\n';
-            parsed.suggestions.forEach((s: { action: string; similarity: number }) => {
-                output += `  - ${s.action} (${s.similarity}% match)\n`;
+            parsed.suggestions.forEach((s: { value: string; similarity: number }) => {
+                output += `  - ${s.value} (${s.similarity}% match)\n`;
             });
         }
     } else {

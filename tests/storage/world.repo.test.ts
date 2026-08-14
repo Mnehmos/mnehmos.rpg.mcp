@@ -101,4 +101,26 @@ describe('WorldRepository', () => {
         const retrieved = repo.findById('world-1');
         expect(retrieved).toBeNull();
     });
+
+    it('normalizes legacy environment keys to the canonical contract', () => {
+        repo.create({
+            id: 'world-env',
+            name: 'Environment World',
+            seed: 'seed-env',
+            width: 20,
+            height: 20,
+            createdAt: FIXED_TIMESTAMP,
+            updatedAt: FIXED_TIMESTAMP,
+        });
+        db.prepare('UPDATE worlds SET environment = ? WHERE id = ?').run(
+            JSON.stringify({ dayNightCycle: 'dusk', weather: 'rain', obsolete: true }),
+            'world-env'
+        );
+
+        const restored = repo.findById('world-env');
+        expect(restored?.environment).toEqual({ timeOfDay: 'dusk', weatherConditions: 'rain' });
+
+        const updated = repo.updateEnvironment('world-env', { weather: 'fog' });
+        expect(updated?.environment).toEqual({ timeOfDay: 'dusk', weatherConditions: 'fog' });
+    });
 });

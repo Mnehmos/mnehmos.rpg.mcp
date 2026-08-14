@@ -120,6 +120,15 @@ export class EncounterRepository {
         );
     }
 
+    end(encounterId: string): boolean {
+        const result = this.db.prepare(`
+            UPDATE encounters
+            SET status = 'completed', active_token_id = NULL, updated_at = ?
+            WHERE id = ?
+        `).run(new Date().toISOString(), encounterId);
+        return result.changes > 0;
+    }
+
     /**
      * Load combat state from database
      * PHASE 1: Now restores positions, terrain, and grid bounds

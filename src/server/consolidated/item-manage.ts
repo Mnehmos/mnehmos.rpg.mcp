@@ -10,12 +10,14 @@ import { ItemRepository } from '../../storage/repos/item.repo.js';
 import { getDb } from '../../storage/index.js';
 import { SessionContext } from '../types.js';
 import { RichFormatter } from '../utils/formatter.js';
+import { findOpen5eItem, searchOpen5eItems } from '../../content/open5e-catalog.js';
+import { materializeOpen5eItem } from '../../services/open5e-item.service.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-const ACTIONS = ['create', 'get', 'list', 'search', 'update', 'delete'] as const;
+const ACTIONS = ['create', 'get', 'list', 'search', 'update', 'delete', 'catalog_search', 'catalog_get', 'materialize'] as const;
 type ItemAction = typeof ACTIONS[number];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -23,12 +25,7 @@ type ItemAction = typeof ACTIONS[number];
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureDb() {
-    const dbPath = process.env.NODE_ENV === 'test'
-        ? ':memory:'
-        : process.env.RPG_DATA_DIR
-            ? `${process.env.RPG_DATA_DIR}/rpg.db`
-            : 'rpg.db';
-    const db = getDb(dbPath);
+    const db = getDb();
     const itemRepo = new ItemRepository(db);
     return { itemRepo };
 }
@@ -79,6 +76,23 @@ const UpdateSchema = z.object({
 const DeleteSchema = z.object({
     action: z.literal('delete'),
     itemId: z.string().describe('The ID of the item to delete')
+});
+
+const CatalogSearchSchema = z.object({
+    action: z.literal('catalog_search'),
+    query: z.string().optional().describe('Name, source key, or category to search in the pinned Open5e SRD catalog'),
+    type: z.enum(['weapon', 'armor', 'consumable', 'quest', 'misc', 'scroll']).optional(),
+    limit: z.number().int().min(1).max(100).optional().default(20)
+});
+
+const CatalogGetSchema = z.object({
+    action: z.literal('catalog_get'),
+    sourceKey: z.string().describe('Open5e source key, content key, or exact item name')
+});
+
+const MaterializeSchema = z.object({
+    action: z.literal('materialize'),
+    sourceKey: z.string().describe('Open5e source key, content key, or exact item name to create as an engine item template')
 });
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -217,6 +231,72 @@ const definitions: Record<ItemAction, ActionDefinition> = {
             };
         },
         aliases: ['remove', 'destroy']
+    },
+
+    catalog_search: {
+        schema: CatalogSearchSchema,
+        handler: async (params: z.infer<typeof CatalogSearchSchema>) => {
+            const items = searchOpen5eItems({
+                query: params.query,
+                type: params.type,
+                limit: params.limit
+            }).map((item) => ({
+                ...item,
+                value: item.valueCopper / 100
+            }));
+
+            return {
+                success: true,
+                actionType: 'catalog_search',
+                items,
+                count: items.length,
+                query: params.query ?? null,
+                filter: params.type ?? null,
+                catalogOnly: true,
+                message: 'Pinned Open5e SRD results; call materialize before giving an item to a character.'
+            };
+        },
+        aliases: ['source_search', 'srd_search']
+    },
+
+    catalog_get: {
+        schema: CatalogGetSchema,
+        handler: async (params: z.infer<typeof CatalogGetSchema>) => {
+            const catalogItem = findOpen5eItem(params.sourceKey);
+            if (!catalogItem) throw new Error(`Open5e SRD item not found: ${params.sourceKey}`);
+
+            return {
+                success: true,
+                actionType: 'catalog_get',
+                catalogItem: {
+                    ...catalogItem,
+                    value: catalogItem.valueCopper / 100
+                },
+                catalogOnly: true,
+                message: 'Call materialize to create the authoritative engine item template.'
+            };
+        },
+        aliases: ['source_get', 'srd_get']
+    },
+
+    materialize: {
+        schema: MaterializeSchema,
+        handler: async (params: z.infer<typeof MaterializeSchema>) => {
+            const { itemRepo } = ensureDb();
+            const materialized = materializeOpen5eItem(itemRepo, params.sourceKey);
+
+            return {
+                success: true,
+                actionType: 'materialize',
+                item: materialized.item,
+                created: materialized.created,
+                sourceKey: materialized.sourceItem.sourceKey,
+                message: materialized.created
+                    ? `Materialized source-backed item "${materialized.item.name}"`
+                    : `Refreshed source-backed item "${materialized.item.name}"`
+            };
+        },
+        aliases: ['source_create', 'srd_create']
     }
 };
 
@@ -235,8 +315,10 @@ export const ItemManageTool = {
     description: `Manage item templates (definitions, not instances).
 
 📦 ITEM WORKFLOW:
-1. create - Define a new item template (weapon, armor, consumable, etc.)
-2. Then use inventory_manage to give items to characters
+1. create - Define a custom item template
+2. catalog_search/catalog_get - Read exact pinned SRD definitions without mutating state
+3. materialize - Create or refresh a deterministic source-backed template
+4. Then use inventory_manage to give items to characters
 
 🗡️ ITEM TYPES:
 - weapon: Attack bonuses, damage dice in properties
@@ -263,7 +345,10 @@ Aliases: new→create, fetch→get, query→search`,
         value: z.number().optional().describe('Item value in gp'),
         properties: z.record(z.any()).optional().describe('Additional properties'),
         minValue: z.number().optional().describe('Minimum value for search'),
-        maxValue: z.number().optional().describe('Maximum value for search')
+        maxValue: z.number().optional().describe('Maximum value for search'),
+        sourceKey: z.string().optional().describe('Pinned Open5e source key/name (for catalog_get or materialize)'),
+        query: z.string().optional().describe('Pinned Open5e catalog search text'),
+        limit: z.number().int().optional().describe('Maximum catalog results (1-100)')
     })
 };
 
@@ -285,10 +370,21 @@ export async function handleItemManage(args: unknown, _ctx: SessionContext): Pro
         output += RichFormatter.alert(parsed.message || 'Unknown error', 'error');
         if (parsed.suggestions) {
             output += '\n**Did you mean:**\n';
-            parsed.suggestions.forEach((s: { action: string; similarity: number }) => {
-                output += `  • ${s.action} (${s.similarity}% match)\n`;
+            parsed.suggestions.forEach((s: { value: string; similarity: number }) => {
+                output += `  • ${s.value} (${s.similarity}% match)\n`;
             });
         }
+    } else if (parsed.catalogItem) {
+        const item = parsed.catalogItem;
+        output = RichFormatter.header(`${item.name} (SRD Catalog)`, 'ðŸ“š');
+        output += RichFormatter.keyValue({
+            'Source Key': item.sourceKey,
+            'Type': item.type,
+            'Weight': `${item.weight} lbs`,
+            'Value': `${item.value} gp`
+        });
+        if (item.description) output += `\n${item.description}\n`;
+        output += RichFormatter.alert(parsed.message, 'info');
     } else if (parsed.item) {
         const item = parsed.item;
         output = RichFormatter.header(item.name || 'Item', '📦');
@@ -311,10 +407,14 @@ export async function handleItemManage(args: unknown, _ctx: SessionContext): Pro
         }
         if (parsed.query) {
             const queryInfo: Record<string, unknown> = {};
-            if (parsed.query.name) queryInfo['Name'] = parsed.query.name;
-            if (parsed.query.type) queryInfo['Type'] = parsed.query.type;
-            if (parsed.query.minValue !== undefined) queryInfo['Min Value'] = parsed.query.minValue;
-            if (parsed.query.maxValue !== undefined) queryInfo['Max Value'] = parsed.query.maxValue;
+            if (typeof parsed.query === 'string') {
+                queryInfo['Query'] = parsed.query;
+            } else {
+                if (parsed.query.name) queryInfo['Name'] = parsed.query.name;
+                if (parsed.query.type) queryInfo['Type'] = parsed.query.type;
+                if (parsed.query.minValue !== undefined) queryInfo['Min Value'] = parsed.query.minValue;
+                if (parsed.query.maxValue !== undefined) queryInfo['Max Value'] = parsed.query.maxValue;
+            }
             output += RichFormatter.keyValue(queryInfo);
         }
         if (parsed.items.length === 0) {

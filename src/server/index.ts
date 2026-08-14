@@ -58,14 +58,16 @@ import { buildConsolidatedRegistry } from './consolidated-registry.js';
 
 // PubSub and utilities
 import { PubSub } from '../engine/pubsub.js';
-import { registerEventTools } from './events.js';
+import { registerEventInboxBridge, registerEventTools } from './events.js';
 import { AuditLogger } from './audit.js';
 import { withSession } from './types.js';
-import { closeDb, getDb, getDbPath } from '../storage/index.js';
+import { closeDb, campaignDbPath, assertNoLegacyDatabase, useSingleUserDatabase } from '../storage/index.js';
+import { setWorldPubSub } from './tools.js';
+import { setCombatPubSub } from './handlers/combat-handlers.js';
 
 // Agent runtime
 import { ProviderFactory } from '../agent/provider/factory.js';
-import { setAgentRuntime, buildAgentRuntime } from '../agent/runtime/deps.js';
+import { schemaShape } from './schema-shape.js';
 
 /**
  * Setup graceful shutdown handlers to ensure database is properly closed.
@@ -168,7 +170,7 @@ function buildServer(pubsub: PubSub, auditLogger: AuditLogger): McpServer {
     server.tool(
       toolName,
       entry.metadata.description,
-      extendedSchema.shape || extendedSchema._def?.schema?.shape || {},
+      schemaShape(extendedSchema),
       auditLogger.wrapHandler(
         toolName,
         withSession(entry.schema, entry.handler as any)
@@ -184,16 +186,20 @@ function buildServer(pubsub: PubSub, auditLogger: AuditLogger): McpServer {
 
 async function main() {
   setupShutdownHandlers();
-  console.error(`[Server] Database path: ${getDbPath()}`);
 
   // =========================================================================
   // AGENT RUNTIME: wire LLM providers + repos behind getAgentRuntime()
   // =========================================================================
   try {
-    const agentDb = getDb(getDbPath());
+    // Deliberately no setAgentRuntime() here any more. Runtime deps bind eight
+    // repositories to a single database, and under per-campaign databases the
+    // right one is not known until a request arrives with a verified tenant.
+    // agent_manage and combat_manage already build the runtime lazily from the
+    // request's own database, which is now the only correct place to do it.
+    // Provider initialization stays at boot: it is genuinely process-wide, and
+    // surfacing misconfiguration early is worth keeping.
     const providerFactory = new ProviderFactory();
     const providers = providerFactory.initialize();
-    setAgentRuntime(buildAgentRuntime(agentDb, providerFactory));
 
     // Diagnostic: print enough to self-diagnose the "Provider not configured"
     // error class without ever printing key values. The MCP-host-spawned-with-
@@ -217,6 +223,9 @@ async function main() {
 
   // App-level singletons shared across every McpServer instance buildServer() creates.
   const pubsub = new PubSub();
+  setWorldPubSub(pubsub);
+  setCombatPubSub(pubsub);
+  registerEventInboxBridge(pubsub);
   const auditLogger = new AuditLogger();
 
   // =========================================================================
@@ -234,6 +243,22 @@ async function main() {
     const index = args.indexOf(name);
     return index !== -1 ? args[index + 1] : undefined;
   };
+  // Only the HTTP transport is multi-tenant; it establishes a verified tenant
+  // per request. Every other transport serves one local operator, so it opens a
+  // single database up front. Without this, getDb() would find no tenant and
+  // every storage tool would fail for local users of the npm package, the
+  // standalone binaries, and MCP client configs.
+  //
+  // The legacy-database assertion is likewise HTTP-only: for a hosted server a
+  // pre-split file means an incomplete cutover, but in single-user mode that
+  // same file is simply the operator's database.
+  if (transportType === 'http') {
+    assertNoLegacyDatabase();
+    console.error(`[Server] Campaign databases: ${campaignDbPath('<campaign-id>')}`);
+  } else {
+    useSingleUserDatabase(getArgValue('--db-path'));
+  }
+
   const networkHost = getArgValue('--host') || '127.0.0.1';
   const transportToken = getArgValue('--transport-token') || process.env.RPG_MCP_TRANSPORT_TOKEN;
   const maxMessageBytes = parseInt(getArgValue('--max-message-bytes') || '1048576', 10);
@@ -299,6 +324,7 @@ async function main() {
     await startHttpServerTransport(() => buildServer(pubsub, auditLogger), port, {
       host: httpHost,
       authToken: transportToken,
+      maxBodyBytes: maxMessageBytes,
     });
     console.error(`RPG MCP Server running on HTTP ${httpHost}:${port} (POST /mcp, GET /health)`);
   } else {

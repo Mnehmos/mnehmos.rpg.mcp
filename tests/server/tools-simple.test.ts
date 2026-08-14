@@ -1,6 +1,9 @@
 import { handleGenerateWorld, clearWorld } from '../../src/server/tools';
+import { useInMemoryDatabase } from '../helpers/test-db.js';
 
 describe('Server Tools', () => {
+    useInMemoryDatabase();
+
     it('should generate a world', async () => {
         clearWorld();
         const result = await handleGenerateWorld({

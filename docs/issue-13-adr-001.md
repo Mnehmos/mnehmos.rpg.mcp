@@ -1,7 +1,7 @@
 ## ADR-001: Unified Tool Contract Object Model
 
 ### Status
-Proposed
+Accepted
 
 ### Context
 The consolidated runtime currently keeps key contract elements in separate places:
@@ -30,10 +30,10 @@ Generate registry/search metadata from these contract objects, replacing manuall
 - Requires generator/adapter layer for current runtime registration path
 
 ### Acceptance Criteria
-- [ ] Each consolidated tool exports one contract definition
-- [ ] Registry metadata is derived from contract definitions
-- [ ] `search_tools` and `load_tool_schema` behavior remains compatible
-- [ ] Tests verify metadata/action/schema parity for all consolidated tools
+- [x] Each consolidated tool is represented by one `ToolContract` definition
+- [x] Registry metadata is derived from contract definitions
+- [x] `search_tools` and `load_tool_schema` behavior remains compatible
+- [x] Tests verify metadata/action/schema parity for all consolidated tools
 
 ### Source
 Architecture analysis: `docs/ARCHITECTURE-CODEBASE-ANALYSIS.md`

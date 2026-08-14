@@ -32,8 +32,7 @@ type MathAction = typeof ACTIONS[number];
 // ═══════════════════════════════════════════════════════════════════════════
 
 function getRepo() {
-    const dbPath = process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db';
-    const db = getDb(dbPath);
+    const db = getDb();
     return { repo: new CalculationRepository(db), db };
 }
 
@@ -374,8 +373,8 @@ export async function handleMathManage(args: unknown, ctx: SessionContext): Prom
         output += RichFormatter.alert(parsed.message || 'Unknown error', 'error');
         if (parsed.suggestions) {
             output += '\n**Did you mean:**\n';
-            parsed.suggestions.forEach((s: { action: string; similarity: number }) => {
-                output += `  - ${s.action} (${s.similarity}% match)\n`;
+            parsed.suggestions.forEach((s: { value: string; similarity: number }) => {
+                output += `  - ${s.value} (${s.similarity}% match)\n`;
             });
         }
     } else {

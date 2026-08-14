@@ -11,21 +11,27 @@ export class CharacterRepository {
         const validChar = isNPC ? NPCSchema.parse(character) : CharacterSchema.parse(character);
 
         const stmt = this.db.prepare(`
-      INSERT INTO characters (id, name, stats, hp, max_hp, ac, level, faction_id, behavior, character_type,
-                              character_class, race, spell_slots, pact_magic_slots, known_spells, prepared_spells,
-                              cantrips_known, max_spell_level, concentrating_on, conditions,
-                              legendary_actions, legendary_actions_remaining, legendary_resistances,
+      INSERT INTO characters (id, name, stats, hp, max_hp, ac, level, xp, faction_id, behavior, character_type,
+                               character_class, race, spell_slots, pact_magic_slots, known_spells, prepared_spells,
+                               cantrips_known, max_spell_level, concentrating_on, conditions,
+                               currency,
+                               legendary_actions, legendary_actions_remaining, legendary_resistances,
                               legendary_resistances_remaining, has_lair_actions, resistances, vulnerabilities, immunities,
-                              current_room_id, perception_bonus, stealth_bonus, resource_pools,
-                              background, alignment, origin,
+                               current_room_id, perception_bonus, stealth_bonus, resource_pools,
+                               skill_proficiencies, save_proficiencies, expertise,
+                               armor_proficiencies, weapon_proficiencies, tool_proficiencies, languages,
+                               background, alignment, origin,
                               created_at, updated_at)
-      VALUES (@id, @name, @stats, @hp, @maxHp, @ac, @level, @factionId, @behavior, @characterType,
-              @characterClass, @race, @spellSlots, @pactMagicSlots, @knownSpells, @preparedSpells,
-              @cantripsKnown, @maxSpellLevel, @concentratingOn, @conditions,
-              @legendaryActions, @legendaryActionsRemaining, @legendaryResistances,
+      VALUES (@id, @name, @stats, @hp, @maxHp, @ac, @level, @xp, @factionId, @behavior, @characterType,
+               @characterClass, @race, @spellSlots, @pactMagicSlots, @knownSpells, @preparedSpells,
+               @cantripsKnown, @maxSpellLevel, @concentratingOn, @conditions,
+               @currency,
+               @legendaryActions, @legendaryActionsRemaining, @legendaryResistances,
               @legendaryResistancesRemaining, @hasLairActions, @resistances, @vulnerabilities, @immunities,
-              @currentRoomId, @perceptionBonus, @stealthBonus, @resourcePools,
-              @background, @alignment, @origin,
+               @currentRoomId, @perceptionBonus, @stealthBonus, @resourcePools,
+               @skillProficiencies, @saveProficiencies, @expertise,
+               @armorProficiencies, @weaponProficiencies, @toolProficiencies, @languages,
+               @background, @alignment, @origin,
               @createdAt, @updatedAt)
     `);
 
@@ -37,6 +43,7 @@ export class CharacterRepository {
             maxHp: validChar.maxHp,
             ac: validChar.ac,
             level: validChar.level,
+            xp: validChar.xp ?? 0,
             factionId: (validChar as NPC).factionId || null,
             behavior: (validChar as NPC).behavior || null,
             characterType: validChar.characterType || 'pc',
@@ -51,6 +58,7 @@ export class CharacterRepository {
             maxSpellLevel: validChar.maxSpellLevel || 0,
             concentratingOn: validChar.concentratingOn || null,
             conditions: JSON.stringify(validChar.conditions || []),
+            currency: JSON.stringify(validChar.currency || { gold: 0, silver: 0, copper: 0 }),
             // HIGH-007: Legendary creature fields
             legendaryActions: validChar.legendaryActions ?? null,
             legendaryActionsRemaining: validChar.legendaryActionsRemaining ?? null,
@@ -67,6 +75,13 @@ export class CharacterRepository {
             stealthBonus: validChar.stealthBonus || 0,
             // §10.3: Generalized resource pools (attentional_capacity et al.)
             resourcePools: JSON.stringify(validChar.resourcePools || {}),
+            skillProficiencies: JSON.stringify(validChar.skillProficiencies || []),
+            saveProficiencies: JSON.stringify(validChar.saveProficiencies || []),
+            expertise: JSON.stringify(validChar.expertise || []),
+            armorProficiencies: JSON.stringify(validChar.armorProficiencies || []),
+            weaponProficiencies: JSON.stringify(validChar.weaponProficiencies || []),
+            toolProficiencies: JSON.stringify(validChar.toolProficiencies || []),
+            languages: JSON.stringify(validChar.languages || []),
             // BASTION: background, alignment, origin (silent-drop fix + world-brief enforcement)
             background: validChar.background ?? null,
             alignment: validChar.alignment ?? null,
@@ -120,17 +135,20 @@ export class CharacterRepository {
 
         const stmt = this.db.prepare(`
             UPDATE characters
-            SET name = ?, stats = ?, hp = ?, max_hp = ?, ac = ?, level = ?,
+            SET name = ?, stats = ?, hp = ?, max_hp = ?, ac = ?, level = ?, xp = ?,
                 faction_id = ?, behavior = ?, character_type = ?,
-                character_class = ?, race = ?, spell_slots = ?, pact_magic_slots = ?,
-                known_spells = ?, prepared_spells = ?, cantrips_known = ?,
-                max_spell_level = ?, concentrating_on = ?, conditions = ?,
-                legendary_actions = ?, legendary_actions_remaining = ?,
+                 character_class = ?, race = ?, spell_slots = ?, pact_magic_slots = ?,
+                 known_spells = ?, prepared_spells = ?, cantrips_known = ?,
+                 max_spell_level = ?, concentrating_on = ?, conditions = ?,
+                 currency = ?,
+                 legendary_actions = ?, legendary_actions_remaining = ?,
                 legendary_resistances = ?, legendary_resistances_remaining = ?,
-                has_lair_actions = ?, resistances = ?, vulnerabilities = ?, immunities = ?,
-                current_room_id = ?, perception_bonus = ?, stealth_bonus = ?,
-                resource_pools = ?,
-                background = ?, alignment = ?, origin = ?,
+                 has_lair_actions = ?, resistances = ?, vulnerabilities = ?, immunities = ?,
+                 current_room_id = ?, perception_bonus = ?, stealth_bonus = ?,
+                 resource_pools = ?,
+                 skill_proficiencies = ?, save_proficiencies = ?, expertise = ?,
+                 armor_proficiencies = ?, weapon_proficiencies = ?, tool_proficiencies = ?, languages = ?,
+                 background = ?, alignment = ?, origin = ?,
                 updated_at = ?
             WHERE id = ?
         `);
@@ -142,6 +160,7 @@ export class CharacterRepository {
             validChar.maxHp,
             validChar.ac,
             validChar.level,
+            validChar.xp ?? 0,
             (validChar as NPC).factionId || null,
             (validChar as NPC).behavior || null,
             validChar.characterType || 'pc',
@@ -156,6 +175,7 @@ export class CharacterRepository {
             validChar.maxSpellLevel || 0,
             validChar.concentratingOn || null,
             JSON.stringify(validChar.conditions || []),
+            JSON.stringify(validChar.currency || { gold: 0, silver: 0, copper: 0 }),
             // HIGH-007: Legendary creature fields
             validChar.legendaryActions ?? null,
             validChar.legendaryActionsRemaining ?? null,
@@ -172,6 +192,13 @@ export class CharacterRepository {
             validChar.stealthBonus || 0,
             // §10.3: Generalized resource pools
             JSON.stringify(validChar.resourcePools || {}),
+            JSON.stringify(validChar.skillProficiencies || []),
+            JSON.stringify(validChar.saveProficiencies || []),
+            JSON.stringify(validChar.expertise || []),
+            JSON.stringify(validChar.armorProficiencies || []),
+            JSON.stringify(validChar.weaponProficiencies || []),
+            JSON.stringify(validChar.toolProficiencies || []),
+            JSON.stringify(validChar.languages || []),
             // BASTION: background, alignment, origin
             validChar.background ?? null,
             validChar.alignment ?? null,
@@ -198,6 +225,7 @@ export class CharacterRepository {
             maxHp: row.max_hp,
             ac: row.ac,
             level: row.level,
+            xp: row.xp ?? 0,
             characterType: (row.character_type as CharacterType) || 'pc',
             // CRIT-002/006: Spellcasting fields
             characterClass: row.character_class || 'fighter',
@@ -210,6 +238,7 @@ export class CharacterRepository {
             maxSpellLevel: row.max_spell_level || 0,
             concentratingOn: row.concentrating_on || null,
             conditions: row.conditions ? JSON.parse(row.conditions) : [],
+            currency: row.currency ? JSON.parse(row.currency) : { gold: 0, silver: 0, copper: 0 },
             // HIGH-007: Legendary creature fields
             legendaryActions: row.legendary_actions ?? undefined,
             legendaryActionsRemaining: row.legendary_actions_remaining ?? undefined,
@@ -226,6 +255,13 @@ export class CharacterRepository {
             stealthBonus: row.stealth_bonus ?? 0,
             // §10.3: Generalized resource pools (attentional_capacity et al.)
             resourcePools: row.resource_pools ? JSON.parse(row.resource_pools) : {},
+            skillProficiencies: row.skill_proficiencies ? JSON.parse(row.skill_proficiencies) : [],
+            saveProficiencies: row.save_proficiencies ? JSON.parse(row.save_proficiencies) : [],
+            expertise: row.expertise ? JSON.parse(row.expertise) : [],
+            armorProficiencies: row.armor_proficiencies ? JSON.parse(row.armor_proficiencies) : [],
+            weaponProficiencies: row.weapon_proficiencies ? JSON.parse(row.weapon_proficiencies) : [],
+            toolProficiencies: row.tool_proficiencies ? JSON.parse(row.tool_proficiencies) : [],
+            languages: row.languages ? JSON.parse(row.languages) : [],
             background: row.background || undefined,
             alignment: row.alignment || undefined,
             origin: row.origin ? JSON.parse(row.origin) : undefined,
@@ -253,6 +289,7 @@ interface CharacterRow {
     max_hp: number;
     ac: number;
     level: number;
+    xp: number | null;
     faction_id: string | null;
     behavior: string | null;
     character_type: string | null;
@@ -267,6 +304,7 @@ interface CharacterRow {
     max_spell_level: number | null;
     concentrating_on: string | null;
     conditions: string | null;
+    currency: string | null;
     // HIGH-007: Legendary creature columns
     legendary_actions: number | null;
     legendary_actions_remaining: number | null;
@@ -283,6 +321,13 @@ interface CharacterRow {
     stealth_bonus: number | null;
     // §10.3: Generalized resource pools
     resource_pools: string | null;
+    skill_proficiencies: string | null;
+    save_proficiencies: string | null;
+    expertise: string | null;
+    armor_proficiencies: string | null;
+    weapon_proficiencies: string | null;
+    tool_proficiencies: string | null;
+    languages: string | null;
     background: string | null;
     alignment: string | null;
     origin: string | null;

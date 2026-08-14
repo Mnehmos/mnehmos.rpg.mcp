@@ -27,7 +27,9 @@ export class WebSocketServerTransport implements Transport {
     public onmessage?: (message: JSONRPCMessage) => void;
 
     constructor(port: number = 3001, options: WebSocketServerTransportOptions = {}) {
-        const host = options.host ?? '127.0.0.1';
+        // Bind dual-stack by default: Node 18 commonly resolves localhost to
+        // ::1 while newer runtimes may prefer 127.0.0.1.
+        const host = options.host ?? '::';
         this.authToken = options.authToken || process.env.RPG_MCP_TRANSPORT_TOKEN;
 
         this.wss = new WebSocketServer({
@@ -112,8 +114,32 @@ export class WebSocketServerTransport implements Transport {
     }
 
     async start(): Promise<void> {
-        // Server starts in constructor
-        return Promise.resolve();
+        // WebSocketServer begins listening in its constructor, but the
+        // listening event is asynchronous. Await it so callers (and the MCP
+        // server's connect path) cannot race the first client connection.
+        if (this.wss.address() !== null) return;
+
+        await new Promise<void>((resolve, reject) => {
+            const onListening = () => {
+                cleanup();
+                resolve();
+            };
+            const onError = (error: Error) => {
+                cleanup();
+                reject(error);
+            };
+            const cleanup = () => {
+                this.wss.off('listening', onListening);
+                this.wss.off('error', onError);
+            };
+
+            this.wss.once('listening', onListening);
+            this.wss.once('error', onError);
+
+            // The server may have finished between the initial check and
+            // listener registration.
+            if (this.wss.address() !== null) onListening();
+        });
     }
 
     async close(): Promise<void> {

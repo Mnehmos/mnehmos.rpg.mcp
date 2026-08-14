@@ -30,6 +30,12 @@ export interface GameEvent {
   expiresAt?: string | null;
 }
 
+export interface EventPollOptions {
+  limit?: number;
+  eventType?: EventType;
+  sourceType?: SourceType;
+}
+
 interface EventRow {
   id: number;
   event_type: string;
@@ -69,20 +75,35 @@ export class EventInboxRepository {
   /**
    * Poll for unread events, ordered by priority then time
    */
-  poll(limit: number = 20): GameEvent[] {
+  poll(limitOrOptions: number | EventPollOptions = 20): GameEvent[] {
+    const options = typeof limitOrOptions === 'number'
+      ? { limit: limitOrOptions }
+      : limitOrOptions;
+    const { limit = 20, eventType, sourceType } = options;
     const now = new Date().toISOString();
-    
-    // Get unconsumed, non-expired events
-    const stmt = this.db.prepare(`
+
+    let query = `
       SELECT * FROM event_inbox
       WHERE consumed_at IS NULL
-        AND (expires_at IS NULL OR expires_at > ?)
-      ORDER BY priority DESC, created_at ASC
-      LIMIT ?
-    `);
-    
-    const rows = stmt.all(now, limit) as EventRow[];
-    
+        AND (expires_at IS NULL OR expires_at > ?)`;
+    const params: Array<string | number> = [now];
+
+    if (eventType) {
+      query += ' AND event_type = ?';
+      params.push(eventType);
+    }
+    if (sourceType) {
+      query += ' AND source_type = ?';
+      params.push(sourceType);
+    }
+
+    query += ' ORDER BY priority DESC, created_at ASC LIMIT ?';
+    params.push(limit);
+
+    // Get unconsumed, non-expired events
+    const stmt = this.db.prepare(query);
+    const rows = stmt.all(...params) as EventRow[];
+
     return rows.map(row => this.rowToEvent(row));
   }
 
@@ -107,8 +128,8 @@ export class EventInboxRepository {
   /**
    * Poll and immediately mark as consumed (atomic)
    */
-  pollAndConsume(limit: number = 20): GameEvent[] {
-    const events = this.poll(limit);
+  pollAndConsume(limitOrOptions: number | EventPollOptions = 20): GameEvent[] {
+    const events = this.poll(limitOrOptions);
     const ids = events.map(e => e.id!).filter(Boolean);
     if (ids.length > 0) {
       this.markConsumed(ids);

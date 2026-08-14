@@ -17,17 +17,29 @@ import { randomUUID } from 'crypto';
 import { SessionContext } from '../types.js';
 import { getDb } from '../../storage/index.js';
 import { CharacterRepository } from '../../storage/repos/character.repo.js';
-import { CharacterOriginSchema } from '../../schema/character.js';
+import {
+    CharacterOriginSchema,
+    SkillProficiencySchema,
+    SaveProficiencySchema,
+} from '../../schema/character.js';
 import { provisionStartingEquipment } from '../../services/starting-equipment.service.js';
-import { getSpellSlots, isSpellcaster } from '../../data/class-starting-data.js';
+import { CLASS_DATA, getSpellSlots, isSpellcaster } from '../../data/class-starting-data.js';
 import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/action-router.js';
 import { RichFormatter } from '../utils/formatter.js';
+import {
+    CharacterOptionCategory,
+    findOpen5eBackground,
+    findOpen5eClass,
+    findOpen5eSpecies,
+    getOpen5eCatalogProvenance,
+    getOpen5eCharacterOptions,
+} from '../../content/open5e-catalog.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-const ACTIONS = ['create', 'get', 'update', 'list', 'delete', 'add_xp', 'get_progression', 'level_up'] as const;
+const ACTIONS = ['create', 'get', 'update', 'list', 'delete', 'add_xp', 'get_progression', 'level_up', 'options'] as const;
 type CharacterAction = typeof ACTIONS[number];
 
 const CharacterTypeSchema = z.enum(['pc', 'npc', 'enemy', 'neutral']);
@@ -38,12 +50,21 @@ const XP_TABLE: Record<number, number> = {
     15: 165000, 16: 195000, 17: 225000, 18: 265000, 19: 305000, 20: 355000
 };
 
+const CLASS_SAVE_KEYS: Record<string, z.infer<typeof SaveProficiencySchema>> = {
+    strength: 'str',
+    dexterity: 'dex',
+    constitution: 'con',
+    intelligence: 'int',
+    wisdom: 'wis',
+    charisma: 'cha',
+};
+
 // ═══════════════════════════════════════════════════════════════════════════
 // DATABASE HELPER
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureDb() {
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const db = getDb();
     return {
         db,
         characterRepo: new CharacterRepository(db)
@@ -68,12 +89,12 @@ const CreateSchema = z.object({
     name: z.string().min(1).describe('Character name (required)'),
     class: z.string().optional().default('Adventurer'),
     race: z.string().optional().default('Human'),
-    background: z.string().optional().default('Folk Hero'),
+    background: z.string().optional(),
     alignment: z.string().optional(),
     stats: StatsSchema.optional().default({ str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }),
     hp: z.number().int().min(1).optional(),
     maxHp: z.number().int().min(1).optional(),
-    ac: z.number().int().min(0).optional().default(10),
+    ac: z.number().int().min(0).optional(),
     level: z.number().int().min(1).optional().default(1),
     characterType: CharacterTypeSchema.optional().default('pc'),
     factionId: z.string().optional(),
@@ -83,6 +104,15 @@ const CreateSchema = z.object({
     resistances: z.array(z.string()).optional().default([]),
     vulnerabilities: z.array(z.string()).optional().default([]),
     immunities: z.array(z.string()).optional().default([]),
+    skillProficiencies: z.array(SkillProficiencySchema).optional(),
+    saveProficiencies: z.array(SaveProficiencySchema).optional(),
+    expertise: z.array(z.string()).optional(),
+    armorProficiencies: z.array(z.string()).optional(),
+    weaponProficiencies: z.array(z.string()).optional(),
+    toolProficiencies: z.array(z.string()).optional(),
+    languages: z.array(z.string()).optional(),
+    applySpeciesAbilityBonuses: z.boolean().optional().default(true)
+        .describe('Apply source species ability bonuses exactly once; set false only when stats already include them'),
     origin: CharacterOriginSchema.optional(),
     provisionEquipment: z.boolean().optional().default(true),
     customEquipment: z.array(z.string()).optional(),
@@ -94,7 +124,7 @@ const GetSchema = z.object({
     characterId: z.string().describe('Character ID to retrieve')
 });
 
-const ConditionSchema = z.object({
+const conditionSchema = () => z.object({
     name: z.string(),
     duration: z.number().int().optional(),
     source: z.string().optional()
@@ -114,8 +144,15 @@ const UpdateSchema = z.object({
     stats: StatsSchema.partial().optional(),
     knownSpells: z.array(z.string()).optional(),
     preparedSpells: z.array(z.string()).optional(),
-    conditions: z.array(ConditionSchema).optional(),
-    addConditions: z.array(ConditionSchema).optional(),
+    skillProficiencies: z.array(SkillProficiencySchema).optional(),
+    saveProficiencies: z.array(SaveProficiencySchema).optional(),
+    expertise: z.array(z.string()).optional(),
+    armorProficiencies: z.array(z.string()).optional(),
+    weaponProficiencies: z.array(z.string()).optional(),
+    toolProficiencies: z.array(z.string()).optional(),
+    languages: z.array(z.string()).optional(),
+    conditions: z.array(conditionSchema()).optional(),
+    addConditions: z.array(conditionSchema()).optional(),
     removeConditions: z.array(z.string()).optional(),
     background: z.string().optional(),
     alignment: z.string().optional(),
@@ -152,6 +189,14 @@ const LevelUpSchema = z.object({
     targetLevel: z.number().int().min(2).max(20).optional()
 });
 
+const OptionCategorySchema = z.enum(['all', 'classes', 'species', 'backgrounds', 'skills', 'languages', 'alignments']);
+
+const OptionsSchema = z.object({
+    action: z.literal('options'),
+    category: OptionCategorySchema.optional().default('all'),
+    query: z.string().optional().describe('Optional case-insensitive name filter')
+});
+
 // ═══════════════════════════════════════════════════════════════════════════
 // HELPERS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -180,6 +225,30 @@ function convertSpellSlotsToObject(slots: number[] | null) {
     };
 }
 
+function uniqueStrings(...groups: Array<readonly string[] | undefined>): string[] {
+    const values = new Map<string, string>();
+    for (const group of groups) {
+        for (const value of group ?? []) {
+            const trimmed = value.trim();
+            if (trimmed) values.set(trimmed.toLowerCase(), trimmed);
+        }
+    }
+    return [...values.values()];
+}
+
+function validSkillProficiencies(values: readonly string[] | undefined): Array<z.infer<typeof SkillProficiencySchema>> {
+    return (values ?? []).flatMap((value) => {
+        const parsed = SkillProficiencySchema.safeParse(value);
+        return parsed.success ? [parsed.data] : [];
+    });
+}
+
+function initialHitPoints(hitDie: number, constitutionModifier: number, level: number): number {
+    const firstLevel = Math.max(1, hitDie + constitutionModifier);
+    const laterLevel = Math.max(1, Math.floor(hitDie / 2) + 1 + constitutionModifier);
+    return firstLevel + Math.max(0, level - 1) * laterLevel;
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ACTION HANDLERS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -189,14 +258,52 @@ export { CreateSchema as CharacterCreateSchema };
 export async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<object> {
     const { db, characterRepo } = ensureDb();
     const now = new Date().toISOString();
-    const className = args.class || 'Adventurer';
+    const classSource = findOpen5eClass(args.class || 'Adventurer');
+    const speciesSource = findOpen5eSpecies(args.race || 'Human');
+    const backgroundSource = args.background ? findOpen5eBackground(args.background) : undefined;
+    const className = classSource?.name ?? args.class ?? 'Adventurer';
+    const raceName = speciesSource?.name ?? args.race ?? 'Human';
+    const backgroundName = backgroundSource?.name ?? args.background;
+    const classData = CLASS_DATA[className.trim().toLowerCase().replace(/^srd[-_:]/, '')];
+    const legacyClassSaves = classData?.savingThrows
+        .map((ability) => CLASS_SAVE_KEYS[ability])
+        .filter((ability): ability is z.infer<typeof SaveProficiencySchema> => Boolean(ability)) ?? [];
+    const classSaveProficiencies = classSource?.savingThrows ?? legacyClassSaves;
+    const backgroundSkills = validSkillProficiencies(backgroundSource?.skillProficiencies);
 
-    // Calculate HP from constitution if not provided
-    const conModifier = Math.floor(((args.stats?.con ?? 10) - 10) / 2);
-    const baseHp = Math.max(1, 8 + conModifier);
-    const hp = args.hp ?? baseHp;
-    const maxHp = args.maxHp ?? hp;
+    const stats = { ...(args.stats ?? { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 }) };
+    const speciesAbilityBonusesApplied = Boolean(args.applySpeciesAbilityBonuses && speciesSource);
+    if (speciesAbilityBonusesApplied && speciesSource) {
+        for (const ability of Object.keys(speciesSource.abilityBonuses) as Array<keyof typeof stats>) {
+            stats[ability] += speciesSource.abilityBonuses[ability];
+        }
+    }
+
+    // Source-backed classes own hit-die HP. Custom classes retain the d8 fallback.
+    const conModifier = Math.floor((stats.con - 10) / 2);
+    const hitDie = classSource?.hitDie ?? Number.parseInt(classData?.hitDice.replace('d', '') ?? '8', 10);
+    const level = args.level ?? 1;
+    const speciesMaxHpBonus = speciesSource?.mechanics
+        .filter((mechanic) => mechanic.type === 'max_hp_per_level')
+        .reduce((total, mechanic) => total + mechanic.value * level, 0) ?? 0;
+    const baseHp = initialHitPoints(hitDie, conModifier, level);
+    const derivedMaxHp = baseHp + speciesMaxHpBonus;
+    const hp = args.hp ?? derivedMaxHp;
+    const maxHp = args.maxHp ?? Math.max(hp, derivedMaxHp);
     const characterId = randomUUID();
+
+    const supportedSpeciesMechanics = new Set(['max_hp_per_level']);
+    const appliedSpeciesMechanics = [
+        ...(speciesAbilityBonusesApplied ? ['ability_score_increases'] : []),
+        ...(speciesSource?.languages.length ? ['fixed_languages'] : []),
+        ...(speciesMaxHpBonus > 0 && args.maxHp === undefined ? ['max_hp_per_level'] : [])
+    ];
+    const deferredSpeciesMechanics = [
+        ...(!speciesAbilityBonusesApplied && speciesSource ? ['ability_score_increases'] : []),
+        ...(speciesMaxHpBonus > 0 && args.maxHp !== undefined ? ['max_hp_per_level:maxHp_override'] : [])
+    ];
+    const unsupportedSpeciesFeatures = (speciesSource?.featureNames ?? [])
+        .filter((featureName) => !supportedSpeciesMechanics.has(featureName === 'Dwarven Toughness' ? 'max_hp_per_level' : featureName));
 
     // Build the base character record from args. The character row MUST be
     // inserted before provisioning runs, otherwise inventory_items.character_id
@@ -204,22 +311,33 @@ export async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<
     const character: Record<string, unknown> = {
         id: characterId,
         name: args.name,
-        race: args.race,
-        background: args.background,
+        race: raceName,
+        background: backgroundName,
         alignment: args.alignment,
         origin: args.origin,
         characterClass: className,
-        stats: args.stats || { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+        stats,
         hp,
         maxHp,
-        ac: args.ac ?? 10,
-        level: args.level ?? 1,
+        ac: args.ac ?? 10 + Math.floor((stats.dex - 10) / 2),
+        level,
         characterType: args.characterType ?? 'pc',
         factionId: args.factionId,
         behavior: args.behavior,
         knownSpells: args.knownSpells || [],
         cantripsKnown: [],
-        preparedSpells: args.preparedSpells || [],
+        // Known spells are immediately usable after creation unless the caller
+        // explicitly supplies a prepared list.
+        preparedSpells: args.preparedSpells?.length
+            ? [...args.preparedSpells]
+            : [...(args.knownSpells || [])],
+        skillProficiencies: uniqueStrings(backgroundSkills, args.skillProficiencies),
+        saveProficiencies: args.saveProficiencies ?? classSaveProficiencies,
+        expertise: args.expertise || [],
+        armorProficiencies: args.armorProficiencies ?? classSource?.armorProficiencies ?? classData?.armorProficiencies ?? [],
+        weaponProficiencies: args.weaponProficiencies ?? classSource?.weaponProficiencies ?? classData?.weaponProficiencies ?? [],
+        toolProficiencies: uniqueStrings(backgroundSource?.toolProficiencies, args.toolProficiencies),
+        languages: uniqueStrings(speciesSource?.languages, backgroundSource?.fixedLanguages, args.languages),
         resistances: args.resistances || [],
         vulnerabilities: args.vulnerabilities || [],
         immunities: args.immunities || [],
@@ -246,7 +364,10 @@ export async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<
             {
                 customEquipment: args.customEquipment,
                 customSpells: args.knownSpells?.length ? args.knownSpells : undefined,
-                startingGold: args.startingGold
+                startingGold: args.startingGold ?? (backgroundSource
+                    ? backgroundSource.startingCurrencyCopper / 100
+                    : undefined),
+                additionalEquipmentSourceKeys: backgroundSource?.startingItemSourceKeys
             }
         );
 
@@ -255,19 +376,66 @@ export async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<
         character.knownSpells = provisioningResult.spellsGranted.length
             ? [...new Set([...(args.knownSpells || []), ...provisioningResult.spellsGranted])]
             : args.knownSpells || [];
+        character.preparedSpells = args.preparedSpells?.length
+            ? [...new Set(args.preparedSpells)]
+            : [...new Set(character.knownSpells as string[])];
         character.cantripsKnown = provisioningResult.cantripsGranted || [];
         character.spellSlots = convertSpellSlotsToObject(provisioningResult.spellSlots ?? null);
         character.pactMagicSlots = provisioningResult.pactMagicSlots || undefined;
 
         characterRepo.update(characterId, {
             knownSpells: character.knownSpells as string[],
+            preparedSpells: character.preparedSpells as string[],
             cantripsKnown: character.cantripsKnown as string[],
             spellSlots: character.spellSlots,
             pactMagicSlots: character.pactMagicSlots
         } as any);
     }
 
-    const response: Record<string, unknown> = { ...character, success: true };
+    const provenance = getOpen5eCatalogProvenance();
+    const response: Record<string, unknown> = {
+        ...character,
+        success: true,
+        _rules: {
+            rulesVersion: provenance.rulesVersion,
+            sourcePackHash: provenance.packHash,
+            class: classSource ? {
+                sourceKey: classSource.sourceKey,
+                contentKey: classSource.contentKey,
+                hitDie: classSource.hitDie,
+                skillChoice: classSource.skillChoice,
+                levelOneFeatures: classSource.levelOneFeatures
+            } : { custom: true, name: className },
+            species: speciesSource ? {
+                sourceKey: speciesSource.sourceKey,
+                contentKey: speciesSource.contentKey,
+                speedFeet: speciesSource.speedFeet,
+                abilityBonuses: speciesSource.abilityBonuses,
+                abilityBonusesApplied: speciesAbilityBonusesApplied,
+                languageChoiceCount: speciesSource.languageChoiceCount,
+                featureNames: speciesSource.featureNames,
+                appliedMechanics: appliedSpeciesMechanics,
+                deferredMechanics: deferredSpeciesMechanics,
+                unsupportedFeatureNames: unsupportedSpeciesFeatures,
+                maxHpBonus: speciesMaxHpBonus
+            } : { custom: true, name: raceName },
+            background: backgroundSource ? {
+                sourceKey: backgroundSource.sourceKey,
+                contentKey: backgroundSource.contentKey,
+                languageChoiceCount: backgroundSource.languageChoiceCount,
+                startingEquipmentDescription: backgroundSource.startingEquipmentDescription,
+                appliedMechanics: [
+                    ...(backgroundSource.skillProficiencies.length ? ['fixed_skill_proficiencies'] : []),
+                    ...(backgroundSource.fixedLanguages.length ? ['fixed_languages'] : [])
+                ],
+                deferredMechanics: [
+                    ...(backgroundSource.skillChoice ? ['skill_choice'] : []),
+                    ...(backgroundSource.languageChoiceCount > 0 ? ['language_choice'] : []),
+                    ...(backgroundSource.toolChoice ? ['tool_choice'] : [])
+                ]
+            } : backgroundName ? { custom: true, name: backgroundName } : null
+        }
+    };
     if (provisioningResult) {
         response._provisioning = {
             equipmentGranted: provisioningResult.itemsGranted,
@@ -314,6 +482,13 @@ async function handleUpdate(args: z.infer<typeof UpdateSchema>): Promise<object>
     if (args.stats !== undefined) updateData.stats = args.stats;
     if (args.knownSpells !== undefined) updateData.knownSpells = args.knownSpells;
     if (args.preparedSpells !== undefined) updateData.preparedSpells = args.preparedSpells;
+    if (args.skillProficiencies !== undefined) updateData.skillProficiencies = args.skillProficiencies;
+    if (args.saveProficiencies !== undefined) updateData.saveProficiencies = args.saveProficiencies;
+    if (args.expertise !== undefined) updateData.expertise = args.expertise;
+    if (args.armorProficiencies !== undefined) updateData.armorProficiencies = args.armorProficiencies;
+    if (args.weaponProficiencies !== undefined) updateData.weaponProficiencies = args.weaponProficiencies;
+    if (args.toolProficiencies !== undefined) updateData.toolProficiencies = args.toolProficiencies;
+    if (args.languages !== undefined) updateData.languages = args.languages;
 
     // Handle conditions
     if (args.conditions !== undefined) {
@@ -400,7 +575,7 @@ async function handleAddXp(args: z.infer<typeof AddXpSchema>): Promise<object> {
         throw new Error(`Character ${args.characterId} not found`);
     }
 
-    const currentXp = (char as any).xp || 0;
+    const currentXp = char.xp ?? 0;
     const newXp = currentXp + args.amount;
     const currentLevel = char.level;
     const nextLevelXp = XP_TABLE[currentLevel + 1];
@@ -490,6 +665,10 @@ async function handleLevelUp(args: z.infer<typeof LevelUpSchema>): Promise<objec
     };
 }
 
+async function handleOptions(args: z.infer<typeof OptionsSchema>): Promise<object> {
+    return getOpen5eCharacterOptions(args.category as CharacterOptionCategory, args.query);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ACTION ROUTER
 // ═══════════════════════════════════════════════════════════════════════════
@@ -542,6 +721,12 @@ const definitions: Record<CharacterAction, ActionDefinition> = {
         handler: handleLevelUp,
         aliases: ['levelup', 'advance'],
         description: 'Level up a character'
+    },
+    options: {
+        schema: OptionsSchema,
+        handler: handleOptions,
+        aliases: ['creation_options', 'catalog'],
+        description: 'Read pinned SRD character-creation options and exact mechanics'
     }
 };
 
@@ -561,8 +746,9 @@ export const CharacterManageTool = {
 
 👤 CHARACTER LIFECYCLE:
 1. create - Define character with class/race/stats (auto-provisions equipment)
-2. get/update - View or modify properties
-3. add_xp/level_up - Advance character progression
+2. options - Read pinned SRD classes, species, backgrounds, skills, languages, or alignments
+3. get/update - View or modify properties
+4. add_xp/level_up - Advance character progression
 
 ⚔️ FOR COMBAT:
 - Characters need HP, AC, stats for combat participation
@@ -572,11 +758,11 @@ export const CharacterManageTool = {
 - provisionEquipment: true (default) auto-grants starting equipment
 - For custom items, create with item_manage first, then use inventory_manage
 
-Actions: create, get, update, list, delete, add_xp, get_progression, level_up
+Actions: ${ACTIONS.join(', ')}
 Aliases: new/add/spawn->create, fetch/find->get, modify/edit->update`,
     actionSchemas: router.actionSchemas,
     inputSchema: z.object({
-        action: z.string().describe('Action: create, get, update, list, delete, add_xp, get_progression, level_up'),
+        action: z.string().describe(`Action: ${ACTIONS.join(', ')}`),
         // Create fields
         name: z.string().optional(),
         class: z.string().optional(),
@@ -594,6 +780,14 @@ Aliases: new/add/spawn->create, fetch/find->get, modify/edit->update`,
         behavior: z.string().optional(),
         knownSpells: z.array(z.string()).optional(),
         preparedSpells: z.array(z.string()).optional(),
+        skillProficiencies: z.array(SkillProficiencySchema).optional(),
+        saveProficiencies: z.array(SaveProficiencySchema).optional(),
+        expertise: z.array(z.string()).optional(),
+        armorProficiencies: z.array(z.string()).optional(),
+        weaponProficiencies: z.array(z.string()).optional(),
+        toolProficiencies: z.array(z.string()).optional(),
+        languages: z.array(z.string()).optional(),
+        applySpeciesAbilityBonuses: z.boolean().optional(),
         resistances: z.array(z.string()).optional(),
         vulnerabilities: z.array(z.string()).optional(),
         immunities: z.array(z.string()).optional(),
@@ -603,8 +797,8 @@ Aliases: new/add/spawn->create, fetch/find->get, modify/edit->update`,
         // Get/Update/Delete fields
         characterId: z.string().optional(),
         // Update condition fields
-        conditions: z.array(ConditionSchema).optional(),
-        addConditions: z.array(ConditionSchema).optional(),
+        conditions: z.array(conditionSchema()).optional(),
+        addConditions: z.array(conditionSchema()).optional(),
         removeConditions: z.array(z.string()).optional(),
         // Add XP field
         amount: z.number().int().optional(),
@@ -612,7 +806,9 @@ Aliases: new/add/spawn->create, fetch/find->get, modify/edit->update`,
         hpIncrease: z.number().int().optional(),
         targetLevel: z.number().int().optional(),
         nativeToBastion: z.boolean().optional(),
-        sourceUniverse: z.string().optional()
+        sourceUniverse: z.string().optional(),
+        category: OptionCategorySchema.optional(),
+        query: z.string().optional()
     })
 };
 
@@ -645,6 +841,18 @@ export async function handleCharacterManage(args: unknown, _ctx: SessionContext)
                     typeof s === 'string' ? s : `${s.value} (${Math.round(s.similarity * 100)}%)`
                 ));
             }
+        } else if (action === 'options' || action === 'creation_options' || action === 'catalog') {
+            output = RichFormatter.header('Character Creation Options', 'ðŸ“š');
+            output += RichFormatter.keyValue({
+                'Rules': data.provenance?.rulesVersion,
+                'Classes': data.classes?.length ?? 0,
+                'Species': data.species?.length ?? 0,
+                'Backgrounds': data.backgrounds?.length ?? 0,
+                'Skills': data.skills?.length ?? 0,
+                'Languages': data.languages?.length ?? 0,
+                'Alignments': data.alignments?.length ?? 0
+            });
+            output += RichFormatter.alert('Custom options remain supported; listed options carry pinned SRD mechanics.', 'info');
         } else if (action === 'create' || action === 'new' || action === 'add' || action === 'spawn') {
             output = RichFormatter.header(`Character Created: ${data.name}`, '👤');
             output += RichFormatter.keyValue({

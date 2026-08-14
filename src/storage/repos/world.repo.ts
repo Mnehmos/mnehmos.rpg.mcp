@@ -1,5 +1,10 @@
 import Database from 'better-sqlite3';
-import { World, WorldSchema } from '../../schema/world.js';
+import {
+    normalizeWorldEnvironment,
+    World,
+    WorldEnvironmentSchema,
+    WorldSchema,
+} from '../../schema/world.js';
 
 export class WorldRepository {
     constructor(private db: Database.Database) { 
@@ -42,10 +47,10 @@ export class WorldRepository {
 
         if (!row) return null;
 
-        let environment: any = {};
+        let environment: ReturnType<typeof normalizeWorldEnvironment> = {};
         if (row.environment) {
             try {
-                environment = JSON.parse(row.environment);
+                environment = normalizeWorldEnvironment(JSON.parse(row.environment));
             } catch {
                 environment = {};
             }
@@ -79,7 +84,7 @@ export class WorldRepository {
                 environment: (() => {
                     if (!row.environment) return {};
                     try {
-                        return JSON.parse(row.environment);
+                        return normalizeWorldEnvironment(JSON.parse(row.environment));
                     } catch {
                         return {};
                     }
@@ -97,7 +102,8 @@ export class WorldRepository {
         const current = this.findById(id);
         if (!current) return null;
 
-        const mergedEnv = { ...(current.environment || {}), ...envPatch };
+        const canonicalPatch = normalizeWorldEnvironment(envPatch);
+        const mergedEnv = WorldEnvironmentSchema.parse({ ...(current.environment || {}), ...canonicalPatch });
         const updatedAt = new Date().toISOString();
 
         const stmt = this.db.prepare(`

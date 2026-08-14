@@ -5,11 +5,9 @@
 
 import { z } from 'zod';
 import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/action-router.js';
-import { ItemRepository } from '../../storage/repos/item.repo.js';
-import { InventoryRepository } from '../../storage/repos/inventory.repo.js';
-import { CharacterRepository } from '../../storage/repos/character.repo.js';
+import type { InventoryRepository } from '../../storage/repos/inventory.repo.js';
 import { INVENTORY_LIMITS } from '../../schema/inventory.js';
-import { getDb } from '../../storage/index.js';
+import { getDomainServices } from '../domain-services.js';
 import { SessionContext } from '../types.js';
 import { RichFormatter } from '../utils/formatter.js';
 
@@ -25,17 +23,94 @@ type InventoryAction = typeof ACTIONS[number];
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureDb() {
-    const dbPath = process.env.NODE_ENV === 'test'
-        ? ':memory:'
-        : process.env.RPG_DATA_DIR
-            ? `${process.env.RPG_DATA_DIR}/rpg.db`
-            : 'rpg.db';
-    const db = getDb(dbPath);
+    const services = getDomainServices();
     return {
-        itemRepo: new ItemRepository(db),
-        inventoryRepo: new InventoryRepository(db),
-        charRepo: new CharacterRepository(db)
+        itemRepo: services.item,
+        inventoryRepo: services.inventory,
+        charRepo: services.character
     };
+}
+
+/**
+ * Rebuild AC from the character's currently equipped armor instead of
+ * incrementally adding/subtracting bonuses. Older starter items persisted
+ * their armor base as `ac`; newer/authored items may use `baseAC`.
+ */
+function equippedArmorClass(
+    dexterity: number,
+    items: ReturnType<InventoryRepository['getInventoryWithDetails']>['items']
+): number {
+    const dexMod = Math.floor((dexterity - 10) / 2);
+    let armorBase = 10 + dexMod;
+    let equipmentBonus = 0;
+
+    for (const entry of items) {
+        if (!entry.equipped || !entry.item.properties) continue;
+        const props = entry.item.properties as Record<string, unknown>;
+        if (typeof props.acBonus === 'number') equipmentBonus += props.acBonus;
+
+        const baseAC = typeof props.baseAC === 'number'
+            ? props.baseAC
+            : typeof props.ac === 'number'
+                ? props.ac
+                : null;
+        if (baseAC === null || entry.slot !== 'armor') continue;
+
+        // Legacy heavy starter armor has no explicit maxDexBonus, but does
+        // carry a Strength requirement. Heavy armor never adds Dexterity.
+        const maxDexBonus = typeof props.maxDexBonus === 'number'
+            ? props.maxDexBonus
+            : typeof props.strengthRequired === 'number'
+                ? 0
+                : Number.POSITIVE_INFINITY;
+        const dexContribution = maxDexBonus === 0 ? 0 : Math.min(dexMod, maxDexBonus);
+        armorBase = Math.max(armorBase, baseAC + dexContribution);
+    }
+
+    return armorBase + equipmentBonus;
+}
+
+function allowedEquipSlots(item: {
+    type: string;
+    properties?: Record<string, unknown>;
+}): string[] {
+    const properties = item.properties ?? {};
+    if (properties.requiresSelection === true) return [];
+
+    if (Array.isArray(properties.equipSlots)) {
+        return properties.equipSlots.filter((slot): slot is string => typeof slot === 'string');
+    }
+
+    if (item.type === 'weapon') return ['mainhand', 'offhand'];
+    if (item.type === 'armor') {
+        return typeof properties.acBonus === 'number' ? ['offhand'] : ['armor'];
+    }
+    return [];
+}
+
+function rollHealing(value: unknown): { amount: number; notation?: string; rolls?: number[] } | null {
+    if (value === undefined || value === null) return null;
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+        return { amount: Math.floor(value) };
+    }
+
+    const text = String(value);
+    const match = text.match(/(\d+)\s*d\s*(\d+)(?:\s*([+-])\s*(\d+))?/i);
+    if (match) {
+        const count = Number(match[1]);
+        const sides = Number(match[2]);
+        const modifier = match[4] ? Number(match[4]) * (match[3] === '-' ? -1 : 1) : 0;
+        const rolls = Array.from({ length: count }, () => Math.floor(Math.random() * sides) + 1);
+        return {
+            amount: Math.max(0, rolls.reduce((sum, roll) => sum + roll, modifier)),
+            notation: `${count}d${sides}${modifier ? (modifier > 0 ? `+${modifier}` : modifier) : ''}`,
+            rolls
+        };
+    }
+
+    const numeric = Number(text.trim());
+    if (Number.isFinite(numeric) && numeric >= 0) return { amount: Math.floor(numeric) };
+    throw new Error(`Invalid healing value: ${text}`);
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -239,7 +314,7 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
     use: {
         schema: UseSchema,
         handler: async (params: z.infer<typeof UseSchema>) => {
-            const { inventoryRepo, itemRepo } = ensureDb();
+            const { inventoryRepo, itemRepo, charRepo } = ensureDb();
 
             const item = itemRepo.findById(params.itemId);
             if (!item) {
@@ -258,20 +333,44 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
                 throw new Error(`Character does not have item "${item.name}"`);
             }
 
+            const properties = item.properties ?? {};
+            let healingValue: unknown = properties.healing ?? properties.healingDice ?? properties.heal;
+            const effect = properties.effect || properties.effects || 'No defined effect';
+            if (healingValue === undefined && typeof effect === 'string' && /heal|restore|regain/i.test(effect)) {
+                healingValue = effect;
+            }
+            const healing = rollHealing(healingValue);
+            const targetId = params.targetId || params.characterId;
+            const target = healing ? charRepo.findById(targetId) : null;
+            if (healing && !target) {
+                throw new Error(`Healing target not found: ${targetId}`);
+            }
+
             const removed = inventoryRepo.removeItem(params.characterId, params.itemId, 1);
             if (!removed) {
                 throw new Error(`Failed to consume item`);
             }
 
-            const effect = item.properties?.effect || item.properties?.effects || 'No defined effect';
+            const hpBefore = target?.hp;
+            const hpAfter = target && healing
+                ? Math.min(target.maxHp, target.hp + healing.amount)
+                : undefined;
+            if (target && hpAfter !== hpBefore) {
+                charRepo.update(target.id, { hp: hpAfter } as any);
+            }
 
             return {
                 success: true,
                 actionType: 'use',
                 itemName: item.name,
                 characterId: params.characterId,
-                targetId: params.targetId || params.characterId,
+                targetId,
                 effect,
+                healing: healing?.amount,
+                healingNotation: healing?.notation,
+                healingRolls: healing?.rolls,
+                hpBefore,
+                hpAfter,
                 message: `Used ${item.name}`
             };
         },
@@ -298,32 +397,28 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
                 throw new Error(`Item not found: ${params.itemId}`);
             }
 
+            const allowedSlots = allowedEquipSlots(item);
+            if (item.properties?.requiresSelection === true) {
+                throw new Error(`Item "${item.name}" is an unresolved equipment choice; materialize a concrete item first`);
+            }
+            if (!allowedSlots.includes(params.slot)) {
+                const guidance = allowedSlots.length > 0
+                    ? `Allowed slots: ${allowedSlots.join(', ')}`
+                    : 'This item is not equippable; custom equippable items must define properties.equipSlots';
+                throw new Error(`Cannot equip "${item.name}" in ${params.slot}. ${guidance}`);
+            }
+
             inventoryRepo.equipItem(params.characterId, params.itemId, params.slot);
 
-            // Update character AC if item has AC properties
+            // Rebuild AC from all equipped items. This supports legacy starter
+            // armor (`properties.ac`) and avoids bonus drift after replacements.
             const character = charRepo.findById(params.characterId);
             let acChange: string | null = null;
 
-            if (character && item.properties) {
-                const props = item.properties as Record<string, unknown>;
-                let newAc = character.ac;
-
-                if (props.acBonus && typeof props.acBonus === 'number') {
-                    newAc = character.ac + props.acBonus;
-                    acChange = `AC increased by ${props.acBonus} (now ${newAc})`;
-                }
-
-                if (props.baseAC && typeof props.baseAC === 'number' && params.slot === 'armor') {
-                    const dexMod = Math.floor((character.stats.dex - 10) / 2);
-                    const maxDexBonus = props.maxDexBonus !== undefined ? Number(props.maxDexBonus) : 99;
-                    const effectiveDexBonus = Math.min(dexMod, maxDexBonus);
-                    newAc = props.baseAC + (maxDexBonus > 0 ? effectiveDexBonus : 0);
-                    acChange = `AC set to ${newAc} (base ${props.baseAC}${maxDexBonus < 99 ? ` + DEX max ${maxDexBonus}` : ' + DEX'})`;
-                }
-
-                if (newAc !== character.ac) {
-                    charRepo.update(params.characterId, { ac: newAc });
-                }
+            if (character) {
+                const newAc = equippedArmorClass(character.stats.dex, inventoryRepo.getInventoryWithDetails(params.characterId).items);
+                if (newAc !== character.ac) charRepo.update(params.characterId, { ac: newAc });
+                acChange = `AC recalculated from equipped armor (now ${newAc})`;
             }
 
             return {
@@ -345,36 +440,18 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
             const { inventoryRepo, itemRepo, charRepo } = ensureDb();
 
             const item = itemRepo.findById(params.itemId);
-            const inventory = inventoryRepo.getInventory(params.characterId);
-            const equippedItem = inventory.items.find((i: { itemId: string; equipped: boolean }) =>
-                i.itemId === params.itemId && i.equipped
-            );
-            const slot = equippedItem?.slot;
 
             inventoryRepo.unequipItem(params.characterId, params.itemId);
 
-            // Update character AC
+            // Rebuild AC after removing the item so remaining armor and shield
+            // bonuses stay authoritative.
             const character = charRepo.findById(params.characterId);
             let acChange: string | null = null;
 
-            if (character && item?.properties) {
-                const props = item.properties as Record<string, unknown>;
-                let newAc = character.ac;
-
-                if (props.acBonus && typeof props.acBonus === 'number') {
-                    newAc = Math.max(10, character.ac - props.acBonus);
-                    acChange = `AC decreased by ${props.acBonus} (now ${newAc})`;
-                }
-
-                if (props.baseAC && typeof props.baseAC === 'number' && slot === 'armor') {
-                    const dexMod = Math.floor((character.stats.dex - 10) / 2);
-                    newAc = 10 + dexMod;
-                    acChange = `AC reverted to unarmored (${newAc})`;
-                }
-
-                if (newAc !== character.ac) {
-                    charRepo.update(params.characterId, { ac: newAc });
-                }
+            if (character) {
+                const newAc = equippedArmorClass(character.stats.dex, inventoryRepo.getInventoryWithDetails(params.characterId).items);
+                if (newAc !== character.ac) charRepo.update(params.characterId, { ac: newAc });
+                acChange = `AC recalculated from equipped armor (now ${newAc})`;
             }
 
             return {
@@ -394,13 +471,18 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
         handler: async (params: z.infer<typeof GetSchema>) => {
             const { inventoryRepo } = ensureDb();
 
-            const inventory = inventoryRepo.getInventory(params.characterId);
+            const inventory = inventoryRepo.getInventoryWithDetails(params.characterId);
 
             return {
                 success: true,
                 actionType: 'get',
                 characterId: params.characterId,
                 inventory: inventory.items,
+                itemIds: inventory.items.map(entry => entry.item.id),
+                currency: inventory.currency,
+                gold: inventory.currency.gold,
+                silver: inventory.currency.silver,
+                copper: inventory.currency.copper,
                 itemCount: inventory.items.length
             };
         },
@@ -421,7 +503,10 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
                 inventory: inventory.items,
                 totalWeight: inventory.totalWeight,
                 capacity: inventory.capacity,
-                gold: (inventory as { gold?: number }).gold || 0,
+                currency: inventory.currency,
+                gold: inventory.currency.gold,
+                silver: inventory.currency.silver,
+                copper: inventory.currency.copper,
                 itemCount: inventory.items.length
             };
         },
@@ -488,8 +573,8 @@ export async function handleInventoryManage(args: unknown, _ctx: SessionContext)
             output += RichFormatter.alert(parsed.message || 'Unknown error', 'error');
             if (parsed.suggestions) {
                 output += RichFormatter.section('Did you mean?');
-                parsed.suggestions.forEach((s: { action: string; similarity: number }) => {
-                    output += `  • ${s.action} (${s.similarity}% match)\n`;
+                parsed.suggestions.forEach((s: { value: string; similarity: number }) => {
+                    output += `  • ${s.value} (${s.similarity}% match)\n`;
                 });
             }
             if (parsed.validActions) {

@@ -5,6 +5,9 @@
 
 import { handleWorldManage, WorldManageTool } from '../../../src/server/consolidated/world-manage.js';
 import { getDb } from '../../../src/storage/index.js';
+import { RegionRepository } from '../../../src/storage/repos/region.repo.js';
+import { StructureRepository } from '../../../src/storage/repos/structure.repo.js';
+import { getWorldManager } from '../../../src/server/state/world-manager.js';
 import { randomUUID } from 'crypto';
 
 process.env.NODE_ENV = 'test';
@@ -203,8 +206,8 @@ describe('world_manage consolidated tool', () => {
                 action: 'update',
                 id: worldId,
                 environment: {
-                    dayNightCycle: 'night',
-                    weather: 'stormy'
+                    timeOfDay: 'night',
+                    weatherConditions: 'stormy'
                 }
             }, ctx);
 
@@ -249,6 +252,28 @@ describe('world_manage consolidated tool', () => {
             expect(data.worldId).toBeDefined();
             expect(data.tileCount).toBeGreaterThan(0);
             expect(data.regionCount).toBeGreaterThan(0);
+        });
+
+        it('should persist generated regions and structures with stable string IDs', async () => {
+            const result = await handleWorldManage({
+                action: 'generate',
+                seed: 'entity-persistence-test',
+                width: 50,
+                height: 50
+            }, ctx);
+
+            const data = parseResult(result);
+            const generated = getWorldManager().get(data.worldId);
+            const db = getDb();
+            const regions = new RegionRepository(db).findByWorldId(data.worldId);
+            const structures = new StructureRepository(db).findByWorldId(data.worldId);
+
+            expect(generated).toBeDefined();
+            expect(regions).toHaveLength(generated!.regions.length);
+            expect(structures).toHaveLength(generated!.structures.length);
+            expect(regions.every(region => region.id.startsWith(`${data.worldId}:region:`))).toBe(true);
+            expect(structures.every(structure => structure.id.startsWith(`${data.worldId}:structure:`))).toBe(true);
+            expect(structures.every(structure => !structure.regionId || structure.regionId.startsWith(`${data.worldId}:region:`))).toBe(true);
         });
 
         it('should accept "gen" alias', async () => {

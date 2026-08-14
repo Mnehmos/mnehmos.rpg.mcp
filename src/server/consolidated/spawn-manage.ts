@@ -16,6 +16,8 @@ import { getDb } from '../../storage/index.js';
 import { CharacterRepository } from '../../storage/repos/character.repo.js';
 import { PartyRepository } from '../../storage/repos/party.repo.js';
 import { EncounterRepository } from '../../storage/repos/encounter.repo.js';
+import { SpatialRepository } from '../../storage/repos/spatial.repo.js';
+import { PoiRepository } from '../../storage/repos/poi.repo.js';
 import { SessionContext } from '../types.js';
 import { CombatEngine, CombatParticipant } from '../../engine/combat/engine.js';
 import { getCombatManager } from '../state/combat-manager.js';
@@ -113,6 +115,11 @@ function buildCharacter(data: {
         skillProficiencies: [],
         saveProficiencies: [],
         expertise: [],
+        armorProficiencies: [],
+        weaponProficiencies: [],
+        toolProficiencies: [],
+        languages: [],
+        currency: { gold: 0, silver: 0, copper: 0 },
         origin: data.origin,
         hasLairActions: false,
         position: data.position,
@@ -129,17 +136,14 @@ const ACTIONS = [
 type SpawnAction = typeof ACTIONS[number];
 
 function ensureDb() {
-    const dbPath = process.env.NODE_ENV === 'test'
-        ? ':memory:'
-        : process.env.RPG_DATA_DIR
-            ? `${process.env.RPG_DATA_DIR}/rpg.db`
-            : 'rpg.db';
-    const db = getDb(dbPath);
+    const db = getDb();
     return {
         db,
         charRepo: new CharacterRepository(db),
         partyRepo: new PartyRepository(db),
-        encounterRepo: new EncounterRepository(db)
+        encounterRepo: new EncounterRepository(db),
+        spatialRepo: new SpatialRepository(db),
+        poiRepo: new PoiRepository(db)
     };
 }
 
@@ -715,7 +719,7 @@ async function handleSpawnPresetLocation(input: SpawnManageInput, _ctx: SessionC
         };
     }
 
-    const { db, charRepo } = ensureDb();
+    const { charRepo, spatialRepo, poiRepo } = ensureDb();
     const now = new Date().toISOString();
 
     // Location presets (simplified - real impl would use data files)
@@ -766,34 +770,75 @@ async function handleSpawnPresetLocation(input: SpawnManageInput, _ctx: SessionC
     const locationId = randomUUID();
     const locationName = input.customName || presetData.name;
 
-    // Create POI
-    const poiId = randomUUID();
-    db.prepare(`
-        INSERT OR REPLACE INTO pois (id, worldId, name, type, x, y, discoveryState, networkId, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-        poiId,
-        input.worldId,
-        locationName,
-        presetData.type,
-        input.x,
-        input.y,
-        input.discoveryState || 'discovered',
-        locationId,
-        now,
-        now
-    );
+    const biomeContext = presetData.type === 'dungeon'
+        ? 'dungeon'
+        : presetData.type === 'tavern'
+            ? 'urban'
+            : 'forest';
+
+    // Persist the location in the canonical spatial graph and POI tables.
+    spatialRepo.createNetwork({
+        id: locationId,
+        name: locationName,
+        type: 'cluster',
+        worldId: input.worldId,
+        centerX: input.x,
+        centerY: input.y,
+        createdAt: now,
+        updatedAt: now
+    });
 
     // Create rooms
     const createdRooms: Array<{ id: string; name: string }> = [];
     for (const roomData of presetData.rooms) {
         const roomId = randomUUID();
-        db.prepare(`
-            INSERT OR REPLACE INTO rooms (id, networkId, name, description, exits, createdAt, updatedAt)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        `).run(roomId, locationId, roomData.name, roomData.description, '[]', now, now);
+        spatialRepo.create({
+            id: roomId,
+            name: roomData.name,
+            baseDescription: roomData.description.length >= 10
+                ? roomData.description
+                : `${roomData.description} awaits exploration.`,
+            biomeContext,
+            atmospherics: [],
+            networkId: locationId,
+            exits: [],
+            entityIds: [],
+            createdAt: now,
+            updatedAt: now,
+            visitedCount: 0
+        });
         createdRooms.push({ id: roomId, name: roomData.name });
     }
+
+    // Link preset rooms into a traversable sequence.
+    for (let i = 1; i < createdRooms.length; i++) {
+        spatialRepo.addExit(createdRooms[i - 1].id, {
+            direction: 'east',
+            targetNodeId: createdRooms[i].id,
+            type: 'OPEN'
+        });
+        spatialRepo.addExit(createdRooms[i].id, {
+            direction: 'west',
+            targetNodeId: createdRooms[i - 1].id,
+            type: 'OPEN'
+        });
+    }
+
+    // Create POI
+    const poiId = randomUUID();
+    poiRepo.create({
+        id: poiId,
+        worldId: input.worldId,
+        name: locationName,
+        type: presetData.type,
+        x: input.x,
+        y: input.y,
+        discoveryState: input.discoveryState || 'discovered',
+        discoveryDc: 15,
+        networkId: locationId,
+        createdAt: now,
+        updatedAt: now
+    });
 
     // Create NPCs if requested
     const createdNpcs: Array<{ id: string; name: string; role: string }> = [];
@@ -814,6 +859,7 @@ async function handleSpawnPresetLocation(input: SpawnManageInput, _ctx: SessionC
                 createdAt: now,
                 updatedAt: now
             } as any);
+            if (createdRooms[0]) spatialRepo.addEntityToRoom(createdRooms[0].id, npcId);
             createdNpcs.push({ id: npcId, name: npcData.name, role: npcData.role });
         }
     }

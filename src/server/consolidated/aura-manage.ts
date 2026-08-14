@@ -39,7 +39,7 @@ type AuraManageAction = typeof ACTIONS[number];
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureDb() {
-    const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
+    const db = getDb();
     return {
         auraRepo: new AuraRepository(db),
         encounterRepo: new EncounterRepository(db),
@@ -452,8 +452,8 @@ export async function handleAuraManage(args: unknown, _ctx: SessionContext): Pro
         output += RichFormatter.alert(parsed.message || 'Unknown error', 'error');
         if (parsed.suggestions) {
             output += '\n**Did you mean:**\n';
-            parsed.suggestions.forEach((s: { action: string; similarity: number }) => {
-                output += `  - ${s.action} (${s.similarity}% match)\n`;
+                parsed.suggestions.forEach((s: { value: string; similarity: number }) => {
+                    output += `  - ${s.value} (${s.similarity}% match)\n`;
             });
         }
     } else {

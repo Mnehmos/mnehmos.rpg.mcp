@@ -96,6 +96,25 @@ describe('combat_manage consolidated tool', () => {
             const data = parseResult(result);
             expect(data.success).toBe(true);
         });
+
+        it('uses defaults when seed and initiative bonus are omitted', async () => {
+            const result = await handleCombatManage({
+                action: 'create',
+                participants: [
+                    { id: 'default-hero', name: 'Default Hero', hp: 10, maxHp: 10 }
+                ]
+            }, ctx);
+            const data = parseResult(result);
+            expect(data.success).toBe(true);
+            expect(data.encounterId).toContain('encounter-combat-');
+
+            const state = getDb(':memory:').prepare(
+                'SELECT tokens FROM encounters WHERE id = ?'
+            ).get(data.encounterId) as { tokens: string };
+            const token = JSON.parse(state.tokens)[0];
+            expect(typeof token.initiative).toBe('number');
+            expect(token.initiativeBonus).toBe(0);
+        });
     });
 
     describe('create action', () => {
@@ -530,6 +549,10 @@ describe('combat_manage consolidated tool', () => {
             const data = parseResult(result);
             expect(data.success).toBe(true);
             expect(data.actionType).toBe('end');
+            const row = getDb(':memory:').prepare('SELECT status, active_token_id FROM encounters WHERE id = ?')
+                .get(testEncounterId) as { status: string; active_token_id: string | null };
+            expect(row.status).toBe('completed');
+            expect(row.active_token_id).toBeNull();
         });
 
         it('should accept "finish" alias', async () => {

@@ -5,7 +5,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)]()
 [![MCP](https://img.shields.io/badge/MCP-Compatible-green.svg)]()
 [![Tests](https://img.shields.io/badge/tests-2214%20passing-brightgreen.svg)]()
-[![Tools](https://img.shields.io/badge/MCP%20tools-33-blue.svg)]()
+[![Tools](https://img.shields.io/badge/MCP%20tools-36-blue.svg)]()
 
 **A rules-enforced RPG backend that turns any LLM into a game master who can't cheat.**
 
@@ -46,22 +46,22 @@ You talk to an AI (Claude, GPT, etc.) in natural language. You say things like "
 
 ## v1.0 Release (January 2026)
 
-### 83% Tool Reduction: 195 → 33 Tools (29 Consolidated + 4 Meta/Event)
+### 81% Tool Reduction: 195 → 36 Tools (31 Consolidated + 5 Meta/Event)
 
-This release consolidates 195 individual tools into **29 action-based tools** plus 4 standalone meta/event tools using:
+This release consolidates 195 individual tools into **31 action-based tools** plus 5 standalone meta/event tools using:
 
 - **Action enums** - Each tool handles multiple operations via an `action` parameter
 - **Fuzzy matching** - Typo-tolerant action matching with suggestions
 - **Guiding errors** - Clear feedback when actions don't match
 
 **Before:** `create_character`, `get_character`, `update_character`, `delete_character`, `list_characters`...
-**After:** `character_manage` with actions: `create`, `get`, `update`, `delete`, `list`, `search`
+**After:** `character_manage` with action-based CRUD, progression, and source-backed creation options
 
 ### Key Metrics
 
 | Metric | Before | After | Change |
 |--------|--------|-------|--------|
-| MCP Tools | 195 | 33 | **83.1% reduction** |
+| MCP Tools | 195 | 36 | **81.5% reduction** |
 | Tests | 1,242 | 2,214 | +78% coverage |
 | Token overhead | ~50K | ~6-8K | **85% reduction** |
 
@@ -118,13 +118,13 @@ This engine implements the **Event-Driven Agentic AI Architecture**:
 
 ---
 
-## Consolidated Tools Reference (29 Tools)
+## Consolidated Tools Reference (31 Tools)
 
 ### Character & Party
 
 | Tool | Actions | Description |
 |------|---------|-------------|
-| `character_manage` | create, get, update, delete, list, search | Full character CRUD with D&D stat blocks |
+| `character_manage` | create, get, update, delete, list, options, add_xp, level_up | Character CRUD plus pinned SRD creation mechanics |
 | `party_manage` | create, get, update, delete, add_member, remove_member, set_leader, context | Party management and member operations |
 
 ### Combat System
@@ -139,7 +139,7 @@ This engine implements the **Event-Driven Agentic AI Architecture**:
 
 | Tool | Actions | Description |
 |------|---------|-------------|
-| `item_manage` | create, get, update, delete, list, search | Item template CRUD |
+| `item_manage` | create, get, update, delete, list, search, catalog_search, catalog_get, materialize | Custom items plus pinned SRD lookup/materialization |
 | `inventory_manage` | give, remove, transfer, equip, unequip, use | Inventory operations between characters |
 | `corpse_manage` | create, get, list, loot, harvest, advance_decay, cleanup | Death and loot mechanics |
 | `theft_manage` | steal, check_stolen, check_recognition, report | Theft with heat tracking |
@@ -174,7 +174,7 @@ This engine implements the **Event-Driven Agentic AI Architecture**:
 |------|---------|-------------|
 | `secret_manage` | create, get, list, update, delete, reveal, check_conditions | DM secrets with reveal conditions |
 | `narrative_manage` | add, search, update, get, delete, get_context | Story notes and session history |
-| `improvisation_manage` | resolve_stunt, apply_effect, get_effects, remove_effect, advance_duration, attempt_synthesis | Rule of Cool and custom effects |
+| `improvisation_manage` | stunt, apply_effect, get_effects, remove_effect, process_triggers, advance_durations, synthesize, get_spellbook | Rule of Cool and custom effects |
 | `math_manage` | dice_roll, probability, algebra, physics | Dice and calculations |
 | `strategy_manage` | create_nation, get_state, propose_alliance, claim_region | Grand strategy simulation |
 | `turn_manage` | init, get_status, submit_actions, mark_ready, poll_results | Async turn management |
@@ -318,7 +318,7 @@ src/
 │   ├── migrations.ts # SQLite schema definitions
 │   └── repos/        # Repository pattern for persistence
 ├── server/
-│   ├── consolidated/ # 29 action-based tools
+│   ├── consolidated/ # 31 action-based tools
 │   ├── handlers/     # Extracted handler implementations (combat, spatial)
 │   ├── consolidated-registry.ts  # Tool registration
 │   ├── meta-tools.ts # search_tools, load_tool_schema
@@ -354,10 +354,19 @@ docs/                 # White paper and LLM spatial guide
    LLMs cannot cast spells they don't know or claim damage they didn't roll.
 
 7. **Token efficiency**
-   29 consolidated tools with action routing reduce context overhead by 85%.
+   31 consolidated tools with action routing reduce context overhead by 85%.
 
 8. **Guiding errors**
    Invalid actions return suggestions, not just failures.
+
+## Tool-surface policy
+
+The consolidated MCP contracts are the public tool surface. The older
+world-map helpers in `src/server/tools.ts` are retained in compatibility mode
+as an internal adapter because `world_map` still delegates to their validated
+world persistence and patch implementation. New public tools must be added to
+the consolidated contracts, and the adapter matrix is enforced by
+`src/server/legacy-surface-policy.ts`.
 
 ---
 
@@ -365,9 +374,9 @@ docs/                 # White paper and LLM spatial guide
 
 ```bash
 npm test
-# 2214 tests passing, 7 skipped
-# 136 test files
-# Coverage across all 33 tools (29 consolidated + 4 meta/event)
+# 2252 tests passing, 7 skipped
+# 148 test files
+# Coverage across all 36 tools (31 consolidated + 5 meta/event)
 ```
 
 ---
@@ -391,7 +400,7 @@ Contributions welcome! Please:
 - [x] Corpse and loot mechanics
 - [x] NPC memory and relationships
 - [x] Improvisation engine
-- [x] Tool consolidation (195 → 33)
+- [x] Tool consolidation (195 → 36)
 - [x] Fuzzy action matching
 - [x] Preset systems (creatures, encounters, locations)
 - [ ] WebSocket real-time subscriptions

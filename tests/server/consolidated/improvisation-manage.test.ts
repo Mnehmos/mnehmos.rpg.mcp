@@ -144,6 +144,18 @@ describe('improvisation_manage consolidated tool', () => {
             expect(typeof data.success).toBe('boolean');
         });
 
+        it('should supply a narrative intent when omitted', async () => {
+            const data = parseResult(await handleImprovisationManage({
+                action: 'stunt',
+                actorId: testCharacterId,
+                skill: 'investigation',
+                dc: 12
+            }, ctx));
+
+            expect(data.success).toEqual(expect.any(Boolean));
+            expect(data.narrativeIntent).toBe('Improvised action');
+        });
+
         it('should apply damage on successful stunt with successDamage', async () => {
             const result = await handleImprovisationManage({
                 action: 'stunt',
@@ -151,6 +163,7 @@ describe('improvisation_manage consolidated tool', () => {
                 narrativeIntent: 'Drop chandelier on enemies',
                 skill: 'athletics',
                 dc: 5, // Low DC for likely success
+                effectType: 'damage',
                 successDamage: '2d6',
                 damageType: 'bludgeoning',
                 targetIds: [testTargetId]
@@ -162,7 +175,74 @@ describe('improvisation_manage consolidated tool', () => {
             if (data.success) {
                 expect(data.damage).toBeGreaterThan(0);
                 expect(data.damageType).toBe('bludgeoning');
+                expect(data.targets[0].applied).toBe(true);
+                expect(data.targets[0].hpAfter).toBeLessThan(data.targets[0].hpBefore);
             }
+        });
+
+        it('should keep blank optional damage fields non-damaging', async () => {
+            const data = parseResult(await handleImprovisationManage({
+                action: 'stunt',
+                actorId: testCharacterId,
+                skill: 'investigation',
+                dc: 12,
+                effectType: 'none',
+                successDamage: '',
+                failureDamage: ' ',
+                damageType: '',
+                applyCondition: ''
+            }, ctx));
+
+            expect(data.error).toBeUndefined();
+            expect(data.damage).toBeUndefined();
+            expect(data.selfDamage).toBeUndefined();
+        });
+
+        it('should reject an explicitly damaging stunt without damage dice', async () => {
+            const data = parseResult(await handleImprovisationManage({
+                action: 'stunt',
+                actorId: testCharacterId,
+                skill: 'athletics',
+                dc: 12,
+                effectType: 'damage'
+            }, ctx));
+
+            expect(data.error).toBe('validation_error');
+            expect(data.issues).toEqual(expect.arrayContaining([
+                expect.objectContaining({ path: 'successDamage' })
+            ]));
+        });
+
+        it('should reject damage without a target and never report uncommitted damage', async () => {
+            const data = parseResult(await handleImprovisationManage({
+                action: 'stunt',
+                actorId: testCharacterId,
+                skill: 'athletics',
+                dc: 5,
+                successDamage: '1d4'
+            }, ctx));
+
+            expect(data.error).toBe('validation_error');
+            expect(data.issues).toEqual(expect.arrayContaining([
+                expect.objectContaining({ path: 'targetIds' })
+            ]));
+        });
+
+        it('validates every damage target before changing any HP', async () => {
+            const before = new CharacterRepository(getDb()).findById(testTargetId)?.hp;
+            const missingTargetId = randomUUID();
+            const data = parseResult(await handleImprovisationManage({
+                action: 'stunt',
+                actorId: testCharacterId,
+                skill: 'athletics',
+                dc: 5,
+                successDamage: '1d4',
+                targetIds: [testTargetId, missingTargetId]
+            }, ctx));
+
+            expect(data.error).toBe(true);
+            expect(data.message).toContain(missingTargetId);
+            expect(new CharacterRepository(getDb()).findById(testTargetId)?.hp).toBe(before);
         });
 
         it('should handle advantage/disadvantage', async () => {

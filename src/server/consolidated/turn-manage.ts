@@ -14,7 +14,10 @@ import { DiplomacyRepository } from '../../storage/repos/diplomacy.repo.js';
 import { RegionRepository } from '../../storage/repos/region.repo.js';
 import { TurnProcessor } from '../../engine/strategy/turn-processor.js';
 import { ConflictResolver } from '../../engine/strategy/conflict-resolver.js';
-import { TurnActionSchema } from '../../schema/turn-state.js';
+import { TurnActionSchema, TurnAction as SubmittedTurnAction } from '../../schema/turn-state.js';
+import { TurnActionRepository } from '../../storage/repos/turn-action.repo.js';
+import { DiplomacyEngine } from '../../engine/strategy/diplomacy-engine.js';
+import { randomUUID } from 'crypto';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -30,13 +33,13 @@ type TurnAction = typeof ACTIONS[number];
 // ═══════════════════════════════════════════════════════════════════════════
 
 function getRepos() {
-    const dbPath = process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db';
-    const db = getDb(dbPath);
+    const db = getDb();
     return {
         turnStateRepo: new TurnStateRepository(db),
         nationRepo: new NationRepository(db),
         diplomacyRepo: new DiplomacyRepository(db),
         regionRepo: new RegionRepository(db),
+        turnActionRepo: new TurnActionRepository(db),
         db
     };
 }
@@ -148,7 +151,7 @@ async function handleGetStatus(args: z.infer<typeof GetStatusSchema>): Promise<o
 }
 
 async function handleSubmitActions(args: z.infer<typeof SubmitActionsSchema>): Promise<object> {
-    const { turnStateRepo, diplomacyRepo, nationRepo } = getRepos();
+    const { turnStateRepo, nationRepo, turnActionRepo } = getRepos();
 
     const turnState = turnStateRepo.findByWorldId(args.worldId);
     if (!turnState) {
@@ -176,84 +179,15 @@ async function handleSubmitActions(args: z.infer<typeof SubmitActionsSchema>): P
         };
     }
 
-    const processedActions: string[] = [];
-
-    // Execute actions immediately
-    for (const action of args.actions) {
-        switch (action.type) {
-            case 'claim_region':
-                if (action.regionId) {
-                    diplomacyRepo.createClaim({
-                        id: `claim-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-                        nationId: args.nationId,
-                        regionId: action.regionId,
-                        claimStrength: 100,
-                        justification: action.justification,
-                        createdAt: new Date().toISOString()
-                    });
-                    processedActions.push(`Claimed region ${action.regionId}`);
-                }
-                break;
-
-            case 'propose_alliance':
-                if (action.toNationId) {
-                    const relation = diplomacyRepo.getRelation(args.nationId, action.toNationId);
-                    if (!relation || relation.opinion >= 50) {
-                        diplomacyRepo.upsertRelation({
-                            fromNationId: args.nationId,
-                            toNationId: action.toNationId,
-                            opinion: relation?.opinion || 50,
-                            isAllied: true,
-                            truceUntil: undefined,
-                            updatedAt: new Date().toISOString()
-                        });
-                        processedActions.push(`Alliance proposed to ${action.toNationId}`);
-                    }
-                }
-                break;
-
-            case 'break_alliance':
-                if (action.toNationId) {
-                    const relation = diplomacyRepo.getRelation(args.nationId, action.toNationId);
-                    if (relation?.isAllied) {
-                        diplomacyRepo.upsertRelation({
-                            ...relation,
-                            isAllied: false,
-                            updatedAt: new Date().toISOString()
-                        });
-                        processedActions.push(`Alliance broken with ${action.toNationId}`);
-                    }
-                }
-                break;
-
-            case 'declare_intent':
-                if (action.intent) {
-                    processedActions.push(`Intent declared: ${action.intent}`);
-                }
-                break;
-
-            case 'send_message':
-                if (action.message && action.toNationId) {
-                    processedActions.push(`Message sent to ${action.toNationId}`);
-                }
-                break;
-
-            case 'adjust_relations':
-                if (action.toNationId && action.opinionDelta !== undefined) {
-                    const relation = diplomacyRepo.getRelation(args.nationId, action.toNationId);
-                    diplomacyRepo.upsertRelation({
-                        fromNationId: args.nationId,
-                        toNationId: action.toNationId,
-                        opinion: (relation?.opinion || 50) + action.opinionDelta,
-                        isAllied: relation?.isAllied || false,
-                        truceUntil: relation?.truceUntil,
-                        updatedAt: new Date().toISOString()
-                    });
-                    processedActions.push(`Relations adjusted with ${action.toNationId}: ${action.opinionDelta > 0 ? '+' : ''}${action.opinionDelta}`);
-                }
-                break;
-        }
-    }
+    const now = new Date().toISOString();
+    turnActionRepo.upsert({
+        id: randomUUID(),
+        worldId: args.worldId,
+        turnNumber: turnState.currentTurn,
+        nationId: args.nationId,
+        actions: args.actions as SubmittedTurnAction[],
+        createdAt: now,
+    });
 
     return {
         success: true,
@@ -263,12 +197,85 @@ async function handleSubmitActions(args: z.infer<typeof SubmitActionsSchema>): P
         nationName: nation.name,
         turn: turnState.currentTurn,
         actionsSubmitted: args.actions.length,
-        processedActions: processedActions
+        actionsQueued: args.actions.length,
+        processedActions: [],
+        message: 'Actions queued for resolution when all nations are ready.'
     };
 }
 
+function resolveQueuedActions(
+    worldId: string,
+    turnNumber: number,
+    repos: ReturnType<typeof getRepos>
+): string[] {
+    const queued = repos.turnActionRepo.findPending(worldId, turnNumber);
+    const diplomacyEngine = new DiplomacyEngine(repos.diplomacyRepo, repos.nationRepo);
+    const processed: string[] = [];
+
+    for (const batch of queued) {
+        for (const [index, action] of batch.actions.entries()) {
+            switch (action.type) {
+                case 'claim_region':
+                    if (!action.regionId || !repos.regionRepo.findById(action.regionId)) break;
+                    repos.diplomacyRepo.createClaim({
+                        id: `turn-action-${batch.id}-${index}`,
+                        nationId: batch.nationId,
+                        regionId: action.regionId,
+                        claimStrength: 100,
+                        justification: action.justification,
+                        createdAt: new Date().toISOString()
+                    });
+                    processed.push(`Claimed region ${action.regionId}`);
+                    break;
+
+                case 'propose_alliance':
+                    if (!action.toNationId) break;
+                    {
+                        const result = diplomacyEngine.proposeAlliance(batch.nationId, action.toNationId);
+                        processed.push(result.success
+                            ? `Alliance formed with ${action.toNationId}`
+                            : `Alliance refused by ${action.toNationId}: ${result.reason ?? 'unknown reason'}`);
+                    }
+                    break;
+
+                case 'break_alliance':
+                    if (!action.toNationId) break;
+                    diplomacyEngine.breakAlliance(batch.nationId, action.toNationId);
+                    processed.push(`Alliance broken with ${action.toNationId}`);
+                    break;
+
+                case 'declare_intent':
+                    if (!action.intent) break;
+                    repos.nationRepo.updatePublicIntent(batch.nationId, action.intent);
+                    processed.push(`Intent declared: ${action.intent}`);
+                    break;
+
+                case 'send_message':
+                    if (!action.message || !action.toNationId) break;
+                    diplomacyEngine.sendMessage(batch.nationId, action.toNationId, action.message);
+                    processed.push(`Message sent to ${action.toNationId}`);
+                    break;
+
+                case 'adjust_relations':
+                    if (!action.toNationId || action.opinionDelta === undefined) break;
+                    diplomacyEngine.adjustOpinion(batch.nationId, action.toNationId, action.opinionDelta);
+                    processed.push(`Relations adjusted with ${action.toNationId}: ${action.opinionDelta > 0 ? '+' : ''}${action.opinionDelta}`);
+                    break;
+
+                case 'transfer_region':
+                    processed.push(`Transfer action deferred: ${action.regionId ?? 'region not specified'}`);
+                    break;
+            }
+        }
+    }
+
+    repos.turnActionRepo.markResolved(worldId, turnNumber);
+    return processed;
+}
+
 async function handleMarkReady(args: z.infer<typeof MarkReadySchema>): Promise<object> {
-    const { turnStateRepo, nationRepo, diplomacyRepo, regionRepo } = getRepos();
+    const repos = getRepos();
+    const { turnStateRepo, nationRepo, db } = repos;
 
     const turnState = turnStateRepo.findByWorldId(args.worldId);
     if (!turnState) {
@@ -305,10 +312,14 @@ async function handleMarkReady(args: z.infer<typeof MarkReadySchema>): Promise<o
         // Start resolution
         turnStateRepo.updatePhase(args.worldId, 'resolution');
 
-        // Process turn
-        const conflictResolver = new ConflictResolver();
-        const turnProcessor = new TurnProcessor(nationRepo, regionRepo, diplomacyRepo, conflictResolver);
-        turnProcessor.processTurn(args.worldId, updated.currentTurn);
+        // Resolve queued planning actions and then process the turn atomically.
+        const resolvedActions = db.transaction(() => {
+            const resolved = resolveQueuedActions(args.worldId, updated.currentTurn, repos);
+            const conflictResolver = new ConflictResolver();
+            const turnProcessor = new TurnProcessor(repos.nationRepo, repos.regionRepo, repos.diplomacyRepo, conflictResolver);
+            turnProcessor.processTurn(args.worldId, updated.currentTurn);
+            return resolved;
+        })();
 
         // Move to finished then back to planning for next turn
         turnStateRepo.updatePhase(args.worldId, 'finished');
@@ -325,6 +336,7 @@ async function handleMarkReady(args: z.infer<typeof MarkReadySchema>): Promise<o
             allReady: true,
             turnResolved: updated.currentTurn,
             nextTurn: updated.currentTurn + 1,
+            resolvedActions,
             message: 'All nations ready! Turn resolved automatically.'
         };
     }
@@ -493,8 +505,8 @@ export async function handleTurnManage(args: unknown, _ctx: SessionContext): Pro
         output += RichFormatter.alert(parsed.message || 'Unknown error', 'error');
         if (parsed.suggestions) {
             output += '\n**Did you mean:**\n';
-            parsed.suggestions.forEach((s: { action: string; similarity: number }) => {
-                output += `  - ${s.action} (${s.similarity}% match)\n`;
+            parsed.suggestions.forEach((s: { value: string; similarity: number }) => {
+                output += `  - ${s.value} (${s.similarity}% match)\n`;
             });
         }
     } else {

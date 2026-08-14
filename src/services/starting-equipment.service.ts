@@ -23,13 +23,15 @@ import {
     EquipmentPacks,
     D5EClass
 } from '../data/class-starting-data.js';
+import { findOpen5eItem } from '../content/open5e-catalog.js';
+import { materializeOpen5eItem } from './open5e-item.service.js';
 
 export interface ProvisioningResult {
     itemsGranted: string[];
     spellsGranted: string[];
     cantripsGranted: string[];
     spellSlots: number[] | null;
-    pactMagicSlots: { slots: number; level: number } | null;
+    pactMagicSlots: { current: number; max: number; slotLevel: number } | null;
     startingGold: number;
     errors: string[];
 }
@@ -47,6 +49,8 @@ export interface ProvisioningOptions {
     customSpells?: string[];
     /** Custom cantrips to grant instead of defaults */
     customCantrips?: string[];
+    /** Exact source item keys granted by a selected background or other origin */
+    additionalEquipmentSourceKeys?: string[];
 }
 
 /**
@@ -86,13 +90,24 @@ export function provisionStartingEquipment(
                 ? getDefaultStartingEquipment(normalizedClass)
                 : getGenericStartingEquipment();
 
-        for (const itemName of equipmentList) {
+        for (const equipmentEntry of equipmentList) {
             try {
+                const { itemName, quantity } = parseEquipmentEntry(equipmentEntry);
                 const itemId = ensureItemExists(itemRepo, itemName);
-                invRepo.addItem(characterId, itemId, 1);
-                result.itemsGranted.push(itemName);
+                invRepo.addItem(characterId, itemId, quantity);
+                result.itemsGranted.push(quantity > 1 ? `${itemName} x${quantity}` : itemName);
             } catch (err) {
-                result.errors.push(`Failed to grant "${itemName}": ${(err as Error).message}`);
+                result.errors.push(`Failed to grant "${equipmentEntry}": ${(err as Error).message}`);
+            }
+        }
+
+        for (const sourceKey of options.additionalEquipmentSourceKeys ?? []) {
+            try {
+                const materialized = materializeOpen5eItem(itemRepo, sourceKey);
+                invRepo.addItem(characterId, materialized.item.id, 1);
+                result.itemsGranted.push(materialized.item.name);
+            } catch (err) {
+                result.errors.push(`Failed to grant source item "${sourceKey}": ${(err as Error).message}`);
             }
         }
 
@@ -118,7 +133,11 @@ export function provisionStartingEquipment(
                 // Find the non-zero slot count and its spell level (1-indexed)
                 const slotCount = slots.find(s => s > 0) || 1;
                 const slotLevel = slots.findIndex(s => s > 0) + 1;
-                result.pactMagicSlots = { slots: slotCount, level: slotLevel || 1 };
+                result.pactMagicSlots = {
+                    current: slotCount,
+                    max: slotCount,
+                    slotLevel: slotLevel || 1
+                };
             } else {
                 result.spellSlots = slots as number[];
             }
@@ -209,10 +228,28 @@ function getGenericStartingEquipment(): string[] {
     ];
 }
 
+const SOURCE_ITEM_ALIASES: Record<string, string> = {
+    'arrow': 'srd_arrow-bow',
+    'arrows': 'srd_arrow-bow',
+    'crossbow bolt': 'srd_crossbow-bolt',
+    'crossbow bolts': 'srd_crossbow-bolt',
+};
+
+function parseEquipmentEntry(value: string): { itemName: string; quantity: number } {
+    const match = value.trim().match(/^(.*?)\s+x(\d+)$/iu);
+    if (!match) return { itemName: value.trim(), quantity: 1 };
+    return { itemName: match[1].trim(), quantity: Number.parseInt(match[2], 10) };
+}
+
 /**
  * Ensure an item exists in the database, creating it if necessary
  */
 function ensureItemExists(itemRepo: ItemRepository, itemName: string): string {
+    const catalogValue = SOURCE_ITEM_ALIASES[itemName.toLowerCase()] ?? itemName;
+    if (findOpen5eItem(catalogValue)) {
+        return materializeOpen5eItem(itemRepo, catalogValue).item.id;
+    }
+
     // Check if item already exists
     const existing = itemRepo.findByName(itemName);
     if (existing.length > 0) {
@@ -250,6 +287,21 @@ function getItemDefaults(itemName: string): {
     properties?: Record<string, unknown>;
 } {
     const name = itemName.toLowerCase();
+
+    if (/^(simple|martial)( melee)? weapon$/u.test(name)) {
+        return {
+            type: 'weapon',
+            weight: 0,
+            value: 0,
+            description: `${itemName} is an unresolved character-creation choice, not a concrete weapon.`,
+            properties: {
+                weaponClass: name.startsWith('martial') ? 'martial' : 'simple',
+                meleeOnly: name.includes('melee'),
+                requiresSelection: true,
+                equipSlots: ['mainhand', 'offhand']
+            }
+        };
+    }
 
     // Weapons
     if (name.includes('sword') || name.includes('blade')) {

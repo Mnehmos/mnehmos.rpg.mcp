@@ -53,6 +53,14 @@ export class NationRepository {
         stmt.run(JSON.stringify(resources), new Date().toISOString(), nationId);
     }
 
+    updatePublicIntent(nationId: string, publicIntent: string): void {
+        this.db.prepare(`
+            UPDATE nations
+            SET public_intent = ?, updated_at = ?
+            WHERE id = ?
+        `).run(publicIntent, new Date().toISOString(), nationId);
+    }
+
     updateTraits(nationId: string, traits: { aggression?: number; trust?: number; paranoia?: number }): void {
         const updates: string[] = [];
         const params: any[] = [];

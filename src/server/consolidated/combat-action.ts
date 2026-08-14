@@ -10,8 +10,7 @@ import { SessionContext } from '../types.js';
 import { RichFormatter } from '../utils/formatter.js';
 import { handleExecuteCombatAction } from '../handlers/combat-handlers.js';
 import { getCombatManager } from '../state/combat-manager.js';
-import { getDb } from '../../storage/index.js';
-import { EncounterRepository } from '../../storage/repos/encounter.repo.js';
+import { getDomainServices } from '../domain-services.js';
 import { CombatEngine } from '../../engine/combat/engine.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -205,9 +204,7 @@ const definitions: Record<CombatAction, ActionDefinition> = {
             // wrap the create in a try/get fallback — the loser of the race
             // adopts the winner's engine.
             if (!engine) {
-                const db = getDb(process.env.NODE_ENV === 'test' ? ':memory:' : 'rpg.db');
-                const repo = new EncounterRepository(db);
-                const persisted = repo.loadState(params.encounterId);
+                const persisted = getDomainServices().encounter.loadState(params.encounterId);
                 if (persisted) {
                     // Re-check in case another concurrent request restored it
                     // between our initial get() and now.
@@ -418,8 +415,8 @@ export async function handleCombatAction(args: unknown, ctx: SessionContext): Pr
             output += RichFormatter.alert(parsed.message || 'Unknown error', 'error');
             if (parsed.suggestions) {
                 output += RichFormatter.section('Did you mean?');
-                parsed.suggestions.forEach((s: { action: string; similarity: number }) => {
-                    output += `  • ${s.action} (${s.similarity}% match)\n`;
+                parsed.suggestions.forEach((s: { value: string; similarity: number }) => {
+                    output += `  • ${s.value} (${s.similarity}% match)\n`;
                 });
             }
             if (parsed.validActions) {

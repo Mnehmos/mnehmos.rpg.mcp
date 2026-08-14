@@ -30,7 +30,6 @@ import { QuestRepository } from '../../storage/repos/quest.repo.js';
 import {
     Party,
     PartyMember,
-    MemberRoleSchema,
     PartyStatusSchema,
     PartyContext
 } from '../../schema/party.js';
@@ -49,17 +48,14 @@ const ACTIONS = [
 ] as const;
 type PartyAction = typeof ACTIONS[number];
 
+const memberRoleSchema = () => z.enum(['leader', 'member', 'companion', 'hireling', 'prisoner', 'mount']);
+
 // ═══════════════════════════════════════════════════════════════════════════
 // DATABASE HELPER
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureDb() {
-    const dbPath = process.env.NODE_ENV === 'test'
-        ? ':memory:'
-        : process.env.RPG_DATA_DIR
-            ? `${process.env.RPG_DATA_DIR}/rpg.db`
-            : 'rpg.db';
-    const db = getDb(dbPath);
+    const db = getDb();
     return {
         db,
         partyRepo: new PartyRepository(db),
@@ -74,7 +70,7 @@ function ensureDb() {
 
 const InitialMemberSchema = z.object({
     characterId: z.string(),
-    role: MemberRoleSchema.optional().default('member')
+    role: memberRoleSchema().optional().default('member')
 });
 
 const CreateSchema = z.object({
@@ -115,7 +111,7 @@ const AddMemberSchema = z.object({
     action: z.literal('add_member'),
     partyId: z.string(),
     characterId: z.string(),
-    role: MemberRoleSchema.optional().default('member'),
+    role: memberRoleSchema().optional().default('member'),
     position: z.number().int().optional(),
     notes: z.string().optional()
 });
@@ -130,7 +126,7 @@ const UpdateMemberSchema = z.object({
     action: z.literal('update_member'),
     partyId: z.string(),
     characterId: z.string(),
-    role: MemberRoleSchema.optional(),
+    role: memberRoleSchema().optional(),
     position: z.number().int().optional(),
     sharePercentage: z.number().int().min(0).max(100).optional(),
     notes: z.string().optional()
@@ -729,7 +725,7 @@ Aliases: new/form->create, join/recruit->add_member, leader->set_leader, active/
         status: PartyStatusSchema.optional(),
         // Member fields
         characterId: z.string().optional(),
-        role: MemberRoleSchema.optional(),
+        role: memberRoleSchema().optional(),
         position: z.number().int().optional(),
         sharePercentage: z.number().int().optional(),
         notes: z.string().optional(),
