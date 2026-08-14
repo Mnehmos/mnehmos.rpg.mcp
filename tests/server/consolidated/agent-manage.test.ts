@@ -121,6 +121,39 @@ describe('agent_manage tool', () => {
             expect(parsed.characterName).toBe('Kara');
         });
 
+        it('persists an explicit model and reasoning policy for agent inference', async () => {
+            const characterId = createCharacter('Kara');
+
+            const result = await handleAgentManage(
+                {
+                    action: 'create',
+                    characterId,
+                    provider: 'openrouter',
+                    model: 'openai/gpt-5.6-luna',
+                    competencyOverride: {
+                        model: 'openai/gpt-5.6-luna',
+                        reasoningEffort: 'medium'
+                    }
+                },
+                ctx
+            );
+
+            const parsed = extractJson(result);
+            expect(parsed.success).toBe(true);
+            expect(parsed.agent.provider).toBe('openrouter');
+            expect(parsed.agent.model).toBe('openai/gpt-5.6-luna');
+            expect(parsed.agent.competencyOverride).toEqual({
+                model: 'openai/gpt-5.6-luna',
+                reasoningEffort: 'medium'
+            });
+
+            const loaded = extractJson(await handleAgentManage({ action: 'get', characterId }, ctx));
+            expect(loaded.agent.competencyOverride).toEqual({
+                model: 'openai/gpt-5.6-luna',
+                reasoningEffort: 'medium'
+            });
+        });
+
         it('refuses duplicate agents for the same character', async () => {
             const characterId = createCharacter('Kara');
             await handleAgentManage(
