@@ -358,6 +358,42 @@ describe('spatial_manage consolidated tool', () => {
             const data = parseResult(result);
             expect(data.actionType).toBe('move');
         });
+
+        it('should follow a named exit without requiring a destination room id', async () => {
+            const spatialRepo = new SpatialRepository(getDb(':memory:'));
+            const targetRoomId = randomUUID();
+            spatialRepo.create({
+                id: targetRoomId,
+                name: 'East Room',
+                baseDescription: 'A room reached by following the eastern exit.',
+                biomeContext: 'urban',
+                atmospherics: [],
+                exits: [],
+                entityIds: [],
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                visitedCount: 0
+            });
+            spatialRepo.addExit(testRoomId, {
+                direction: 'east',
+                targetNodeId: targetRoomId,
+                type: 'OPEN'
+            });
+            await handleSpatialManage({
+                action: 'move',
+                characterId: testCharacterId,
+                roomId: testRoomId
+            }, ctx);
+
+            const data = parseResult(await handleSpatialManage({
+                action: 'move',
+                characterId: testCharacterId,
+                direction: 'east'
+            }, ctx));
+
+            expect(data.success).toBe(true);
+            expect(data.newRoomId).toBe(targetRoomId);
+        });
     });
 
     describe('look action', () => {

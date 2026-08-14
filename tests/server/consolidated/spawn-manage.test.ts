@@ -285,6 +285,14 @@ describe('spawn_manage consolidated tool', () => {
             expect(data.poiId).toBeDefined();
             expect(data.preset).toBe('generic_tavern');
             expect(data.position).toEqual({ x: 50, y: 75 });
+
+            const db = getDb(':memory:');
+            expect(db.prepare('SELECT id, world_id FROM node_networks WHERE id = ?').get(data.networkId)).toMatchObject({
+                id: data.networkId,
+                world_id: testWorldId
+            });
+            expect(db.prepare('SELECT COUNT(*) AS count FROM room_nodes WHERE network_id = ?').get(data.networkId).count).toBe(3);
+            expect(db.prepare('SELECT id FROM pois WHERE id = ?').get(data.poiId)).toBeDefined();
         });
 
         it('should spawn with custom name', async () => {
@@ -315,6 +323,8 @@ describe('spawn_manage consolidated tool', () => {
             const data = parseResult(result);
             expect(data.success).toBe(true);
             expect(data.npcs.length).toBeGreaterThan(0);
+            const db = getDb(':memory:');
+            expect(db.prepare('SELECT COUNT(*) AS count FROM room_nodes WHERE entity_ids LIKE ?').get(`%${data.npcs[0].id}%`).count).toBe(1);
         });
 
         it('should return error for missing coordinates', async () => {

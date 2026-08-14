@@ -5,6 +5,8 @@
 
 import { handleWorldMap, WorldMapTool } from '../../../src/server/consolidated/world-map.js';
 import { handleWorldManage } from '../../../src/server/consolidated/world-manage.js';
+import { getWorldManager } from '../../../src/server/state/world-manager.js';
+import { BiomeType } from '../../../src/schema/biome.js';
 import { getDb } from '../../../src/storage/index.js';
 import { randomUUID } from 'crypto';
 
@@ -89,6 +91,27 @@ describe('world_map consolidated tool', () => {
 
             const data = parseResult(result);
             expect(data.actionType).toBe('overview');
+        });
+
+        it('should restore the generated snapshot after runtime cache eviction', async () => {
+            const before = parseResult(await handleWorldMap({
+                action: 'overview',
+                worldId: testWorldId
+            }, ctx));
+
+            expect(getWorldManager().delete(testWorldId)).toBe(true);
+
+            const after = parseResult(await handleWorldMap({
+                action: 'overview',
+                worldId: testWorldId
+            }, ctx));
+
+            expect(after.success).toBe(true);
+            expect(after.dimensions).toEqual(before.dimensions);
+            expect(after.biomeDistribution).toEqual(before.biomeDistribution);
+            expect(after.regionCount).toBe(before.regionCount);
+            expect(after.structureCount).toBe(before.structureCount);
+            expect(after.riverTileCount).toBe(before.riverTileCount);
         });
     });
 
@@ -182,6 +205,16 @@ describe('world_map consolidated tool', () => {
             expect(typeof data.success).toBe('boolean');
         });
 
+        it('should report invalid DSL patches as failures', async () => {
+            const data = parseResult(await handleWorldMap({
+                action: 'patch',
+                worldId: testWorldId,
+                script: 'THIS IS NOT VALID MAP DSL'
+            }, ctx));
+
+            expect(data.success).toBe(false);
+        });
+
         it('should accept "apply" alias', async () => {
             const result = await handleWorldMap({
                 action: 'apply',
@@ -191,6 +224,30 @@ describe('world_map consolidated tool', () => {
 
             const data = parseResult(result);
             expect(data.actionType).toBe('patch');
+        });
+
+        it('should restore an applied map patch after runtime cache eviction', async () => {
+            const generated = getWorldManager().get(testWorldId)!;
+            const replacement = generated.biomes[0][0] === BiomeType.OCEAN
+                ? BiomeType.GRASSLAND
+                : BiomeType.OCEAN;
+
+            const patchResult = parseResult(await handleWorldMap({
+                action: 'patch',
+                worldId: testWorldId,
+                script: `SET_BIOME ${replacement} 0 0`
+            }, ctx));
+            expect(patchResult.success).toBe(true);
+            expect(patchResult.commandsExecuted).toBe(1);
+
+            expect(getWorldManager().delete(testWorldId)).toBe(true);
+
+            const restoredTiles = parseResult(await handleWorldMap({
+                action: 'tiles',
+                worldId: testWorldId
+            }, ctx));
+            expect(restoredTiles.success).toBe(true);
+            expect(restoredTiles.biomes[restoredTiles.tiles[0][0]]).toBe(replacement);
         });
     });
 

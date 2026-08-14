@@ -4,7 +4,7 @@ import { migrateClassProgression } from './migrations.class-progression.js';
 export function migrate(db: Database.Database) {
   // First, create all tables (without indexes that depend on new columns)
   db.exec(`
-    CREATE TABLE IF NOT EXISTS worlds(
+  CREATE TABLE IF NOT EXISTS worlds(
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     seed TEXT NOT NULL,
@@ -12,6 +12,13 @@ export function migrate(db: Database.Database) {
     height INTEGER NOT NULL,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
+  );
+
+    CREATE TABLE IF NOT EXISTS world_snapshots(
+    world_id TEXT PRIMARY KEY,
+    snapshot TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(world_id) REFERENCES worlds(id) ON DELETE CASCADE
   );
 
     CREATE TABLE IF NOT EXISTS regions(
@@ -212,6 +219,22 @@ export function migrate(db: Database.Database) {
     updated_at TEXT NOT NULL,
     FOREIGN KEY(world_id) REFERENCES worlds(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS turn_actions(
+    id TEXT PRIMARY KEY,
+    world_id TEXT NOT NULL,
+    turn_number INTEGER NOT NULL,
+    nation_id TEXT NOT NULL,
+    actions TEXT NOT NULL DEFAULT '[]', -- JSON array of submitted actions
+    created_at TEXT NOT NULL,
+    resolved_at TEXT,
+    UNIQUE(world_id, turn_number, nation_id),
+    FOREIGN KEY(world_id) REFERENCES worlds(id) ON DELETE CASCADE,
+    FOREIGN KEY(nation_id) REFERENCES nations(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_turn_actions_pending
+    ON turn_actions(world_id, turn_number, resolved_at);
 
   CREATE TABLE IF NOT EXISTS nations(
     id TEXT PRIMARY KEY,

@@ -72,6 +72,49 @@ function equippedArmorClass(
     return armorBase + equipmentBonus;
 }
 
+function allowedEquipSlots(item: {
+    type: string;
+    properties?: Record<string, unknown>;
+}): string[] {
+    const properties = item.properties ?? {};
+    if (properties.requiresSelection === true) return [];
+
+    if (Array.isArray(properties.equipSlots)) {
+        return properties.equipSlots.filter((slot): slot is string => typeof slot === 'string');
+    }
+
+    if (item.type === 'weapon') return ['mainhand', 'offhand'];
+    if (item.type === 'armor') {
+        return typeof properties.acBonus === 'number' ? ['offhand'] : ['armor'];
+    }
+    return [];
+}
+
+function rollHealing(value: unknown): { amount: number; notation?: string; rolls?: number[] } | null {
+    if (value === undefined || value === null) return null;
+    if (typeof value === 'number' && Number.isFinite(value) && value >= 0) {
+        return { amount: Math.floor(value) };
+    }
+
+    const text = String(value);
+    const match = text.match(/(\d+)\s*d\s*(\d+)(?:\s*([+-])\s*(\d+))?/i);
+    if (match) {
+        const count = Number(match[1]);
+        const sides = Number(match[2]);
+        const modifier = match[4] ? Number(match[4]) * (match[3] === '-' ? -1 : 1) : 0;
+        const rolls = Array.from({ length: count }, () => Math.floor(Math.random() * sides) + 1);
+        return {
+            amount: Math.max(0, rolls.reduce((sum, roll) => sum + roll, modifier)),
+            notation: `${count}d${sides}${modifier ? (modifier > 0 ? `+${modifier}` : modifier) : ''}`,
+            rolls
+        };
+    }
+
+    const numeric = Number(text.trim());
+    if (Number.isFinite(numeric) && numeric >= 0) return { amount: Math.floor(numeric) };
+    throw new Error(`Invalid healing value: ${text}`);
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ACTION SCHEMAS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -273,7 +316,7 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
     use: {
         schema: UseSchema,
         handler: async (params: z.infer<typeof UseSchema>) => {
-            const { inventoryRepo, itemRepo } = ensureDb();
+            const { inventoryRepo, itemRepo, charRepo } = ensureDb();
 
             const item = itemRepo.findById(params.itemId);
             if (!item) {
@@ -292,20 +335,44 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
                 throw new Error(`Character does not have item "${item.name}"`);
             }
 
+            const properties = item.properties ?? {};
+            let healingValue: unknown = properties.healing ?? properties.healingDice ?? properties.heal;
+            const effect = properties.effect || properties.effects || 'No defined effect';
+            if (healingValue === undefined && typeof effect === 'string' && /heal|restore|regain/i.test(effect)) {
+                healingValue = effect;
+            }
+            const healing = rollHealing(healingValue);
+            const targetId = params.targetId || params.characterId;
+            const target = healing ? charRepo.findById(targetId) : null;
+            if (healing && !target) {
+                throw new Error(`Healing target not found: ${targetId}`);
+            }
+
             const removed = inventoryRepo.removeItem(params.characterId, params.itemId, 1);
             if (!removed) {
                 throw new Error(`Failed to consume item`);
             }
 
-            const effect = item.properties?.effect || item.properties?.effects || 'No defined effect';
+            const hpBefore = target?.hp;
+            const hpAfter = target && healing
+                ? Math.min(target.maxHp, target.hp + healing.amount)
+                : undefined;
+            if (target && hpAfter !== hpBefore) {
+                charRepo.update(target.id, { hp: hpAfter } as any);
+            }
 
             return {
                 success: true,
                 actionType: 'use',
                 itemName: item.name,
                 characterId: params.characterId,
-                targetId: params.targetId || params.characterId,
+                targetId,
                 effect,
+                healing: healing?.amount,
+                healingNotation: healing?.notation,
+                healingRolls: healing?.rolls,
+                hpBefore,
+                hpAfter,
                 message: `Used ${item.name}`
             };
         },
@@ -330,6 +397,17 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
             const item = itemRepo.findById(params.itemId);
             if (!item) {
                 throw new Error(`Item not found: ${params.itemId}`);
+            }
+
+            const allowedSlots = allowedEquipSlots(item);
+            if (item.properties?.requiresSelection === true) {
+                throw new Error(`Item "${item.name}" is an unresolved equipment choice; materialize a concrete item first`);
+            }
+            if (!allowedSlots.includes(params.slot)) {
+                const guidance = allowedSlots.length > 0
+                    ? `Allowed slots: ${allowedSlots.join(', ')}`
+                    : 'This item is not equippable; custom equippable items must define properties.equipSlots';
+                throw new Error(`Cannot equip "${item.name}" in ${params.slot}. ${guidance}`);
             }
 
             inventoryRepo.equipItem(params.characterId, params.itemId, params.slot);
@@ -395,13 +473,18 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
         handler: async (params: z.infer<typeof GetSchema>) => {
             const { inventoryRepo } = ensureDb();
 
-            const inventory = inventoryRepo.getInventory(params.characterId);
+            const inventory = inventoryRepo.getInventoryWithDetails(params.characterId);
 
             return {
                 success: true,
                 actionType: 'get',
                 characterId: params.characterId,
                 inventory: inventory.items,
+                itemIds: inventory.items.map(entry => entry.item.id),
+                currency: inventory.currency,
+                gold: inventory.currency.gold,
+                silver: inventory.currency.silver,
+                copper: inventory.currency.copper,
                 itemCount: inventory.items.length
             };
         },
@@ -492,8 +575,8 @@ export async function handleInventoryManage(args: unknown, _ctx: SessionContext)
             output += RichFormatter.alert(parsed.message || 'Unknown error', 'error');
             if (parsed.suggestions) {
                 output += RichFormatter.section('Did you mean?');
-                parsed.suggestions.forEach((s: { action: string; similarity: number }) => {
-                    output += `  • ${s.action} (${s.similarity}% match)\n`;
+                parsed.suggestions.forEach((s: { value: string; similarity: number }) => {
+                    output += `  • ${s.value} (${s.similarity}% match)\n`;
                 });
             }
             if (parsed.validActions) {

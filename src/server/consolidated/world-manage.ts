@@ -12,9 +12,11 @@ import { SessionContext } from '../types.js';
 import { RichFormatter } from '../utils/formatter.js';
 import { getDb } from '../../storage/index.js';
 import { WorldRepository } from '../../storage/repos/world.repo.js';
-import { World } from '../../schema/world.js';
+import { World, WorldEnvironmentSchema } from '../../schema/world.js';
 import { generateWorld as generateWorldProc } from '../../engine/worldgen/index.js';
 import { getWorldManager } from '../state/world-manager.js';
+import { WorldSnapshotRepository } from '../../storage/repos/world-snapshot.repo.js';
+import { persistGeneratedWorldEntities } from '../../services/generated-world-persistence.service.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -62,13 +64,9 @@ const DeleteSchema = z.object({
 const UpdateSchema = z.object({
     action: z.literal('update'),
     id: z.string().describe('World ID'),
-    environment: z.object({
-        dayNightCycle: z.enum(['day', 'night', 'dawn', 'dusk']).optional(),
-        weather: z.string().optional(),
-        season: z.enum(['spring', 'summer', 'autumn', 'winter']).optional(),
-        temperature: z.string().optional(),
-        lighting: z.string().optional()
-    }).passthrough().describe('Environment properties to update')
+    environment: WorldEnvironmentSchema.partial().describe(
+        'Canonical environment properties to update: date, timeOfDay, season, moonPhase, weatherConditions, temperature, lighting'
+    )
 });
 
 const GenerateSchema = z.object({
@@ -187,13 +185,14 @@ async function handleUpdate(args: z.infer<typeof UpdateSchema>): Promise<object>
         success: true,
         actionType: 'update',
         worldId: args.id,
-        environment: args.environment,
+        environment: updated.environment,
         message: `Updated environment for world ${args.id}`
     };
 }
 
 async function handleGenerate(args: z.infer<typeof GenerateSchema>): Promise<object> {
-    const worldRepo = getWorldRepo();
+    const db = getDb();
+    const worldRepo = new WorldRepository(db);
     const worldManager = getWorldManager();
 
     // Generate the procedural world
@@ -219,9 +218,11 @@ async function handleGenerate(args: z.infer<typeof GenerateSchema>): Promise<obj
     };
 
     worldRepo.create(world);
+    persistGeneratedWorldEntities(db, world.id, generatedWorld);
 
     // Store in memory for fast access
     worldManager.create(world.id, generatedWorld);
+    new WorldSnapshotRepository(db).save(world.id, generatedWorld);
 
     // Calculate biome stats from 2D biomes array
     const biomeStats: Record<string, number> = {};
@@ -374,8 +375,8 @@ export async function handleWorldManage(args: unknown, _ctx: SessionContext): Pr
         output += RichFormatter.alert(parsed.message || 'Unknown error', 'error');
         if (parsed.suggestions) {
             output += '\n**Did you mean:**\n';
-            parsed.suggestions.forEach((s: { action: string; similarity: number }) => {
-                output += `  • ${s.action} (${s.similarity}% match)\n`;
+            parsed.suggestions.forEach((s: { value: string; similarity: number }) => {
+                output += `  • ${s.value} (${s.similarity}% match)\n`;
             });
         }
     } else {

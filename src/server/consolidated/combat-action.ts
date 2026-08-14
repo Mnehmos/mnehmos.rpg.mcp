@@ -418,8 +418,8 @@ export async function handleCombatAction(args: unknown, ctx: SessionContext): Pr
             output += RichFormatter.alert(parsed.message || 'Unknown error', 'error');
             if (parsed.suggestions) {
                 output += RichFormatter.section('Did you mean?');
-                parsed.suggestions.forEach((s: { action: string; similarity: number }) => {
-                    output += `  • ${s.action} (${s.similarity}% match)\n`;
+                parsed.suggestions.forEach((s: { value: string; similarity: number }) => {
+                    output += `  • ${s.value} (${s.similarity}% match)\n`;
                 });
             }
             if (parsed.validActions) {

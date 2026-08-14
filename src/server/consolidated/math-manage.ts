@@ -373,8 +373,8 @@ export async function handleMathManage(args: unknown, ctx: SessionContext): Prom
         output += RichFormatter.alert(parsed.message || 'Unknown error', 'error');
         if (parsed.suggestions) {
             output += '\n**Did you mean:**\n';
-            parsed.suggestions.forEach((s: { action: string; similarity: number }) => {
-                output += `  - ${s.action} (${s.similarity}% match)\n`;
+            parsed.suggestions.forEach((s: { value: string; similarity: number }) => {
+                output += `  - ${s.value} (${s.similarity}% match)\n`;
             });
         }
     } else {

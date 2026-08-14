@@ -22,6 +22,7 @@
     "build": "tsc",
     "start": "node dist/server/index.js",
     "build:binaries": "npm run build && node esbuild.config.mjs",
+    "open5e:sync-runtime": "node scripts/generate-open5e-runtime-catalog.mjs",
     "dev": "ts-node src/index.ts"
   },
   "repository": {

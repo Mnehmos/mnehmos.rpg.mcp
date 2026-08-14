@@ -14,6 +14,7 @@ import { InventoryRepository } from '../../storage/repos/inventory.repo.js';
 import { ItemRepository } from '../../storage/repos/item.repo.js';
 import { SessionContext } from '../types.js';
 import { buildConsolidatedRegistry } from '../consolidated-registry.js';
+import { handleCreate as handleCharacterCreate } from './character-manage.js';
 
 export interface McpResponse {
     content: Array<{ type: 'text'; text: string }>;
@@ -109,7 +110,7 @@ const BatchCharacterSchema = z.object({
     level: z.number().int().min(1).optional().default(1),
     hp: z.number().int().min(1).optional(),
     maxHp: z.number().int().min(1).optional(),
-    ac: z.number().int().min(0).optional().default(10),
+    ac: z.number().int().min(0).optional(),
     stats: z.object({
         str: z.number().int().min(0).default(10),
         dex: z.number().int().min(0).default(10),
@@ -242,43 +243,24 @@ async function handleCreateCharacters(input: BatchManageInput, _ctx: SessionCont
         };
     }
 
-    const { charRepo } = ensureDb();
-    const now = new Date().toISOString();
-
     const createdCharacters: Array<{ id: string; name: string; class: string; race: string; characterType: string }> = [];
     const errors: string[] = [];
 
     for (const charData of input.characters) {
         try {
-            const stats = charData.stats ?? { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
-            const conModifier = Math.floor((stats.con - 10) / 2);
-            const baseHp = Math.max(1, 8 + conModifier);
-            const hp = charData.hp ?? baseHp;
-            const maxHp = charData.maxHp ?? hp;
-
-            const character = {
-                id: randomUUID(),
-                name: charData.name,
-                race: charData.race,
-                characterClass: charData.class || 'Adventurer',
-                characterType: charData.characterType,
-                level: charData.level,
-                stats,
-                hp,
-                maxHp,
-                ac: charData.ac,
-                background: charData.background,
-                createdAt: now,
-                updatedAt: now
-            };
-
-            charRepo.create(character as any);
+            // Batch creation delegates to the same authoritative path as
+            // character_manage so HP, proficiencies, backgrounds, and starter
+            // items cannot drift between two engine entry points.
+            const character = await handleCharacterCreate({
+                action: 'create',
+                ...charData
+            } as any) as any;
             createdCharacters.push({
                 id: character.id,
-                name: charData.name,
-                class: charData.class,
-                race: charData.race,
-                characterType: charData.characterType
+                name: character.name,
+                class: character.characterClass,
+                race: character.race,
+                characterType: character.characterType
             });
         } catch (err: unknown) {
             errors.push(`Failed to create ${charData.name}: ${err instanceof Error ? err.message : String(err)}`);

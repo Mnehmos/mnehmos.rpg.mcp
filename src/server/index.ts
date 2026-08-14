@@ -65,6 +65,7 @@ import { closeDb, campaignDbPath, assertNoLegacyDatabase, useSingleUserDatabase 
 
 // Agent runtime
 import { ProviderFactory } from '../agent/provider/factory.js';
+import { schemaShape } from './schema-shape.js';
 
 /**
  * Setup graceful shutdown handlers to ensure database is properly closed.
@@ -167,7 +168,7 @@ function buildServer(pubsub: PubSub, auditLogger: AuditLogger): McpServer {
     server.tool(
       toolName,
       entry.metadata.description,
-      extendedSchema.shape || extendedSchema._def?.schema?.shape || {},
+      schemaShape(extendedSchema),
       auditLogger.wrapHandler(
         toolName,
         withSession(entry.schema, entry.handler as any)

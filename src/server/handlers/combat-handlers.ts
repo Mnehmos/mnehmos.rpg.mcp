@@ -569,11 +569,12 @@ Example (use real UUID from context for player character!):
   ]
 }`,
         inputSchema: z.object({
-            seed: z.string().describe('Seed for deterministic combat resolution'),
+            seed: z.string().default('combat').describe('Seed for deterministic combat resolution'),
             participants: z.array(z.object({
                 id: z.string(),
                 name: z.string(),
-                initiativeBonus: z.number().int(),
+                initiativeBonus: z.number().int().default(0),
+                initiative: z.number().int().optional().describe('Optional pre-rolled initiative; otherwise the engine rolls it'),
                 hp: z.number().int().nonnegative(), // Allow 0 HP for dying characters
                 maxHp: z.number().int().positive(),
                 isEnemy: z.boolean().optional().describe('Whether this is an enemy (auto-detected if not set)'),
@@ -1095,7 +1096,7 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
             name: preset ? preset.name : p.name,
             hp: p.hp,
             maxHp: p.maxHp,
-            initiative: 0, // Will be rolled
+            ...(p.initiative !== undefined ? { initiative: p.initiative } : {}),
             initiativeBonus: p.initiativeBonus ?? 0,
             isEnemy: p.isEnemy ?? false,
             hasLairActions: p.hasLairActions ?? false,
@@ -2191,6 +2192,9 @@ export async function handleEndEncounter(args: unknown, ctx: SessionContext) {
             }
         }
     }
+
+    // Preserve the terminal state after the in-memory encounter is removed.
+    new EncounterRepository(getDb()).end(parsed.encounterId);
 
     // Now delete the encounter from memory
     getCombatManager().delete(namespacedId);

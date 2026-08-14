@@ -155,9 +155,13 @@ async function handleSuggestPoi(args: z.infer<typeof SuggestPoiSchema>, ctx?: Se
 function extractResultData(result: McpResponse, actionType: string): Record<string, unknown> {
     try {
         const data = JSON.parse(result.content[0].text);
-        return { success: true, actionType, ...data };
+        return {
+            ...data,
+            actionType,
+            success: data.success !== false && !data.error
+        };
     } catch {
-        return { success: true, actionType, rawData: result.content[0].text };
+        return { success: false, actionType, rawData: result.content[0].text };
     }
 }
 
@@ -263,8 +267,8 @@ export async function handleWorldMap(args: unknown, ctx: SessionContext): Promis
             output += RichFormatter.alert(parsed.message || 'Unknown error', 'error');
             if (parsed.suggestions) {
                 output += '\n**Did you mean:**\n';
-                parsed.suggestions.forEach((s: { action: string; similarity: number }) => {
-                    output += `  • ${s.action} (${s.similarity}% match)\n`;
+                parsed.suggestions.forEach((s: { value: string; similarity: number }) => {
+                    output += `  • ${s.value} (${s.similarity}% match)\n`;
                 });
             }
         } else {

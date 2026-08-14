@@ -8,6 +8,7 @@ import { getDb, closeDb } from '../../../src/storage/index.js';
 import { WorldRepository } from '../../../src/storage/repos/world.repo.js';
 import { NationRepository } from '../../../src/storage/repos/nation.repo.js';
 import { RegionRepository } from '../../../src/storage/repos/region.repo.js';
+import { DiplomacyRepository } from '../../../src/storage/repos/diplomacy.repo.js';
 import { randomUUID } from 'crypto';
 
 process.env.NODE_ENV = 'test';
@@ -262,10 +263,12 @@ describe('turn_manage consolidated tool', () => {
             expect(data.actionType).toBe('submit_actions');
             expect(data.nationName).toBe('Nation Alpha');
             expect(data.actionsSubmitted).toBe(2);
-            expect(data.processedActions.length).toBe(2);
+            expect(data.actionsQueued).toBe(2);
+            expect(data.processedActions).toEqual([]);
+            expect(data.message).toContain('queued');
         });
 
-        it('should process alliance proposal', async () => {
+        it('should queue an alliance proposal without mutating planning state', async () => {
             const result = await handleTurnManage({
                 action: 'submit_actions',
                 worldId: testWorldId,
@@ -277,7 +280,57 @@ describe('turn_manage consolidated tool', () => {
 
             const data = parseResult(result);
             expect(data.success).toBe(true);
-            expect(data.processedActions).toContain(`Alliance proposed to ${testNation2Id}`);
+            expect(data.actionsQueued).toBe(1);
+            const diplomacyRepo = new DiplomacyRepository(getDb());
+            expect(diplomacyRepo.getRelation(testNationId, testNation2Id)).toBeNull();
+        });
+
+        it('uses DiplomacyEngine rules and writes symmetric alliance state at resolution', async () => {
+            const diplomacyRepo = new DiplomacyRepository(getDb());
+            diplomacyRepo.upsertRelation({
+                fromNationId: testNationId,
+                toNationId: testNation2Id,
+                opinion: 90,
+                isAllied: false,
+                updatedAt: new Date().toISOString()
+            });
+
+            await handleTurnManage({
+                action: 'submit_actions',
+                worldId: testWorldId,
+                nationId: testNationId,
+                actions: [{ type: 'propose_alliance', toNationId: testNation2Id }]
+            }, ctx);
+            await handleTurnManage({ action: 'mark_ready', worldId: testWorldId, nationId: testNationId }, ctx);
+            const resolved = parseResult(await handleTurnManage({
+                action: 'mark_ready', worldId: testWorldId, nationId: testNation2Id
+            }, ctx));
+
+            expect(resolved.resolvedActions).toContain(`Alliance formed with ${testNation2Id}`);
+            expect(diplomacyRepo.getRelation(testNationId, testNation2Id)?.isAllied).toBe(true);
+            expect(diplomacyRepo.getRelation(testNation2Id, testNationId)?.isAllied).toBe(true);
+        });
+
+        it('applies queued claims only during resolution', async () => {
+            await handleTurnManage({
+                action: 'submit_actions',
+                worldId: testWorldId,
+                nationId: testNationId,
+                actions: [{ type: 'claim_region', regionId: testRegionId }]
+            }, ctx);
+
+            const diplomacyRepo = new DiplomacyRepository(getDb());
+            expect(diplomacyRepo.getClaimsByRegion(testRegionId)).toHaveLength(0);
+
+            await handleTurnManage({ action: 'mark_ready', worldId: testWorldId, nationId: testNationId }, ctx);
+            const resolved = parseResult(await handleTurnManage({
+                action: 'mark_ready',
+                worldId: testWorldId,
+                nationId: testNation2Id
+            }, ctx));
+
+            expect(resolved.resolvedActions).toContain(`Claimed region ${testRegionId}`);
+            expect(diplomacyRepo.getClaimsByRegion(testRegionId)).toHaveLength(1);
         });
 
         it('should return error if not in planning phase', async () => {

@@ -17,6 +17,16 @@ describe('meta-tools schema surfaces', () => {
             expect.arrayContaining(['action', 'characterId'])
         );
         expect(result.actionSchemas?.level_up.required).not.toContain('hpIncrease');
+        expect(result.actionSchemas?.options.required).toEqual(['action']);
+        expect(result.inputSchema.action.description).toContain('options');
+
+        const items = await handleLoadToolSchema({ toolName: 'item_manage' });
+        expect('error' in items).toBe(false);
+        if ('error' in items) throw new Error(items.error);
+        expect(items.actionSchemas?.catalog_search.required).toEqual(['action']);
+        expect(items.actionSchemas?.catalog_get.required).toEqual(['action', 'sourceKey']);
+        expect(items.actionSchemas?.materialize.required).toEqual(['action', 'sourceKey']);
+        expect(items.inputSchema.action.description).toContain('materialize');
     });
 
     it('should include aliases and descriptions in action schemas', async () => {
