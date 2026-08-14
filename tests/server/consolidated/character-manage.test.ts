@@ -44,6 +44,16 @@ describe('character_manage consolidated tool', () => {
             expect(CharacterManageTool.description).toContain('add_xp');
             expect(CharacterManageTool.description).toContain('level_up');
         });
+
+        it('exposes cantripsKnown through the MCP registration schema', () => {
+            const parsed = CharacterManageTool.inputSchema.parse({
+                action: 'update',
+                characterId: randomUUID(),
+                cantripsKnown: ['Guidance'],
+            });
+
+            expect(parsed.cantripsKnown).toEqual(['Guidance']);
+        });
     });
 
     describe('action: create', () => {
