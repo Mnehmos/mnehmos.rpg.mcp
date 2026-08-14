@@ -354,6 +354,60 @@ describe('inventory_manage consolidated tool', () => {
             expect(data.slot).toBe('mainhand');
         });
 
+        it('should recompute legacy starter armor and shield AC as equipment changes', async () => {
+            const armorResult = await handleItemManage({
+                action: 'create',
+                name: 'Chain Mail',
+                type: 'armor',
+                weight: 55,
+                value: 75,
+                properties: { ac: 16, stealthDisadvantage: true, strengthRequired: 13 }
+            }, ctx);
+            const armorId = parseItemResult(armorResult).item.id;
+            await handleInventoryManage({ action: 'give', characterId: testCharId, itemId: armorId, quantity: 1 }, ctx);
+
+            const equipped = parseResult(await handleInventoryManage({
+                action: 'equip',
+                characterId: testCharId,
+                itemId: armorId,
+                slot: 'armor'
+            }, ctx));
+
+            expect(equipped.success).toBe(true);
+            expect(equipped.acChange).toContain('now 16');
+            expect(new CharacterRepository(getDb(':memory:')).findById(testCharId)?.ac).toBe(16);
+
+            const shieldResult = await handleItemManage({
+                action: 'create',
+                name: 'Shield',
+                type: 'armor',
+                weight: 6,
+                value: 10,
+                properties: { acBonus: 2 }
+            }, ctx);
+            const shieldId = parseItemResult(shieldResult).item.id;
+            await handleInventoryManage({ action: 'give', characterId: testCharId, itemId: shieldId, quantity: 1 }, ctx);
+            const shieldEquipped = parseResult(await handleInventoryManage({
+                action: 'equip',
+                characterId: testCharId,
+                itemId: shieldId,
+                slot: 'offhand'
+            }, ctx));
+
+            expect(shieldEquipped.acChange).toContain('now 18');
+            expect(new CharacterRepository(getDb(':memory:')).findById(testCharId)?.ac).toBe(18);
+
+            const unequipped = parseResult(await handleInventoryManage({
+                action: 'unequip',
+                characterId: testCharId,
+                itemId: armorId
+            }, ctx));
+
+            expect(unequipped.success).toBe(true);
+            expect(unequipped.acChange).toContain('now 13');
+            expect(new CharacterRepository(getDb(':memory:')).findById(testCharId)?.ac).toBe(13);
+        });
+
         it('should accept "wield" alias', async () => {
             const result = await handleInventoryManage({
                 action: 'wield',
