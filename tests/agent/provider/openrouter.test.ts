@@ -1,5 +1,6 @@
 import { OpenRouterProvider } from '../../../src/agent/provider/openrouter.js';
 import { ProviderError } from '../../../src/agent/provider/types.js';
+import { REASONING_COMPLETION_FLOOR } from '../../../src/agent/provider/reasoning.js';
 
 function mockFetch(opts: { status?: number; body: string }): {
     fn: typeof fetch;
@@ -83,6 +84,41 @@ describe('OpenRouterProvider', () => {
         await provider.call({ model: 'm', messages: [{ role: 'user', content: 'hi' }] });
 
         expect(mock.lastRequest.url).toBe('https://openrouter.ai/api/v1/chat/completions');
+    });
+
+    it('uses reasoning parameters and floors the completion budget for namespaced GPT-5 models', async () => {
+        const mock = mockFetch({
+            body: JSON.stringify({ choices: [{ message: { content: 'x' } }] })
+        });
+        const provider = new OpenRouterProvider({ apiKey: 'or-test', fetchImpl: mock.fn });
+
+        await provider.call({
+            model: 'openai/gpt-5.6-luna',
+            messages: [{ role: 'user', content: 'hi' }],
+            temperature: 0.7,
+            maxTokens: 300,
+            reasoningEffort: 'medium'
+        });
+
+        const body = JSON.parse(mock.lastRequest.init?.body as string);
+        expect(body.max_completion_tokens).toBe(REASONING_COMPLETION_FLOOR.medium);
+        expect(body.max_tokens).toBeUndefined();
+        expect(body.temperature).toBeUndefined();
+        expect(body.reasoning_effort).toBe('medium');
+    });
+
+    it('explains an empty reasoning response caused by a completion ceiling', async () => {
+        const mock = mockFetch({
+            body: JSON.stringify({ choices: [{ message: { content: '' }, finish_reason: 'length' }] })
+        });
+        const provider = new OpenRouterProvider({ apiKey: 'or-test', fetchImpl: mock.fn });
+
+        await expect(provider.call({
+            model: 'openai/gpt-5.6-luna',
+            messages: [{ role: 'user', content: 'hi' }],
+            maxTokens: 300,
+            reasoningEffort: 'medium'
+        })).rejects.toThrow(/reasoning tokens[\s\S]*Raise agent\.maxTokens/);
     });
 
     it('propagates 429 as rate_limited', async () => {

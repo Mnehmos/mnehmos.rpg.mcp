@@ -15,6 +15,10 @@ import { ProviderError } from '../provider/types.js';
  */
 export function shouldTripCircuit(err: unknown): boolean {
     if (!(err instanceof ProviderError)) return true; // unknown -> count it
+    // An empty response is a bounded provider/content failure, not evidence
+    // that the NPC is persistently unavailable. Keep the agent invokable so a
+    // later turn or an explicit retry can recover without recreating it.
+    if (err.kind === 'malformed' && /empty (?:message )?content/i.test(err.message)) return false;
     switch (err.kind) {
         case 'timeout':
         case 'network':

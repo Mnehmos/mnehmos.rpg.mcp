@@ -14,6 +14,10 @@ import {
     classifyFetchError,
     classifyHttpStatus
 } from './types.js';
+import {
+    isReasoningModel,
+    reasoningCompletionFloor
+} from './reasoning.js';
 
 const DEFAULT_BASE = 'https://openrouter.ai/api/v1';
 
@@ -66,12 +70,22 @@ export class OpenRouterProvider implements LLMProvider {
         if (this.referer) headers['HTTP-Referer'] = this.referer;
         if (this.title) headers['X-Title'] = this.title;
 
-        const body = {
+        const reasoningModel = isReasoningModel(opts.model);
+        const body: Record<string, unknown> = {
             model: opts.model,
-            messages: opts.messages,
-            temperature: opts.temperature,
-            max_tokens: opts.maxTokens
+            messages: opts.messages
         };
+        if (opts.maxTokens !== undefined) {
+            body[reasoningModel ? 'max_completion_tokens' : 'max_tokens'] = reasoningModel
+                ? Math.max(opts.maxTokens, reasoningCompletionFloor(opts.reasoningEffort))
+                : opts.maxTokens;
+        }
+        if (opts.temperature !== undefined && !reasoningModel) {
+            body.temperature = opts.temperature;
+        }
+        if (opts.reasoningEffort !== undefined && opts.reasoningEffort !== null && reasoningModel) {
+            body.reasoning_effort = opts.reasoningEffort;
+        }
 
         let response: Response;
         try {
@@ -106,6 +120,14 @@ export class OpenRouterProvider implements LLMProvider {
         const choice = parsed.choices?.[0];
         const text = choice?.message?.content ?? '';
         if (!text) {
+            if (choice?.finish_reason === 'length') {
+                const budget = body.max_completion_tokens ?? body.max_tokens;
+                throw new ProviderError(
+                    `Provider returned empty content with finish_reason="length": the completion budget (${budget}) was exhausted before any text was produced` +
+                    (reasoningModel ? ', consumed by reasoning tokens. Raise agent.maxTokens.' : '. Raise agent.maxTokens.'),
+                    'malformed', response.status, rawText
+                );
+            }
             throw new ProviderError('Provider returned empty message content', 'malformed', response.status, rawText);
         }
 

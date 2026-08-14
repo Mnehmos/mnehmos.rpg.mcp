@@ -174,6 +174,21 @@ describe('invokeAgent', () => {
         expect(updated.tokensUsed).toBe(150);
     });
 
+    it('does not report a provider response as successful when it crosses a hard budget', async () => {
+        const agent = setupAgent({ budgetTokens: 1000 });
+        factory.register('openai', fakeProvider(async () => ({
+            text: 'too expensive', promptTokens: 800, completionTokens: 250, raw: '{}', durationMs: 1
+        })));
+
+        const result = await invokeAgent({ agentId: agent.id }, deps);
+
+        expect(result.status).toBe('budget_exhausted');
+        expect(result.response).toBe('');
+        expect(deps.agentRepo.findById(agent.id)!.tokensUsed).toBe(1050);
+        expect(deps.agentRepo.findCallById(result.callId!)!.status).toBe('budget_exhausted');
+        expect(deps.agentRepo.listJournal(agent.id)).toHaveLength(0);
+    });
+
     it('appends a journal entry of kind=response on success', async () => {
         const agent = setupAgent();
         factory.register('openai', fakeProvider(async () => ({

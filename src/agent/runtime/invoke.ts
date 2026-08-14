@@ -83,6 +83,14 @@ function emptyResult(agent: Agent, character: Character | NPC | null, status: Ag
     };
 }
 
+/** Provider usage is preferred, but some compatible gateways omit usage. Keep
+ * budget accounting conservative and deterministic instead of silently
+ * charging zero tokens for a successful response. */
+function estimateTokens(value: unknown): number {
+    const text = typeof value === 'string' ? value : JSON.stringify(value) ?? '';
+    return Math.max(1, Math.ceil(text.length / 4));
+}
+
 function resolveAgent(deps: AgentRuntimeDeps, input: InvokeInput): Agent | null {
     if (input.agentId) return deps.agentRepo.findById(input.agentId);
     if (input.characterId) return deps.agentRepo.findByCharacterId(input.characterId);
@@ -206,7 +214,25 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
         });
         clearTimeout(timeout);
 
-        // 6. Success path
+        // Account the provider's reported usage when available. A gateway that
+        // omits usage still consumes a conservative estimate, so a bounded
+        // budget cannot be bypassed by an incomplete response envelope.
+        const promptTokens = result.promptTokens ?? estimateTokens(composed.messages);
+        const completionTokens = result.completionTokens ?? estimateTokens(result.text);
+        const tokensSpent = promptTokens + completionTokens;
+        if (tokensSpent > 0) {
+            deps.agentRepo.incrementTokensUsed(agent.id, tokensSpent);
+        }
+        const accountedAgent = deps.agentRepo.findById(agent.id) ?? agent;
+        const budgetExceeded = accountedAgent.budgetTokens !== null
+            && accountedAgent.tokensUsed > accountedAgent.budgetTokens;
+        const callStatus: AgentCallStatus = budgetExceeded ? 'budget_exhausted' : 'ok';
+        const budgetMessage = budgetExceeded
+            ? `provider response exceeded token budget (used ${accountedAgent.tokensUsed} of ${accountedAgent.budgetTokens})`
+            : undefined;
+
+        // 6. Success path. A response that crossed a hard budget is recorded
+        // as unavailable and is not surfaced as NPC action state.
         const call = deps.agentRepo.recordCall({
             agentId: agent.id,
             requestId: input.requestId ?? null,
@@ -214,17 +240,29 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
             model: resolvedModel,
             messagesJson: JSON.stringify(composed.messages),
             rawResponse: result.raw,
-            promptTokens: result.promptTokens ?? null,
-            completionTokens: result.completionTokens ?? null,
+            promptTokens,
+            completionTokens,
             durationMs: result.durationMs,
-            status: 'ok',
+            status: callStatus,
             reasoningEffort: competency?.reasoningEffort ?? null,
-            competencySource: competency?.source ?? null
+            competencySource: competency?.source ?? null,
+            errorMessage: budgetMessage ?? null
         });
 
-        const tokensSpent = (result.promptTokens ?? 0) + (result.completionTokens ?? 0);
-        if (tokensSpent > 0) {
-            deps.agentRepo.incrementTokensUsed(agent.id, tokensSpent);
+        if (budgetExceeded) {
+            return {
+                callId: call.id,
+                agentId: agent.id,
+                characterId: agent.characterId,
+                characterName: character?.name ?? null,
+                response: '',
+                status: 'budget_exhausted',
+                reason: budgetMessage,
+                promptTokens: result.promptTokens ?? null,
+                completionTokens: result.completionTokens ?? null,
+                durationMs: result.durationMs,
+                finishReason: result.finishReason
+            };
         }
 
         // Close the circuit on success.

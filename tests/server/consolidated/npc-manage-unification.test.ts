@@ -173,6 +173,31 @@ describe('npc_manage unification — create + get_full_context', () => {
             expect(secrets[0].content).toBe('The royal seal is fake.');
         });
 
+        it('persists the fixed Luna competency policy through composite NPC creation', async () => {
+            const result = await handleNpcManage({
+                action: 'create',
+                name: 'Luna Companion',
+                stats: { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 },
+                agent: {
+                    provider: 'openrouter',
+                    model: 'openai/gpt-5.6-luna',
+                    competencyOverride: {
+                        model: 'openai/gpt-5.6-luna',
+                        reasoningEffort: 'medium'
+                    }
+                }
+            }, ctx);
+
+            const data = parseResult(result);
+            expect(data.agentId).toEqual(expect.any(String));
+            const agent = new AgentRepository(getDb(':memory:')).findById(data.agentId);
+            expect(agent?.provider).toBe('openrouter');
+            expect(agent?.competencyOverride).toEqual({
+                model: 'openai/gpt-5.6-luna',
+                reasoningEffort: 'medium'
+            });
+        });
+
         it('seeds an initial relationship when seedRelationship supplied', async () => {
             // First create a PC
             const db = getDb(':memory:');

@@ -10,10 +10,15 @@ import {
     ProviderCallOpts,
     ProviderCallResult,
     ProviderError,
-    ReasoningEffort,
     classifyFetchError,
     classifyHttpStatus
 } from './types.js';
+import {
+    isReasoningModel,
+    reasoningCompletionFloor
+} from './reasoning.js';
+
+export { isReasoningModel, REASONING_COMPLETION_FLOOR, reasoningCompletionFloor } from './reasoning.js';
 
 const DEFAULT_BASE = 'https://api.openai.com/v1';
 
@@ -46,36 +51,6 @@ interface OpenAIChatResponse {
  * Detect by model-name prefix. If OpenAI adds a new reasoning family in the
  * future, add the prefix here. Exported for testing.
  */
-export function isReasoningModel(model: string): boolean {
-    const m = model.toLowerCase();
-    return m.startsWith('o1')
-        || m.startsWith('o3')
-        || m.startsWith('o4')
-        || m.startsWith('gpt-5');
-}
-
-/**
- * For reasoning models, `max_completion_tokens` caps reasoning tokens AND visible
- * output together. A budget sized for a chat model (e.g. the agent default of 800)
- * is consumed entirely by reasoning, so the model stops at finish_reason="length"
- * with EMPTY content — the agent goes silent every call, deterministically.
- *
- * So we floor the completion budget for reasoning models, scaled by effort, leaving
- * headroom for actual output after the model finishes thinking. This only ever RAISES
- * the caller's value (never lowers it), and the cap is billed on actual usage, so a
- * short reply costs little regardless of the ceiling. Exported for testing.
- */
-export const REASONING_COMPLETION_FLOOR: Record<ReasoningEffort, number> = {
-    low: 4096,
-    medium: 8192,
-    high: 16384,
-    xhigh: 32768
-};
-
-export function reasoningCompletionFloor(effort?: ReasoningEffort | null): number {
-    return effort ? REASONING_COMPLETION_FLOOR[effort] : REASONING_COMPLETION_FLOOR.medium;
-}
-
 export class OpenAIProvider implements LLMProvider {
     readonly name = 'openai' as const;
     private readonly apiKey: string;

@@ -18,6 +18,11 @@ describe('shouldTripCircuit', () => {
         expect(shouldTripCircuit(new ProviderError('bad json', 'malformed'))).toBe(true);
     });
 
+    it('does not open the circuit for an empty provider response', () => {
+        expect(shouldTripCircuit(new ProviderError('Provider returned empty message content', 'malformed'))).toBe(false);
+        expect(shouldTripCircuit(new ProviderError('empty content with finish_reason="length"', 'malformed'))).toBe(false);
+    });
+
     it('trips for rate limits', () => {
         expect(shouldTripCircuit(new ProviderError('429', 'rate_limited'))).toBe(true);
     });

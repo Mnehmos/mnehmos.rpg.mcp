@@ -4,6 +4,7 @@
  */
 
 import { handleAgentManage, AgentManageTool } from '../../../src/server/consolidated/agent-manage.js';
+import { AgentRepository } from '../../../src/storage/repos/agent.repo.js';
 import { getDb, closeDb } from '../../../src/storage/index.js';
 import { CharacterRepository } from '../../../src/storage/repos/character.repo.js';
 import { randomUUID } from 'crypto';
@@ -237,6 +238,22 @@ describe('agent_manage tool', () => {
             expect(result.status).toBe('active');
             expect(result.circuitState).toBe('closed');
             expect(result.budgetRemaining).toBe(1000);
+            expect(result.recovery).toBeNull();
+        });
+
+        it('returns explicit recovery guidance for an exhausted budget', async () => {
+            const characterId = createCharacter('Kara');
+            await handleAgentManage(
+                { action: 'create', characterId, provider: 'openai', model: 'gpt-4o-mini', budgetTokens: 1000 },
+                ctx
+            );
+            const db = getDb(':memory:');
+            const agent = new AgentRepository(db).findByCharacterId(characterId)!;
+            new AgentRepository(db).incrementTokensUsed(agent.id, 1000);
+
+            const health = extractJson(await handleAgentManage({ action: 'health', characterId }, ctx));
+            expect(health.canInvoke).toBe(false);
+            expect(health.recovery).toMatchObject({ action: 'agent_manage.budget' });
         });
 
         it('updates budget and resets usage', async () => {

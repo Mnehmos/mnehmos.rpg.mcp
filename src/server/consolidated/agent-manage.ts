@@ -160,6 +160,28 @@ const BudgetSchema = z.object({
     resetUsage: z.boolean().optional().describe('Reset tokens_used to 0')
 }).refine(d => d.agentId || d.characterId, { message: 'agentId or characterId required' });
 
+function recoveryGuidance(agent: { id: string; status: string; circuitState: string; budgetTokens: number | null; tokensUsed: number }) {
+    if (agent.circuitState === 'open') {
+        return {
+            action: 'agent_manage.resume',
+            message: 'Circuit is open after recoverable provider failures. Resume this agent for a bounded probe.'
+        };
+    }
+    if (agent.budgetTokens !== null && agent.tokensUsed >= agent.budgetTokens) {
+        return {
+            action: 'agent_manage.budget',
+            message: 'Budget is exhausted. Reset usage or set a larger session budget before invoking again.'
+        };
+    }
+    if (agent.status === 'paused') {
+        return {
+            action: 'agent_manage.resume',
+            message: 'Agent is paused. Resume it when the session should allow companion inference.'
+        };
+    }
+    return null;
+}
+
 // ----- Prompt assembly -----
 
 const SetSliceSchema = z.object({
@@ -367,7 +389,15 @@ async function handleResume(args: z.infer<typeof ResumeSchema>): Promise<object>
         actionType: 'resume',
         success: true,
         agent: updated,
-        message: 'Agent resumed; circuit closed; failure counter reset.'
+        canInvoke: Boolean(updated
+            && updated.status === 'active'
+            && updated.circuitState !== 'open'
+            && (updated.budgetTokens === null || updated.tokensUsed < updated.budgetTokens)),
+        budgetRemaining: updated?.budgetTokens === null || updated?.budgetTokens === undefined
+            ? null
+            : Math.max(0, updated.budgetTokens - (updated.tokensUsed ?? 0)),
+        recovery: updated ? recoveryGuidance(updated) : null,
+        message: 'Agent resumed; circuit closed; failure counter reset. Budget state is unchanged.'
     };
 }
 
@@ -404,6 +434,7 @@ async function handleHealth(args: z.infer<typeof HealthSchema>): Promise<object>
             && agent.circuitState !== 'open'
             && providerAvailable
             && (agent.budgetTokens === null || agent.tokensUsed < agent.budgetTokens),
+        recovery: recoveryGuidance(agent),
         lastCallAt: lastCall?.createdAt ?? null,
         lastCallStatus: lastCall?.status ?? null,
         recentCallStatuses: recentCalls.map(c => c.status)
@@ -428,7 +459,8 @@ async function handleBudget(args: z.infer<typeof BudgetSchema>): Promise<object>
         tokensUsed: updated?.tokensUsed ?? 0,
         budgetRemaining: updated?.budgetTokens === null || updated?.budgetTokens === undefined
             ? null
-            : Math.max(0, updated.budgetTokens - (updated.tokensUsed ?? 0))
+            : Math.max(0, updated.budgetTokens - (updated.tokensUsed ?? 0)),
+        recovery: updated ? recoveryGuidance(updated) : null
     };
 }
 
