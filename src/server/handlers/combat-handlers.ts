@@ -2484,7 +2484,9 @@ export async function handleExecuteLairAction(args: unknown, ctx: SessionContext
 
 // Helper for tests
 export function clearCombatState() {
-    // No-op or clear manager
+    // CombatManager is a process-wide singleton, so leaving this as a no-op
+    // lets encounters leak between tests (and between concurrent test files).
+    getCombatManager().clear();
 }
 
 // ============================================================
