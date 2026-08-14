@@ -5,11 +5,9 @@
 
 import { z } from 'zod';
 import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/action-router.js';
-import { ItemRepository } from '../../storage/repos/item.repo.js';
-import { InventoryRepository } from '../../storage/repos/inventory.repo.js';
-import { CharacterRepository } from '../../storage/repos/character.repo.js';
+import type { InventoryRepository } from '../../storage/repos/inventory.repo.js';
 import { INVENTORY_LIMITS } from '../../schema/inventory.js';
-import { getDb } from '../../storage/index.js';
+import { getDomainServices } from '../domain-services.js';
 import { SessionContext } from '../types.js';
 import { RichFormatter } from '../utils/formatter.js';
 
@@ -25,11 +23,11 @@ type InventoryAction = typeof ACTIONS[number];
 // ═══════════════════════════════════════════════════════════════════════════
 
 function ensureDb() {
-    const db = getDb();
+    const services = getDomainServices();
     return {
-        itemRepo: new ItemRepository(db),
-        inventoryRepo: new InventoryRepository(db),
-        charRepo: new CharacterRepository(db)
+        itemRepo: services.item,
+        inventoryRepo: services.inventory,
+        charRepo: services.character
     };
 }
 

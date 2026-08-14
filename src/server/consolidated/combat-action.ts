@@ -10,8 +10,7 @@ import { SessionContext } from '../types.js';
 import { RichFormatter } from '../utils/formatter.js';
 import { handleExecuteCombatAction } from '../handlers/combat-handlers.js';
 import { getCombatManager } from '../state/combat-manager.js';
-import { getDb } from '../../storage/index.js';
-import { EncounterRepository } from '../../storage/repos/encounter.repo.js';
+import { getDomainServices } from '../domain-services.js';
 import { CombatEngine } from '../../engine/combat/engine.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -205,9 +204,7 @@ const definitions: Record<CombatAction, ActionDefinition> = {
             // wrap the create in a try/get fallback — the loser of the race
             // adopts the winner's engine.
             if (!engine) {
-                const db = getDb();
-                const repo = new EncounterRepository(db);
-                const persisted = repo.loadState(params.encounterId);
+                const persisted = getDomainServices().encounter.loadState(params.encounterId);
                 if (persisted) {
                     // Re-check in case another concurrent request restored it
                     // between our initial get() and now.

@@ -10,12 +10,11 @@ import { randomUUID } from 'crypto';
 import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/action-router.js';
 import { SessionContext } from '../types.js';
 import { RichFormatter } from '../utils/formatter.js';
-import { getDb } from '../../storage/index.js';
-import { WorldRepository } from '../../storage/repos/world.repo.js';
+import type { WorldRepository } from '../../storage/repos/world.repo.js';
 import { World, WorldEnvironmentSchema } from '../../schema/world.js';
 import { generateWorld as generateWorldProc } from '../../engine/worldgen/index.js';
 import { getWorldManager } from '../state/world-manager.js';
-import { WorldSnapshotRepository } from '../../storage/repos/world-snapshot.repo.js';
+import { getDomainServices } from '../domain-services.js';
 import { persistGeneratedWorldEntities } from '../../services/generated-world-persistence.service.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -30,8 +29,7 @@ type WorldManageAction = typeof ACTIONS[number];
 // ═══════════════════════════════════════════════════════════════════════════
 
 function getWorldRepo(): WorldRepository {
-    const db = getDb();
-    return new WorldRepository(db);
+    return getDomainServices().world;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -191,8 +189,9 @@ async function handleUpdate(args: z.infer<typeof UpdateSchema>): Promise<object>
 }
 
 async function handleGenerate(args: z.infer<typeof GenerateSchema>): Promise<object> {
-    const db = getDb();
-    const worldRepo = new WorldRepository(db);
+    const services = getDomainServices();
+    const db = services.db;
+    const worldRepo = services.world;
     const worldManager = getWorldManager();
 
     // Generate the procedural world
@@ -222,7 +221,7 @@ async function handleGenerate(args: z.infer<typeof GenerateSchema>): Promise<obj
 
     // Store in memory for fast access
     worldManager.create(world.id, generatedWorld);
-    new WorldSnapshotRepository(db).save(world.id, generatedWorld);
+    services.worldSnapshot.save(world.id, generatedWorld);
 
     // Calculate biome stats from 2D biomes array
     const biomeStats: Record<string, number> = {};

@@ -5,7 +5,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.0+-blue.svg)]()
 [![MCP](https://img.shields.io/badge/MCP-Compatible-green.svg)]()
 [![Tests](https://img.shields.io/badge/tests-2214%20passing-brightgreen.svg)]()
-[![Tools](https://img.shields.io/badge/MCP%20tools-33-blue.svg)]()
+[![Tools](https://img.shields.io/badge/MCP%20tools-36-blue.svg)]()
 
 **A rules-enforced RPG backend that turns any LLM into a game master who can't cheat.**
 
@@ -46,9 +46,9 @@ You talk to an AI (Claude, GPT, etc.) in natural language. You say things like "
 
 ## v1.0 Release (January 2026)
 
-### 83% Tool Reduction: 195 → 33 Tools (29 Consolidated + 4 Meta/Event)
+### 81% Tool Reduction: 195 → 36 Tools (31 Consolidated + 5 Meta/Event)
 
-This release consolidates 195 individual tools into **29 action-based tools** plus 4 standalone meta/event tools using:
+This release consolidates 195 individual tools into **31 action-based tools** plus 5 standalone meta/event tools using:
 
 - **Action enums** - Each tool handles multiple operations via an `action` parameter
 - **Fuzzy matching** - Typo-tolerant action matching with suggestions
@@ -61,7 +61,7 @@ This release consolidates 195 individual tools into **29 action-based tools** pl
 
 | Metric | Before | After | Change |
 |--------|--------|-------|--------|
-| MCP Tools | 195 | 33 | **83.1% reduction** |
+| MCP Tools | 195 | 36 | **81.5% reduction** |
 | Tests | 1,242 | 2,214 | +78% coverage |
 | Token overhead | ~50K | ~6-8K | **85% reduction** |
 
@@ -118,7 +118,7 @@ This engine implements the **Event-Driven Agentic AI Architecture**:
 
 ---
 
-## Consolidated Tools Reference (29 Tools)
+## Consolidated Tools Reference (31 Tools)
 
 ### Character & Party
 
@@ -318,7 +318,7 @@ src/
 │   ├── migrations.ts # SQLite schema definitions
 │   └── repos/        # Repository pattern for persistence
 ├── server/
-│   ├── consolidated/ # 29 action-based tools
+│   ├── consolidated/ # 31 action-based tools
 │   ├── handlers/     # Extracted handler implementations (combat, spatial)
 │   ├── consolidated-registry.ts  # Tool registration
 │   ├── meta-tools.ts # search_tools, load_tool_schema
@@ -354,10 +354,19 @@ docs/                 # White paper and LLM spatial guide
    LLMs cannot cast spells they don't know or claim damage they didn't roll.
 
 7. **Token efficiency**
-   29 consolidated tools with action routing reduce context overhead by 85%.
+   31 consolidated tools with action routing reduce context overhead by 85%.
 
 8. **Guiding errors**
    Invalid actions return suggestions, not just failures.
+
+## Tool-surface policy
+
+The consolidated MCP contracts are the public tool surface. The older
+world-map helpers in `src/server/tools.ts` are retained in compatibility mode
+as an internal adapter because `world_map` still delegates to their validated
+world persistence and patch implementation. New public tools must be added to
+the consolidated contracts, and the adapter matrix is enforced by
+`src/server/legacy-surface-policy.ts`.
 
 ---
 
@@ -365,9 +374,9 @@ docs/                 # White paper and LLM spatial guide
 
 ```bash
 npm test
-# 2214 tests passing, 7 skipped
-# 136 test files
-# Coverage across all 33 tools (29 consolidated + 4 meta/event)
+# 2252 tests passing, 7 skipped
+# 148 test files
+# Coverage across all 36 tools (31 consolidated + 5 meta/event)
 ```
 
 ---
@@ -391,7 +400,7 @@ Contributions welcome! Please:
 - [x] Corpse and loot mechanics
 - [x] NPC memory and relationships
 - [x] Improvisation engine
-- [x] Tool consolidation (195 → 33)
+- [x] Tool consolidation (195 → 36)
 - [x] Fuzzy action matching
 - [x] Preset systems (creatures, encounters, locations)
 - [ ] WebSocket real-time subscriptions

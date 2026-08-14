@@ -13,7 +13,6 @@ import { CharacterRepository } from '../../storage/repos/character.repo.js';
 import { InventoryRepository } from '../../storage/repos/inventory.repo.js';
 import { ItemRepository } from '../../storage/repos/item.repo.js';
 import { SessionContext } from '../types.js';
-import { buildConsolidatedRegistry } from '../consolidated-registry.js';
 import { handleCreate as handleCharacterCreate } from './character-manage.js';
 
 export interface McpResponse {
@@ -695,6 +694,10 @@ async function handleExecuteSequence(input: BatchManageInput, ctx: SessionContex
         };
     }
 
+    // Load the registry only when a sequence executes. Keeping this import
+    // lazy avoids a module cycle: the registry includes batch_manage, while
+    // batch_manage needs the registry only from this runtime path.
+    const { buildConsolidatedRegistry } = await import('../consolidated-registry.js');
     const registry = buildConsolidatedRegistry();
     const stopOnError = input.stopOnError ?? true;
 

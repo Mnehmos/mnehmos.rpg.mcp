@@ -32,6 +32,19 @@ export interface ToolRegistryEntry {
   handler: Function;
 }
 
+/**
+ * The complete definition of one consolidated MCP tool.
+ *
+ * Keeping the public tool shape, runtime schema, action documentation,
+ * metadata, and handler together prevents the registry from silently
+ * rebuilding a second, drifting description of the same tool.
+ */
+export interface ToolContract extends ToolRegistryEntry {
+  name: string;
+  description: string;
+  inputSchema: any;
+}
+
 export interface ToolRegistry {
   [toolName: string]: ToolRegistryEntry;
 }

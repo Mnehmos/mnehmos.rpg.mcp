@@ -46,7 +46,7 @@
     "url": "https://github.com/Mnehmos/rpg-mcp/issues"
   },
   "homepage": "https://github.com/Mnehmos/rpg-mcp#readme",
-  "description": "Complete tabletop RPG game engine via MCP - D&D 5e combat, procedural worldgen, NPC memory, 33 tools (29 consolidated + 4 meta/event)",
+  "description": "Complete tabletop RPG game engine via MCP - D&D 5e combat, procedural worldgen, NPC memory, 36 tools (31 consolidated + 5 meta/event)",
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.10.1",
