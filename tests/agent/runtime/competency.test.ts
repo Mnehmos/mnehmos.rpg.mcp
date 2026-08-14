@@ -65,6 +65,14 @@ describe('competency mapping', () => {
             reasoningEffort: null,
             source: 'override'
         });
+        expect(resolveCompetency(10, {
+            model: 'openai/gpt-5.6-luna',
+            reasoningEffort: 'medium'
+        })).toMatchObject({
+            model: 'openai/gpt-5.6-luna',
+            reasoningEffort: 'medium',
+            source: 'override'
+        });
     });
 
     it('rejects pro model variants in overrides', () => {

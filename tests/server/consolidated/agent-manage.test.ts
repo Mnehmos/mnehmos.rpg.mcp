@@ -4,6 +4,7 @@
  */
 
 import { handleAgentManage, AgentManageTool } from '../../../src/server/consolidated/agent-manage.js';
+import { AgentRepository } from '../../../src/storage/repos/agent.repo.js';
 import { getDb, closeDb } from '../../../src/storage/index.js';
 import { CharacterRepository } from '../../../src/storage/repos/character.repo.js';
 import { randomUUID } from 'crypto';
@@ -121,6 +122,39 @@ describe('agent_manage tool', () => {
             expect(parsed.characterName).toBe('Kara');
         });
 
+        it('persists an explicit model and reasoning policy for agent inference', async () => {
+            const characterId = createCharacter('Kara');
+
+            const result = await handleAgentManage(
+                {
+                    action: 'create',
+                    characterId,
+                    provider: 'openrouter',
+                    model: 'openai/gpt-5.6-luna',
+                    competencyOverride: {
+                        model: 'openai/gpt-5.6-luna',
+                        reasoningEffort: 'medium'
+                    }
+                },
+                ctx
+            );
+
+            const parsed = extractJson(result);
+            expect(parsed.success).toBe(true);
+            expect(parsed.agent.provider).toBe('openrouter');
+            expect(parsed.agent.model).toBe('openai/gpt-5.6-luna');
+            expect(parsed.agent.competencyOverride).toEqual({
+                model: 'openai/gpt-5.6-luna',
+                reasoningEffort: 'medium'
+            });
+
+            const loaded = extractJson(await handleAgentManage({ action: 'get', characterId }, ctx));
+            expect(loaded.agent.competencyOverride).toEqual({
+                model: 'openai/gpt-5.6-luna',
+                reasoningEffort: 'medium'
+            });
+        });
+
         it('refuses duplicate agents for the same character', async () => {
             const characterId = createCharacter('Kara');
             await handleAgentManage(
@@ -204,6 +238,22 @@ describe('agent_manage tool', () => {
             expect(result.status).toBe('active');
             expect(result.circuitState).toBe('closed');
             expect(result.budgetRemaining).toBe(1000);
+            expect(result.recovery).toBeNull();
+        });
+
+        it('returns explicit recovery guidance for an exhausted budget', async () => {
+            const characterId = createCharacter('Kara');
+            await handleAgentManage(
+                { action: 'create', characterId, provider: 'openai', model: 'gpt-4o-mini', budgetTokens: 1000 },
+                ctx
+            );
+            const db = getDb(':memory:');
+            const agent = new AgentRepository(db).findByCharacterId(characterId)!;
+            new AgentRepository(db).incrementTokensUsed(agent.id, 1000);
+
+            const health = extractJson(await handleAgentManage({ action: 'health', characterId }, ctx));
+            expect(health.canInvoke).toBe(false);
+            expect(health.recovery).toMatchObject({ action: 'agent_manage.budget' });
         });
 
         it('updates budget and resets usage', async () => {

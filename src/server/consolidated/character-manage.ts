@@ -251,6 +251,35 @@ function initialHitPoints(hitDie: number, constitutionModifier: number, level: n
     return firstLevel + Math.max(0, level - 1) * laterLevel;
 }
 
+function levelUpHitPointRule(character: {
+    characterClass?: string | null;
+    race?: string | null;
+    stats: { con: number };
+}, levelsGained: number) {
+    const className = character.characterClass || 'Adventurer';
+    const classSource = findOpen5eClass(className);
+    const classData = CLASS_DATA[className.trim().toLowerCase().replace(/^srd[-_:]/, '')];
+    const hitDie = classSource?.hitDie
+        ?? Number.parseInt(classData?.hitDice.replace('d', '') ?? '8', 10);
+    const constitutionModifier = Math.floor((character.stats.con - 10) / 2);
+    const hitDieIncrease = Math.max(1, Math.floor(hitDie / 2) + 1 + constitutionModifier);
+    const speciesSource = character.race ? findOpen5eSpecies(character.race) : undefined;
+    const speciesMaxHpPerLevel = speciesSource?.mechanics
+        .filter((mechanic) => mechanic.type === 'max_hp_per_level')
+        .reduce((total, mechanic) => total + mechanic.value, 0) ?? 0;
+    const hpPerLevel = hitDieIncrease + speciesMaxHpPerLevel;
+
+    return {
+        mode: 'average' as const,
+        levelsGained,
+        hitDie,
+        constitutionModifier,
+        speciesMaxHpPerLevel,
+        hpPerLevel,
+        hpIncrease: hpPerLevel * levelsGained,
+    };
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // ACTION HANDLERS
 // ═══════════════════════════════════════════════════════════════════════════
@@ -639,12 +668,22 @@ async function handleLevelUp(args: z.infer<typeof LevelUpSchema>): Promise<objec
         throw new Error(`Target level ${targetLevel} must be greater than current level ${currentLevel}`);
     }
 
-    const updates: Record<string, unknown> = { level: targetLevel };
-
-    if (args.hpIncrease) {
-        updates.maxHp = (char.maxHp || 0) + args.hpIncrease;
-        updates.hp = (char.hp || 0) + args.hpIncrease;
-    }
+    const levelsGained = targetLevel - currentLevel;
+    const hpRule = levelUpHitPointRule(char, levelsGained);
+    // Omitted HP uses the engine's deterministic average progression. Treat an
+    // explicit zero the same way: zero is not a legal ordinary D&D level-up
+    // increment, and silently persisting it was the defect this action exposed.
+    const hpIncrease = args.hpIncrease && args.hpIncrease > 0
+        ? args.hpIncrease
+        : hpRule.hpIncrease;
+    const hpProvenance = args.hpIncrease && args.hpIncrease > 0
+        ? { mode: 'explicit' as const, levelsGained, hpIncrease }
+        : hpRule;
+    const updates: Record<string, unknown> = {
+        level: targetLevel,
+        maxHp: (char.maxHp || 0) + hpIncrease,
+        hp: (char.hp || 0) + hpIncrease,
+    };
 
     // Recompute spell slots for the new level. Without this, level_up would
     // not grant the new caster slots a player earned with the level. Mirrors
@@ -663,8 +702,9 @@ async function handleLevelUp(args: z.infer<typeof LevelUpSchema>): Promise<objec
         name: char.name,
         oldLevel: currentLevel,
         newLevel: targetLevel,
-        hpIncrease: args.hpIncrease || 0,
-        newMaxHp: updates.maxHp || char.maxHp,
+        hpIncrease,
+        hpProvenance,
+        newMaxHp: updates.maxHp ?? char.maxHp,
         spellSlots: updates.spellSlots,
         message: `Leveled up to ${targetLevel}!`
     };

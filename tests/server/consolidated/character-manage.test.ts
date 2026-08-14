@@ -664,6 +664,12 @@ describe('character_manage consolidated tool', () => {
             expect(parsed.oldLevel).toBe(1);
             expect(parsed.newLevel).toBe(2);
             expect(parsed.message).toContain('Leveled up');
+            expect(parsed.hpIncrease).toBeGreaterThan(0);
+            expect(parsed.hpProvenance.mode).toBe('average');
+
+            const stored = characterRepo.findById(characterId)!;
+            expect(stored.maxHp).toBe(parsed.newMaxHp);
+            expect(stored.hp).toBeGreaterThan(10);
         });
 
         it('should increase HP when specified', async () => {
@@ -687,6 +693,40 @@ describe('character_manage consolidated tool', () => {
 
             const parsed = extractJson(result.content[0].text);
             expect(parsed.newLevel).toBe(5);
+            expect(parsed.hpIncrease).toBe(20);
+            expect(parsed.hpProvenance.levelsGained).toBe(4);
+        });
+
+        it('derives source-backed Paladin HP for a multi-level advancement', async () => {
+            const result = await handleCharacterManage({
+                action: 'create',
+                name: 'Mara',
+                class: 'Paladin',
+                race: 'Human',
+                stats: { str: 16, dex: 10, con: 14, int: 8, wis: 10, cha: 14 },
+                level: 1,
+                hp: 12,
+                maxHp: 12
+            }, ctx);
+            const paladinId = extractJson(result.content[0].text).id;
+
+            const levelUp = await handleCharacterManage({
+                action: 'level_up',
+                characterId: paladinId,
+                targetLevel: 7
+            }, ctx);
+            const parsed = extractJson(levelUp.content[0].text);
+
+            // Paladin d10, CON +2: 8 average HP per level for six levels.
+            expect(parsed.hpIncrease).toBe(48);
+            expect(parsed.newMaxHp).toBe(60);
+            expect(parsed.hpProvenance).toMatchObject({
+                mode: 'average',
+                levelsGained: 6,
+                hitDie: 10,
+                constitutionModifier: 2,
+                hpPerLevel: 8
+            });
         });
 
         it('should reject lower target level', async () => {
