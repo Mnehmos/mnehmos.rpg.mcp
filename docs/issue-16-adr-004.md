@@ -1,7 +1,7 @@
 ## ADR-004: Legacy Tool Surface Strategy (Deprecate vs Compatibility Mode)
 
 ### Status
-Proposed
+Accepted
 
 ### Context
 The consolidated runtime path is active, while `src/server/tools.ts` remains as a legacy-style tool surface.
@@ -9,10 +9,17 @@ The consolidated runtime path is active, while `src/server/tools.ts` remains as 
 ### Problem
 Without explicit policy, dual surfaces increase maintenance cost and risk behavior divergence.
 
-### Decision (to be made)
-Choose one explicit strategy and document it:
-1. **Deprecate/remove legacy surface** with migration notes, or
-2. **Retain compatibility mode** with explicit support guarantees and parity tests
+### Decision
+Retain **compatibility mode**. The consolidated MCP tools are the only public
+registration surface. `src/server/tools.ts` remains an internal adapter for
+the world-map implementation until that implementation is migrated behind the
+same contract, and no new public legacy tools may be added.
+
+The supported adapter matrix is the seven world-map operations listed in
+`src/server/legacy-surface-policy.ts`. Each entry maps to one
+`world_map` action and is covered by a parity test. The adapter may be removed
+only after the consolidated implementation no longer imports it and a staged
+migration note is published.
 
 ### Consequences
 **If deprecate**
@@ -24,10 +31,10 @@ Choose one explicit strategy and document it:
 - Ongoing parity testing/maintenance overhead
 
 ### Acceptance Criteria
-- [ ] ADR finalized with selected option
-- [ ] README/docs updated with the decision
-- [ ] If retained: parity test matrix for critical workflows
-- [ ] If deprecated: staged removal plan and timeline
+- [x] ADR finalized with selected option
+- [x] README/docs updated with the decision
+- [x] If retained: parity test matrix for critical workflows
+- [x] If deprecated: staged removal plan and timeline
 
 ### Source
 Architecture analysis: `docs/ARCHITECTURE-CODEBASE-ANALYSIS.md`

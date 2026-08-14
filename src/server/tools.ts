@@ -14,6 +14,7 @@ import { StructureType } from '../schema/structure.js';
 import { BiomeType } from '../schema/biome.js';
 import { WorldSnapshotRepository } from '../storage/repos/world-snapshot.repo.js';
 import { persistGeneratedWorldEntities } from '../services/generated-world-persistence.service.js';
+export { LEGACY_SURFACE_POLICY } from './legacy-surface-policy.js';
 
 // Global state for the server (in-memory for MVP)
 let pubsub: PubSub | null = null;

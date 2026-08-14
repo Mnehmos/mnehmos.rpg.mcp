@@ -20,9 +20,7 @@ import {
     handleExecuteLairAction
 } from '../handlers/combat-handlers.js';
 import { expandCreatureTemplate, listAllTemplates } from '../../data/creature-presets.js';
-import { getDb } from '../../storage/index.js';
-import { CombatActionLogRepository } from '../../storage/repos/combat-action-log.repo.js';
-import { EncounterRepository } from '../../storage/repos/encounter.repo.js';
+import { getDomainServices } from '../domain-services.js';
 import { CombatEngine } from '../../engine/combat/engine.js';
 import { getCombatManager } from '../state/combat-manager.js';
 import { getAgentRuntime, buildAgentRuntime } from '../../agent/runtime/deps.js';
@@ -238,7 +236,7 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                     const runtime = getAgentRuntime() ?? (() => {
                         const factory = new ProviderFactory();
                         factory.initialize();
-                        return buildAgentRuntime(getDb(), factory);
+                        return buildAgentRuntime(getDomainServices().db, factory);
                     })();
 
                     const agent = runtime.agentRepo.findByCharacterId(currentActorId);
@@ -365,9 +363,7 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                 let loadedFromDb = false;
 
                 if (!engine) {
-                    const db = getDb();
-                    const repo = new EncounterRepository(db);
-                    const persisted = repo.loadState(params.encounterId);
+                    const persisted = getDomainServices().encounter.loadState(params.encounterId);
                     if (persisted) {
                         engine = new CombatEngine(params.encounterId);
                         engine.loadState(persisted);
@@ -389,9 +385,7 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
                     // DB state. Roll back the in-memory addParticipants and
                     // surface an explicit error.
                     try {
-                        const db = getDb();
-                        const repo = new EncounterRepository(db);
-                        repo.saveState(params.encounterId, state);
+                        getDomainServices().encounter.saveState(params.encounterId, state);
                     } catch (err) {
                         // Roll back: drop the just-added participants so memory
                         // matches DB. Use the engine's state directly since we
@@ -490,8 +484,7 @@ const definitions: Record<CombatManageAction, ActionDefinition> = {
     get_history: {
         schema: GetHistorySchema,
         handler: async (params: z.infer<typeof GetHistorySchema>) => {
-            const db = getDb();
-            const actionLogRepo = new CombatActionLogRepository(db);
+            const actionLogRepo = getDomainServices().combatActionLog;
 
             let actions;
             if (params.round !== undefined) {

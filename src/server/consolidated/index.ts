@@ -1,7 +1,7 @@
 /**
  * Consolidated Tools Index
  *
- * Exports all 29 consolidated tools for the v1.0 clean-break release.
+ * Exports all 31 consolidated tools for the v1.0 clean-break release.
  * Each tool uses action-based routing with fuzzy matching and guiding errors.
  */
 
@@ -92,37 +92,39 @@ import { BatchManageTool, handleBatchManage } from './batch-manage.js';
 import { AgentManageTool, handleAgentManage } from './agent-manage.js';
 import { PerceptionManageTool, handlePerceptionManage } from './perception-manage.js';
 import { SceneManageTool, handleSceneManage } from './scene-manage.js';
+import { defineToolContract } from './contracts.js';
+import type { ToolContract } from '../tool-metadata.js';
 
-export const ConsolidatedTools = [
-    { tool: SecretManageTool, handler: handleSecretManage },
-    { tool: RestManageTool, handler: handleRestManage },
-    { tool: ConcentrationManageTool, handler: handleConcentrationManage },
-    { tool: NarrativeManageTool, handler: handleNarrativeManage },
-    { tool: ScrollManageTool, handler: handleScrollManage },
-    { tool: CharacterManageTool, handler: handleCharacterManage },
-    { tool: PartyManageTool, handler: handlePartyManage },
-    { tool: ItemManageTool, handler: handleItemManage },
-    { tool: InventoryManageTool, handler: handleInventoryManage },
-    { tool: CorpseManageTool, handler: handleCorpseManage },
-    { tool: CombatManageTool, handler: handleCombatManage },
-    { tool: CombatActionTool, handler: handleCombatAction },
-    { tool: CombatMapTool, handler: handleCombatMap },
-    { tool: WorldManageTool, handler: handleWorldManage },
-    { tool: WorldMapTool, handler: handleWorldMap },
-    { tool: SpatialManageTool, handler: handleSpatialManage },
-    { tool: QuestManageTool, handler: handleQuestManage },
-    { tool: NpcManageTool, handler: handleNpcManage },
-    { tool: AuraManageTool, handler: handleAuraManage },
-    { tool: TheftManageTool, handler: handleTheftManage },
-    { tool: ImprovisationManageTool, handler: handleImprovisationManage },
-    { tool: MathManageTool, handler: handleMathManage },
-    { tool: StrategyManageTool, handler: handleStrategyManage },
-    { tool: TurnManageTool, handler: handleTurnManage },
-    { tool: SpawnManageTool, handler: handleSpawnManage },
-    { tool: SessionManageTool, handler: handleSessionManage },
-    { tool: TravelManageTool, handler: handleTravelManage },
-    { tool: BatchManageTool, handler: handleBatchManage },
-    { tool: AgentManageTool, handler: handleAgentManage },
-    { tool: PerceptionManageTool, handler: handlePerceptionManage },
-    { tool: SceneManageTool, handler: handleSceneManage },
+export const ConsolidatedTools: ToolContract[] = [
+    defineToolContract(SecretManageTool, handleSecretManage),
+    defineToolContract(RestManageTool, handleRestManage),
+    defineToolContract(ConcentrationManageTool, handleConcentrationManage),
+    defineToolContract(NarrativeManageTool, handleNarrativeManage),
+    defineToolContract(ScrollManageTool, handleScrollManage),
+    defineToolContract(CharacterManageTool, handleCharacterManage),
+    defineToolContract(PartyManageTool, handlePartyManage),
+    defineToolContract(ItemManageTool, handleItemManage),
+    defineToolContract(InventoryManageTool, handleInventoryManage),
+    defineToolContract(CorpseManageTool, handleCorpseManage),
+    defineToolContract(CombatManageTool, handleCombatManage),
+    defineToolContract(CombatActionTool, handleCombatAction),
+    defineToolContract(CombatMapTool, handleCombatMap),
+    defineToolContract(WorldManageTool, handleWorldManage),
+    defineToolContract(WorldMapTool, handleWorldMap),
+    defineToolContract(SpatialManageTool, handleSpatialManage),
+    defineToolContract(QuestManageTool, handleQuestManage),
+    defineToolContract(NpcManageTool, handleNpcManage),
+    defineToolContract(AuraManageTool, handleAuraManage),
+    defineToolContract(TheftManageTool, handleTheftManage),
+    defineToolContract(ImprovisationManageTool, handleImprovisationManage),
+    defineToolContract(MathManageTool, handleMathManage),
+    defineToolContract(StrategyManageTool, handleStrategyManage),
+    defineToolContract(TurnManageTool, handleTurnManage),
+    defineToolContract(SpawnManageTool, handleSpawnManage),
+    defineToolContract(SessionManageTool, handleSessionManage),
+    defineToolContract(TravelManageTool, handleTravelManage),
+    defineToolContract(BatchManageTool, handleBatchManage),
+    defineToolContract(AgentManageTool, handleAgentManage),
+    defineToolContract(PerceptionManageTool, handlePerceptionManage),
+    defineToolContract(SceneManageTool, handleSceneManage),
 ];

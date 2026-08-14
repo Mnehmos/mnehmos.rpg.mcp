@@ -58,10 +58,12 @@ import { buildConsolidatedRegistry } from './consolidated-registry.js';
 
 // PubSub and utilities
 import { PubSub } from '../engine/pubsub.js';
-import { registerEventTools } from './events.js';
+import { registerEventInboxBridge, registerEventTools } from './events.js';
 import { AuditLogger } from './audit.js';
 import { withSession } from './types.js';
 import { closeDb, campaignDbPath, assertNoLegacyDatabase, useSingleUserDatabase } from '../storage/index.js';
+import { setWorldPubSub } from './tools.js';
+import { setCombatPubSub } from './handlers/combat-handlers.js';
 
 // Agent runtime
 import { ProviderFactory } from '../agent/provider/factory.js';
@@ -221,6 +223,9 @@ async function main() {
 
   // App-level singletons shared across every McpServer instance buildServer() creates.
   const pubsub = new PubSub();
+  setWorldPubSub(pubsub);
+  setCombatPubSub(pubsub);
+  registerEventInboxBridge(pubsub);
   const auditLogger = new AuditLogger();
 
   // =========================================================================
