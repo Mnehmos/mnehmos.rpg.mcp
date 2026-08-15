@@ -221,7 +221,6 @@ describe('invokeAgent', () => {
         expect(result.reason).toContain('cannot fund the reasoning completion floor');
         expect(deps.agentRepo.findCallById(result.callId!)!.status).toBe('budget_exhausted');
     });
-
     it('appends a journal entry of kind=response on success', async () => {
         const agent = setupAgent();
         factory.register('openai', fakeProvider(async () => ({

@@ -1,5 +1,6 @@
 import { OpenRouterProvider } from '../../../src/agent/provider/openrouter.js';
 import { ProviderError } from '../../../src/agent/provider/types.js';
+import { REASONING_COMPLETION_FLOOR } from '../../../src/agent/provider/reasoning.js';
 
 function mockFetch(opts: { status?: number; body: string }): {
     fn: typeof fetch;
