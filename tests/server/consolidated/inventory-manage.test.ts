@@ -84,6 +84,12 @@ describe('inventory_manage consolidated tool', () => {
             expect(InventoryManageTool.description).toContain('get');
             expect(InventoryManageTool.description).toContain('get_detailed');
         });
+
+        it('distinguishes a world grant from an atomic character handoff', () => {
+            expect(InventoryManageTool.description).toContain('use this for a player-to-NPC handoff');
+            expect(InventoryManageTool.description).toContain('give is a world/DM grant');
+            expect(InventoryManageTool.description).toContain('fromCharacterId and toCharacterId');
+        });
     });
 
     describe('give action', () => {

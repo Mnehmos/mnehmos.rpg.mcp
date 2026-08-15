@@ -534,9 +534,11 @@ export const InventoryManageTool = {
 3. equip - Slot weapons/armor (updates AC automatically)
 
 🔄 COMMON ACTIONS:
-- transfer: Move items between characters
+- transfer: Move items between characters atomically (use this for a player-to-NPC handoff)
 - use: Consume potions/scrolls (removes item, shows effect)
 - get_detailed: Show weight, capacity, and item details
+
+IMPORTANT: give is a world/DM grant to one character and does not remove an item from another character. For a handoff, always use transfer with fromCharacterId and toCharacterId.
 
 ⚔️ EQUIPMENT SLOTS:
 mainhand, offhand, armor, head, feet, accessory
