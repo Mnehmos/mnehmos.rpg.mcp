@@ -133,7 +133,8 @@ describe('quest_manage consolidated tool', () => {
             expect(data.name).toBe('Rescue the Princess');
             expect(data.questId).toBeDefined();
             expect(data.objectives).toHaveLength(1);
-            expect(data.objectives[0].id).toBeDefined();
+            expect(data.objectives[0].id).toEqual(expect.any(String));
+            expect(data.objectives[0].id).not.toBe('');
             expect(data.objectives[0].description).toBe('Find the tower');
         });
 

@@ -1,6 +1,5 @@
 import { OpenRouterProvider } from '../../../src/agent/provider/openrouter.js';
 import { ProviderError } from '../../../src/agent/provider/types.js';
-import { REASONING_COMPLETION_FLOOR } from '../../../src/agent/provider/reasoning.js';
 
 function mockFetch(opts: { status?: number; body: string }): {
     fn: typeof fetch;
@@ -86,7 +85,7 @@ describe('OpenRouterProvider', () => {
         expect(mock.lastRequest.url).toBe('https://openrouter.ai/api/v1/chat/completions');
     });
 
-    it('uses reasoning parameters and floors the completion budget for namespaced GPT-5 models', async () => {
+    it('uses reasoning parameters without raising the caller completion cap for namespaced GPT-5 models', async () => {
         const mock = mockFetch({
             body: JSON.stringify({ choices: [{ message: { content: 'x' } }] })
         });
@@ -101,7 +100,7 @@ describe('OpenRouterProvider', () => {
         });
 
         const body = JSON.parse(mock.lastRequest.init?.body as string);
-        expect(body.max_completion_tokens).toBe(REASONING_COMPLETION_FLOOR.medium);
+        expect(body.max_completion_tokens).toBe(300);
         expect(body.max_tokens).toBeUndefined();
         expect(body.temperature).toBeUndefined();
         expect(body.reasoning_effort).toBe('medium');

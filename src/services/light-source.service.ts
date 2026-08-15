@@ -8,6 +8,7 @@ export interface LightSourceProfile {
     brightRadiusFeet: number;
     dimRadiusFeet: number;
     shape: LightSourceShape;
+    consumesItem: boolean;
 }
 
 function positiveInteger(value: unknown): number | null {
@@ -26,12 +27,14 @@ function profileFromProperties(properties: Record<string, unknown>): LightSource
     const dimRadiusFeet = positiveInteger(source.dimRadiusFeet);
     if (!durationMinutes || !brightRadiusFeet || !dimRadiusFeet) return null;
 
+    const kind = typeof source.kind === 'string' && source.kind.trim() ? source.kind.trim() : 'custom';
     return {
-        kind: typeof source.kind === 'string' && source.kind.trim() ? source.kind.trim() : 'custom',
+        kind,
         durationMinutes,
         brightRadiusFeet,
         dimRadiusFeet,
         shape: source.shape === 'cone' ? 'cone' : 'radius',
+        consumesItem: typeof source.consumesItem === 'boolean' ? source.consumesItem : kind === 'torch',
     };
 }
 
@@ -54,6 +57,7 @@ export function getLightSourceProfile(item: Pick<Item, 'name' | 'properties'>): 
             brightRadiusFeet: 20,
             dimRadiusFeet: 20,
             shape: 'radius',
+            consumesItem: true,
         };
     }
     if (name.includes('bullseye') && name.includes('lantern')) {
@@ -63,6 +67,7 @@ export function getLightSourceProfile(item: Pick<Item, 'name' | 'properties'>): 
             brightRadiusFeet: 60,
             dimRadiusFeet: 60,
             shape: 'cone',
+            consumesItem: false,
         };
     }
     if (name === 'lantern' || (name.includes('hooded') && name.includes('lantern'))) {
@@ -72,6 +77,7 @@ export function getLightSourceProfile(item: Pick<Item, 'name' | 'properties'>): 
             brightRadiusFeet: 30,
             dimRadiusFeet: 30,
             shape: 'radius',
+            consumesItem: false,
         };
     }
     return null;
@@ -84,5 +90,6 @@ export function lightSourceProperties(profile: LightSourceProfile): Record<strin
         brightRadiusFeet: profile.brightRadiusFeet,
         dimRadiusFeet: profile.dimRadiusFeet,
         shape: profile.shape,
+        consumesItem: profile.consumesItem,
     };
 }

@@ -112,7 +112,12 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
     const resolvedModel = competency?.model ?? agent.model;
 
     // 2. Preflight gates
-    const pre = preflight({ agent, character });
+    const pre = preflight({
+        agent,
+        character,
+        model: resolvedModel,
+        reasoningEffort: competency?.reasoningEffort ?? null
+    });
     if (pre.skipped) {
         // Persist a call row so health/audit reflects the skip
         const call = deps.agentRepo.recordCall({
@@ -202,13 +207,19 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
     // 5. Call provider with timeout
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), agent.timeoutMs);
+    const remainingBudget = agent.budgetTokens === null
+        ? null
+        : Math.max(0, agent.budgetTokens - agent.tokensUsed);
+    const completionBudget = remainingBudget === null
+        ? agent.maxTokens
+        : Math.min(agent.maxTokens, remainingBudget);
 
     try {
         const result = await provider.call({
             model: resolvedModel,
             messages: composed.messages,
             temperature: agent.temperature,
-            maxTokens: agent.maxTokens,
+            maxTokens: completionBudget,
             reasoningEffort: competency?.reasoningEffort ?? null,
             signal: controller.signal
         });
@@ -225,7 +236,7 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
         }
         const accountedAgent = deps.agentRepo.findById(agent.id) ?? agent;
         const budgetExceeded = accountedAgent.budgetTokens !== null
-            && accountedAgent.tokensUsed > accountedAgent.budgetTokens;
+            && accountedAgent.tokensUsed >= accountedAgent.budgetTokens;
         const callStatus: AgentCallStatus = budgetExceeded ? 'budget_exhausted' : 'ok';
         const budgetMessage = budgetExceeded
             ? `provider response exceeded token budget (used ${accountedAgent.tokensUsed} of ${accountedAgent.budgetTokens})`
@@ -249,6 +260,12 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
             errorMessage: budgetMessage ?? null
         });
 
+        // The provider returned successfully even when accounting exhausted the
+        // budget, so clear stale circuit failures before this result exits.
+        if (agent.consecutiveFailures > 0 || agent.circuitState !== 'closed') {
+            deps.agentRepo.recordSuccess(agent.id);
+        }
+
         if (budgetExceeded) {
             return {
                 callId: call.id,
@@ -263,11 +280,6 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
                 durationMs: result.durationMs,
                 finishReason: result.finishReason
             };
-        }
-
-        // Close the circuit on success.
-        if (agent.consecutiveFailures > 0 || agent.circuitState !== 'closed') {
-            deps.agentRepo.recordSuccess(agent.id);
         }
 
         // Auto-append response to agent journal.

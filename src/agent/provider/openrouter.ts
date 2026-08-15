@@ -14,10 +14,7 @@ import {
     classifyFetchError,
     classifyHttpStatus
 } from './types.js';
-import {
-    isReasoningModel,
-    reasoningCompletionFloor
-} from './reasoning.js';
+import { isReasoningModel } from './reasoning.js';
 
 const DEFAULT_BASE = 'https://openrouter.ai/api/v1';
 
@@ -76,9 +73,7 @@ export class OpenRouterProvider implements LLMProvider {
             messages: opts.messages
         };
         if (opts.maxTokens !== undefined) {
-            body[reasoningModel ? 'max_completion_tokens' : 'max_tokens'] = reasoningModel
-                ? Math.max(opts.maxTokens, reasoningCompletionFloor(opts.reasoningEffort))
-                : opts.maxTokens;
+            body[reasoningModel ? 'max_completion_tokens' : 'max_tokens'] = opts.maxTokens;
         }
         if (opts.temperature !== undefined && !reasoningModel) {
             body.temperature = opts.temperature;

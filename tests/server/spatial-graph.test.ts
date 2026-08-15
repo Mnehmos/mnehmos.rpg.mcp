@@ -354,6 +354,38 @@ describe('PHASE-1: Spatial Graph System', () => {
             });
         });
 
+        it('does not let malformed light effects reveal a dark room', async () => {
+            const { handleLookAtSurroundings, handleMoveCharacterToRoom } = await import('../../src/server/handlers/spatial-handlers.js');
+            const { CustomEffectsRepository } = await import('../../src/storage/repos/custom-effects.repo.js');
+
+            const darkRoomId = crypto.randomUUID();
+            const observerId = crypto.randomUUID();
+            spatialRepo.create(createTestRoom({ id: darkRoomId, atmospherics: ['DARKNESS'] }));
+            characterRepo.create(createTestCharacter({ id: observerId, conditions: [] }));
+            await handleMoveCharacterToRoom({ characterId: observerId, roomId: darkRoomId }, mockCtx);
+
+            new CustomEffectsRepository(getDb(':memory:')).apply({
+                target_id: observerId,
+                target_type: 'character',
+                name: 'Light source: Corrupt Lantern',
+                description: 'Malformed light data.',
+                source: { type: 'natural', entity_id: 'corrupt-item', entity_name: 'Corrupt Lantern' },
+                category: 'neutral',
+                power_level: 1,
+                mechanics: [],
+                duration: { type: 'minutes', value: 60 },
+                triggers: [],
+                removal_conditions: [{ type: 'duration_expires' }],
+                stackable: false,
+                max_stacks: 1,
+            });
+
+            const result = await handleLookAtSurroundings({ observerId }, mockCtx);
+            const parsed = JSON.parse(result.content[0].text);
+            expect(parsed.description).toContain("can't see");
+            expect(parsed.lightSource).toBeNull();
+        });
+
         it('LOCKED exits are not visible', async () => {
             const { handleLookAtSurroundings, handleMoveCharacterToRoom } = await import('../../src/server/handlers/spatial-handlers.js');
 

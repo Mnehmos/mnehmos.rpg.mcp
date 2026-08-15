@@ -9,6 +9,7 @@ describe('light source profiles', () => {
             brightRadiusFeet: 20,
             dimRadiusFeet: 20,
             shape: 'radius',
+            consumesItem: true,
         });
     });
 
@@ -19,6 +20,7 @@ describe('light source profiles', () => {
             brightRadiusFeet: 60,
             dimRadiusFeet: 60,
             shape: 'cone',
+            consumesItem: false,
         });
     });
 
@@ -29,6 +31,7 @@ describe('light source profiles', () => {
             brightRadiusFeet: 30,
             dimRadiusFeet: 30,
             shape: 'radius',
+            consumesItem: false,
         });
     });
 
@@ -49,6 +52,7 @@ describe('light source profiles', () => {
             brightRadiusFeet: 10,
             dimRadiusFeet: 20,
             shape: 'radius',
+            consumesItem: false,
         });
     });
 });

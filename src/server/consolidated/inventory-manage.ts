@@ -318,7 +318,7 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
     use: {
         schema: UseSchema,
         handler: async (params: z.infer<typeof UseSchema>) => {
-            const { inventoryRepo, itemRepo, charRepo, effectsRepo } = ensureDb();
+            const { db, inventoryRepo, itemRepo, charRepo, effectsRepo } = ensureDb();
 
             const item = itemRepo.findById(params.itemId);
             if (!item) {
@@ -339,35 +339,40 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
             }
 
             if (lightSource) {
-                const removed = inventoryRepo.removeItem(params.characterId, params.itemId, 1);
-                if (!removed) throw new Error(`Failed to use light source`);
-
                 const properties = item.properties ?? {};
                 const open5e = properties.open5e && typeof properties.open5e === 'object'
                     ? properties.open5e as Record<string, unknown>
                     : undefined;
-                const effect = effectsRepo.apply({
-                    target_id: params.characterId,
-                    target_type: 'character',
-                    name: `Light source: ${item.name}`,
-                    description: `${item.name} is lit and provides ${lightSource.brightRadiusFeet} ft bright light plus ${lightSource.dimRadiusFeet} ft dim light${lightSource.shape === 'cone' ? ' in a cone' : ''}.`,
-                    source: {
-                        type: 'natural',
-                        entity_id: item.id,
-                        entity_name: item.name,
-                    },
-                    category: 'neutral',
-                    power_level: 1,
-                    mechanics: [{
-                        type: 'sense_granted',
-                        value: `${lightSource.shape}:${lightSource.brightRadiusFeet}ft bright/${lightSource.dimRadiusFeet}ft dim`,
-                    }],
-                    duration: { type: 'minutes', value: lightSource.durationMinutes },
-                    triggers: [],
-                    removal_conditions: [{ type: 'duration_expires' }],
-                    stackable: false,
-                    max_stacks: 1,
-                });
+                const lightResult = db.transaction(() => {
+                    if (lightSource.consumesItem && !inventoryRepo.removeItem(params.characterId, params.itemId, 1)) {
+                        throw new Error(`Failed to use light source`);
+                    }
+
+                    const effect = effectsRepo.apply({
+                        target_id: params.characterId,
+                        target_type: 'character',
+                        name: `Light source: ${item.name}`,
+                        description: `${item.name} is lit and provides ${lightSource.brightRadiusFeet} ft bright light plus ${lightSource.dimRadiusFeet} ft dim light${lightSource.shape === 'cone' ? ' in a cone' : ''}.`,
+                        source: {
+                            type: 'natural',
+                            entity_id: item.id,
+                            entity_name: item.name,
+                        },
+                        category: 'neutral',
+                        power_level: 1,
+                        mechanics: [{
+                            type: 'sense_granted',
+                            value: `${lightSource.shape}:${lightSource.brightRadiusFeet}ft bright/${lightSource.dimRadiusFeet}ft dim`,
+                        }],
+                        duration: { type: 'minutes', value: lightSource.durationMinutes },
+                        triggers: [],
+                        removal_conditions: [{ type: 'duration_expires' }],
+                        stackable: false,
+                        max_stacks: 1,
+                    });
+
+                    return { effect, consumed: lightSource.consumesItem };
+                })();
 
                 return {
                     success: true,
@@ -378,15 +383,16 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
                     lightSource: {
                         ...lightSource,
                         active: true,
-                        effectId: effect.id,
-                        expiresAt: effect.expires_at,
+                        effectId: lightResult.effect.id,
+                        expiresAt: lightResult.effect.expires_at,
+                        consumed: lightResult.consumed,
                         provenance: {
                             itemId: item.id,
                             itemName: item.name,
                             open5e: open5e ?? null,
                         },
                     },
-                    message: `Lit ${item.name}; the light is authoritative for ${lightSource.durationMinutes} minutes`,
+                    message: `${lightResult.consumed ? 'Consumed and lit' : 'Lit'} ${item.name}; the light is authoritative for ${lightSource.durationMinutes} minutes`,
                 };
             }
 
