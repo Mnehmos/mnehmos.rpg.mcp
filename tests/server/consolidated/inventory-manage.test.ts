@@ -367,6 +367,45 @@ describe('inventory_manage consolidated tool', () => {
             expect(data.error).toBeDefined();
             expect(data.message).toContain('not a consumable');
         });
+
+        it('lights a torch, consumes one torch, and persists provenance and duration', async () => {
+            const torchResult = await handleItemManage({
+                action: 'create',
+                name: 'Torch',
+                type: 'misc',
+                weight: 1,
+                value: 0.01,
+            }, ctx);
+            const torchId = parseItemResult(torchResult).item.id;
+            await handleInventoryManage({
+                action: 'give',
+                characterId: testCharId,
+                itemId: torchId,
+                quantity: 2,
+            }, ctx);
+
+            const data = parseResult(await handleInventoryManage({
+                action: 'use',
+                characterId: testCharId,
+                itemId: torchId,
+            }, ctx));
+
+            expect(data.success).toBe(true);
+            expect(data.lightSource).toMatchObject({
+                kind: 'torch',
+                durationMinutes: 60,
+                brightRadiusFeet: 20,
+                dimRadiusFeet: 20,
+                active: true,
+                provenance: { itemId: torchId, itemName: 'Torch' },
+            });
+            const inventory = parseResult(await handleInventoryManage({
+                action: 'get',
+                characterId: testCharId,
+            }, ctx));
+            expect(inventory.inventory.find((entry: { item: { id: string } }) => entry.item.id === torchId).quantity).toBe(1);
+            expect(getDb(':memory:').prepare('SELECT COUNT(*) AS count FROM custom_effects WHERE target_id = ? AND name = ?').get(testCharId, 'Light source: Torch')).toEqual({ count: 1 });
+        });
     });
 
     describe('equip action', () => {

@@ -325,11 +325,59 @@ export async function handleLookAtSurroundings(
     };
   }
 
+  // A lit torch/lantern is persisted as an active engine effect. Resolve it
+  // from the observer's room (not from model narration or browser state), so
+  // a light carried by any character in the room changes what can be seen.
+  const activeLight = getDb().prepare(`
+    SELECT e.id, e.name, e.description, e.source_entity_id, e.source_entity_name,
+           e.duration_value, e.expires_at, e.mechanics
+    FROM custom_effects e
+    JOIN characters c ON c.id = e.target_id
+    WHERE e.target_type = 'character'
+      AND c.current_room_id = ?
+      AND e.is_active = 1
+      AND e.name LIKE 'Light source:%'
+      AND (e.expires_at IS NULL OR e.expires_at > ?)
+    ORDER BY e.created_at DESC
+    LIMIT 1
+  `).get(currentRoomId, new Date().toISOString()) as {
+    id: number;
+    name: string;
+    description: string | null;
+    source_entity_id: string | null;
+    source_entity_name: string | null;
+    duration_value: number | null;
+    expires_at: string | null;
+    mechanics: string;
+  } | undefined;
+
+  let lightMechanics: unknown[] = [];
+  if (activeLight) {
+    try {
+      const parsedMechanics = JSON.parse(activeLight.mechanics);
+      if (Array.isArray(parsedMechanics)) lightMechanics = parsedMechanics;
+    } catch {
+      // A malformed legacy effect cannot grant vision, but it should not
+      // make the room look endpoint fail for everyone in the room.
+    }
+  }
+  const lightSource = activeLight ? {
+    effectId: activeLight.id,
+    name: activeLight.name,
+    description: activeLight.description,
+    sourceItemId: activeLight.source_entity_id,
+    sourceItemName: activeLight.source_entity_name,
+    durationMinutes: activeLight.duration_value,
+    expiresAt: activeLight.expires_at,
+    mechanics: lightMechanics,
+  } : null;
+
   // Check for darkness
   const isInDarkness = currentRoom.atmospherics.includes("DARKNESS");
   const hasLight =
     observer.conditions?.some((c) => c.name === "HAS_LIGHT") ||
-    observer.conditions?.some((c) => c.name === "DARKVISION");
+    observer.conditions?.some((c) => c.name === "DARKVISION") ||
+    Boolean(activeLight);
 
   if (isInDarkness && !hasLight) {
     return {
@@ -343,6 +391,7 @@ export async function handleLookAtSurroundings(
               exits: [],
               entities: [],
               atmospherics: currentRoom.atmospherics,
+              lightSource: null,
               roomId: currentRoom.id,
               roomName: currentRoom.name,
             },
@@ -394,6 +443,7 @@ export async function handleLookAtSurroundings(
             exits: formattedExits,
             entities: currentRoom.entityIds,
             atmospherics: currentRoom.atmospherics,
+            lightSource,
             biomeContext: currentRoom.biomeContext,
             visitedCount: currentRoom.visitedCount,
           },

@@ -318,6 +318,42 @@ describe('PHASE-1: Spatial Graph System', () => {
             expect(parsed.roomName).toBe('Dark Cave');
         });
 
+        it('an active engine light source permits vision in darkness', async () => {
+            const { handleLookAtSurroundings, handleMoveCharacterToRoom } = await import('../../src/server/handlers/spatial-handlers.js');
+            const { CustomEffectsRepository } = await import('../../src/storage/repos/custom-effects.repo.js');
+
+            const darkRoomId = crypto.randomUUID();
+            const observerId = crypto.randomUUID();
+            spatialRepo.create(createTestRoom({ id: darkRoomId, atmospherics: ['DARKNESS'] }));
+            characterRepo.create(createTestCharacter({ id: observerId, conditions: [] }));
+            await handleMoveCharacterToRoom({ characterId: observerId, roomId: darkRoomId }, mockCtx);
+
+            const effect = new CustomEffectsRepository(getDb(':memory:')).apply({
+                target_id: observerId,
+                target_type: 'character',
+                name: 'Light source: Torch',
+                description: 'A torch illuminates the room.',
+                source: { type: 'natural', entity_id: 'torch-item', entity_name: 'Torch' },
+                category: 'neutral',
+                power_level: 1,
+                mechanics: [{ type: 'sense_granted', value: 'radius:20ft bright/20ft dim' }],
+                duration: { type: 'minutes', value: 60 },
+                triggers: [],
+                removal_conditions: [{ type: 'duration_expires' }],
+                stackable: false,
+                max_stacks: 1,
+            });
+
+            const result = await handleLookAtSurroundings({ observerId }, mockCtx);
+            const parsed = JSON.parse(result.content[0].text);
+            expect(parsed.description).not.toContain("can't see");
+            expect(parsed.lightSource).toMatchObject({
+                effectId: effect.id,
+                sourceItemName: 'Torch',
+                durationMinutes: 60,
+            });
+        });
+
         it('LOCKED exits are not visible', async () => {
             const { handleLookAtSurroundings, handleMoveCharacterToRoom } = await import('../../src/server/handlers/spatial-handlers.js');
 

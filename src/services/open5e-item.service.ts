@@ -5,6 +5,7 @@ import {
     getOpen5eCatalogProvenance,
     Open5eItem,
 } from '../content/open5e-catalog.js';
+import { getLightSourceProfile, lightSourceProperties } from './light-source.service.js';
 
 export interface MaterializedOpen5eItem {
     item: Item;
@@ -17,6 +18,7 @@ export function open5eItemId(sourceKey: string): string {
 
 export function toEngineItem(sourceItem: Open5eItem, timestamp = new Date().toISOString()): Item {
     const provenance = getOpen5eCatalogProvenance();
+    const lightSource = getLightSourceProfile(sourceItem);
     return {
         id: open5eItemId(sourceItem.sourceKey),
         name: sourceItem.name,
@@ -26,6 +28,7 @@ export function toEngineItem(sourceItem: Open5eItem, timestamp = new Date().toIS
         value: sourceItem.valueCopper / 100,
         properties: {
             ...sourceItem.properties,
+            ...(lightSource ? { lightSource: lightSourceProperties(lightSource) } : {}),
             open5e: {
                 provider: provenance.provider,
                 packHash: provenance.packHash,

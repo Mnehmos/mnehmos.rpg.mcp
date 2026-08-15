@@ -6,10 +6,12 @@
 import { z } from 'zod';
 import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/action-router.js';
 import type { InventoryRepository } from '../../storage/repos/inventory.repo.js';
+import { CustomEffectsRepository } from '../../storage/repos/custom-effects.repo.js';
 import { INVENTORY_LIMITS } from '../../schema/inventory.js';
 import { getDomainServices } from '../domain-services.js';
 import { SessionContext } from '../types.js';
 import { RichFormatter } from '../utils/formatter.js';
+import { getLightSourceProfile } from '../../services/light-source.service.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -25,9 +27,11 @@ type InventoryAction = typeof ACTIONS[number];
 function ensureDb() {
     const services = getDomainServices();
     return {
+        db: services.db,
         itemRepo: services.item,
         inventoryRepo: services.inventory,
-        charRepo: services.character
+        charRepo: services.character,
+        effectsRepo: new CustomEffectsRepository(services.db),
     };
 }
 
@@ -314,15 +318,16 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
     use: {
         schema: UseSchema,
         handler: async (params: z.infer<typeof UseSchema>) => {
-            const { inventoryRepo, itemRepo, charRepo } = ensureDb();
+            const { inventoryRepo, itemRepo, charRepo, effectsRepo } = ensureDb();
 
             const item = itemRepo.findById(params.itemId);
             if (!item) {
                 throw new Error(`Item not found: ${params.itemId}`);
             }
 
-            if (item.type !== 'consumable') {
-                throw new Error(`Item "${item.name}" is not a consumable (type: ${item.type})`);
+            const lightSource = getLightSourceProfile(item);
+            if (item.type !== 'consumable' && !lightSource) {
+                throw new Error(`Item "${item.name}" is not a consumable or recognized light source (type: ${item.type})`);
             }
 
             const inventory = inventoryRepo.getInventory(params.characterId);
@@ -331,6 +336,58 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
             );
             if (!hasItem) {
                 throw new Error(`Character does not have item "${item.name}"`);
+            }
+
+            if (lightSource) {
+                const removed = inventoryRepo.removeItem(params.characterId, params.itemId, 1);
+                if (!removed) throw new Error(`Failed to use light source`);
+
+                const properties = item.properties ?? {};
+                const open5e = properties.open5e && typeof properties.open5e === 'object'
+                    ? properties.open5e as Record<string, unknown>
+                    : undefined;
+                const effect = effectsRepo.apply({
+                    target_id: params.characterId,
+                    target_type: 'character',
+                    name: `Light source: ${item.name}`,
+                    description: `${item.name} is lit and provides ${lightSource.brightRadiusFeet} ft bright light plus ${lightSource.dimRadiusFeet} ft dim light${lightSource.shape === 'cone' ? ' in a cone' : ''}.`,
+                    source: {
+                        type: 'natural',
+                        entity_id: item.id,
+                        entity_name: item.name,
+                    },
+                    category: 'neutral',
+                    power_level: 1,
+                    mechanics: [{
+                        type: 'sense_granted',
+                        value: `${lightSource.shape}:${lightSource.brightRadiusFeet}ft bright/${lightSource.dimRadiusFeet}ft dim`,
+                    }],
+                    duration: { type: 'minutes', value: lightSource.durationMinutes },
+                    triggers: [],
+                    removal_conditions: [{ type: 'duration_expires' }],
+                    stackable: false,
+                    max_stacks: 1,
+                });
+
+                return {
+                    success: true,
+                    actionType: 'use',
+                    itemName: item.name,
+                    characterId: params.characterId,
+                    effect: 'Light source lit',
+                    lightSource: {
+                        ...lightSource,
+                        active: true,
+                        effectId: effect.id,
+                        expiresAt: effect.expires_at,
+                        provenance: {
+                            itemId: item.id,
+                            itemName: item.name,
+                            open5e: open5e ?? null,
+                        },
+                    },
+                    message: `Lit ${item.name}; the light is authoritative for ${lightSource.durationMinutes} minutes`,
+                };
             }
 
             const properties = item.properties ?? {};
@@ -535,7 +592,7 @@ export const InventoryManageTool = {
 
 🔄 COMMON ACTIONS:
 - transfer: Move items between characters atomically (use this for a player-to-NPC handoff)
-- use: Consume potions/scrolls (removes item, shows effect)
+- use: Consume potions/scrolls or light a torch/lantern (persists duration and provenance)
 - get_detailed: Show weight, capacity, and item details
 
 IMPORTANT: give is a world/DM grant to one character and does not remove an item from another character. For a handoff, always use transfer with fromCharacterId and toCharacterId.
@@ -601,13 +658,21 @@ export async function handleInventoryManage(args: unknown, _ctx: SessionContext)
             });
             output += RichFormatter.success(parsed.message);
         } else if (parsed.actionType === 'use') {
-            output = RichFormatter.header('Item Used', '✨');
+            output = RichFormatter.header(parsed.lightSource ? 'Light Source Lit' : 'Item Used', parsed.lightSource ? '🔥' : '✨');
             output += RichFormatter.keyValue({
                 'Item': parsed.itemName,
                 'Target': parsed.targetId,
             });
             output += RichFormatter.section('Effect');
             output += `${parsed.effect}\n`;
+            if (parsed.lightSource) {
+                output += RichFormatter.keyValue({
+                    'Bright': `${parsed.lightSource.brightRadiusFeet} ft`,
+                    'Dim': `${parsed.lightSource.dimRadiusFeet} ft`,
+                    'Duration': `${parsed.lightSource.durationMinutes} minutes`,
+                    'Effect ID': parsed.lightSource.effectId,
+                });
+            }
             output += RichFormatter.success(parsed.message);
         } else if (parsed.actionType === 'equip' || parsed.actionType === 'unequip') {
             output = RichFormatter.header(parsed.actionType === 'equip' ? 'Item Equipped' : 'Item Unequipped', parsed.actionType === 'equip' ? '⚔️' : '📦');
