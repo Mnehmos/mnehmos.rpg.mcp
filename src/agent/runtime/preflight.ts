@@ -9,6 +9,8 @@
 import { Agent } from '../../schema/agent.js';
 import { Character, NPC } from '../../schema/character.js';
 import { AgentCallStatus } from '../../schema/agent.js';
+import { ReasoningEffort } from '../../schema/agent.js';
+import { isReasoningModel, reasoningCompletionFloor } from '../provider/reasoning.js';
 
 /** Conditions that should prevent the agent from acting. */
 const INCAPACITATING_CONDITIONS = new Set([
@@ -37,6 +39,8 @@ export type PreflightResult = PreflightSkip | PreflightPass;
 export function preflight(input: {
     agent: Agent;
     character: Character | NPC | null;
+    model?: string;
+    reasoningEffort?: ReasoningEffort | null;
 }): PreflightResult {
     const { agent, character } = input;
 
@@ -59,6 +63,19 @@ export function preflight(input: {
             skipped: true,
             status: 'budget_exhausted',
             reason: `budget_exhausted (used ${agent.tokensUsed} of ${agent.budgetTokens})`
+        };
+    }
+
+    if (
+        agent.budgetTokens !== null
+        && input.model
+        && isReasoningModel(input.model)
+        && agent.budgetTokens - agent.tokensUsed < reasoningCompletionFloor(input.reasoningEffort)
+    ) {
+        return {
+            skipped: true,
+            status: 'budget_exhausted',
+            reason: `budget_exhausted (remaining ${agent.budgetTokens - agent.tokensUsed} tokens cannot fund the reasoning completion floor)`
         };
     }
 

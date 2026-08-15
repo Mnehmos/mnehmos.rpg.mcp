@@ -84,6 +84,12 @@ describe('inventory_manage consolidated tool', () => {
             expect(InventoryManageTool.description).toContain('get');
             expect(InventoryManageTool.description).toContain('get_detailed');
         });
+
+        it('distinguishes a world grant from an atomic character handoff', () => {
+            expect(InventoryManageTool.description).toContain('use this for a player-to-NPC handoff');
+            expect(InventoryManageTool.description).toContain('give is a world/DM grant');
+            expect(InventoryManageTool.description).toContain('fromCharacterId and toCharacterId');
+        });
     });
 
     describe('give action', () => {
@@ -360,6 +366,82 @@ describe('inventory_manage consolidated tool', () => {
             const data = parseResult(result);
             expect(data.error).toBeDefined();
             expect(data.message).toContain('not a consumable');
+        });
+
+        it('lights a torch, consumes one torch, and persists provenance and duration', async () => {
+            const torchResult = await handleItemManage({
+                action: 'create',
+                name: 'Torch',
+                type: 'misc',
+                weight: 1,
+                value: 0.01,
+            }, ctx);
+            const torchId = parseItemResult(torchResult).item.id;
+            await handleInventoryManage({
+                action: 'give',
+                characterId: testCharId,
+                itemId: torchId,
+                quantity: 2,
+            }, ctx);
+
+            const data = parseResult(await handleInventoryManage({
+                action: 'use',
+                characterId: testCharId,
+                itemId: torchId,
+            }, ctx));
+
+            expect(data.success).toBe(true);
+            expect(data.lightSource).toMatchObject({
+                kind: 'torch',
+                durationMinutes: 60,
+                brightRadiusFeet: 20,
+                dimRadiusFeet: 20,
+                active: true,
+                provenance: { itemId: torchId, itemName: 'Torch' },
+                consumesItem: true,
+                consumed: true,
+            });
+            const inventory = parseResult(await handleInventoryManage({
+                action: 'get',
+                characterId: testCharId,
+            }, ctx));
+            expect(inventory.inventory.find((entry: { item: { id: string } }) => entry.item.id === torchId).quantity).toBe(1);
+            expect(getDb(':memory:').prepare('SELECT COUNT(*) AS count FROM custom_effects WHERE target_id = ? AND name = ?').get(testCharId, 'Light source: Torch')).toEqual({ count: 1 });
+        });
+
+        it('lights a hooded lantern without consuming the reusable lantern', async () => {
+            const lanternResult = await handleItemManage({
+                action: 'create',
+                name: 'Lantern, Hooded',
+                type: 'misc',
+                weight: 2,
+                value: 5,
+            }, ctx);
+            const lanternId = parseItemResult(lanternResult).item.id;
+            await handleInventoryManage({
+                action: 'give',
+                characterId: testCharId,
+                itemId: lanternId,
+                quantity: 1,
+            }, ctx);
+
+            const data = parseResult(await handleInventoryManage({
+                action: 'use',
+                characterId: testCharId,
+                itemId: lanternId,
+            }, ctx));
+
+            expect(data.success).toBe(true);
+            expect(data.lightSource).toMatchObject({
+                kind: 'hooded_lantern',
+                consumesItem: false,
+                consumed: false,
+            });
+            const inventory = parseResult(await handleInventoryManage({
+                action: 'get',
+                characterId: testCharId,
+            }, ctx));
+            expect(inventory.inventory.find((entry: { item: { id: string } }) => entry.item.id === lanternId).quantity).toBe(1);
         });
     });
 

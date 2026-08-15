@@ -5,6 +5,35 @@ import { CharacterRepository } from "../../storage/repos/character.repo.js";
 import { RoomNode, Exit, NodeNetwork } from "../../schema/spatial.js";
 import { SessionContext } from "../types.js";
 
+type LightEffectRow = {
+  id: number;
+  name: string;
+  description: string | null;
+  source_entity_id: string | null;
+  source_entity_name: string | null;
+  duration_value: number | null;
+  expires_at: string | null;
+  mechanics: string;
+};
+
+function parseSupportedLightMechanics(raw: string): unknown[] | null {
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return null;
+
+    const supported = parsed.some((mechanic) => {
+      if (!mechanic || typeof mechanic !== 'object') return false;
+      const entry = mechanic as { type?: unknown; value?: unknown };
+      return entry.type === 'sense_granted'
+        && typeof entry.value === 'string'
+        && /^(?:radius|cone):[1-9]\d*ft bright\/[1-9]\d*ft dim$/.test(entry.value);
+    });
+    return supported ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * PHASE-1: Spatial Graph System Tools
  * Tools for room/location persistence and spatial awareness
@@ -325,11 +354,49 @@ export async function handleLookAtSurroundings(
     };
   }
 
+  // A lit torch/lantern is persisted as an active engine effect. Resolve it
+  // from the observer's room (not from model narration or browser state), so
+  // a light carried by any character in the room changes what can be seen.
+  const activeLightCandidates = getDb().prepare(`
+    SELECT e.id, e.name, e.description, e.source_entity_id, e.source_entity_name,
+           e.duration_value, e.expires_at, e.mechanics
+    FROM custom_effects e
+    JOIN characters c ON c.id = e.target_id
+    WHERE e.target_type = 'character'
+      AND c.current_room_id = ?
+      AND e.is_active = 1
+      AND e.name LIKE 'Light source:%'
+      AND (e.expires_at IS NULL OR e.expires_at > ?)
+    ORDER BY e.created_at DESC
+  `).all(currentRoomId, new Date().toISOString()) as LightEffectRow[];
+
+  let activeLight: LightEffectRow | undefined;
+  let lightMechanics: unknown[] = [];
+  for (const candidate of activeLightCandidates) {
+    const mechanics = parseSupportedLightMechanics(candidate.mechanics);
+    if (mechanics) {
+      activeLight = candidate;
+      lightMechanics = mechanics;
+      break;
+    }
+  }
+  const lightSource = activeLight ? {
+    effectId: activeLight.id,
+    name: activeLight.name,
+    description: activeLight.description,
+    sourceItemId: activeLight.source_entity_id,
+    sourceItemName: activeLight.source_entity_name,
+    durationMinutes: activeLight.duration_value,
+    expiresAt: activeLight.expires_at,
+    mechanics: lightMechanics,
+  } : null;
+
   // Check for darkness
   const isInDarkness = currentRoom.atmospherics.includes("DARKNESS");
   const hasLight =
     observer.conditions?.some((c) => c.name === "HAS_LIGHT") ||
-    observer.conditions?.some((c) => c.name === "DARKVISION");
+    observer.conditions?.some((c) => c.name === "DARKVISION") ||
+    Boolean(activeLight);
 
   if (isInDarkness && !hasLight) {
     return {
@@ -343,6 +410,7 @@ export async function handleLookAtSurroundings(
               exits: [],
               entities: [],
               atmospherics: currentRoom.atmospherics,
+              lightSource: null,
               roomId: currentRoom.id,
               roomName: currentRoom.name,
             },
@@ -394,6 +462,7 @@ export async function handleLookAtSurroundings(
             exits: formattedExits,
             entities: currentRoom.entityIds,
             atmospherics: currentRoom.atmospherics,
+            lightSource,
             biomeContext: currentRoom.biomeContext,
             visitedCount: currentRoom.visitedCount,
           },

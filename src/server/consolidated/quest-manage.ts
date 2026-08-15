@@ -146,6 +146,18 @@ async function handleCreate(args: z.infer<typeof CreateSchema>): Promise<object>
         questId: quest.id,
         name: quest.name,
         objectiveCount: objectives.length,
+        // Return the generated IDs with the create receipt. Subsequent
+        // update/complete calls require the exact objective UUID; callers
+        // must never derive one from the quest ID or array position.
+        objectives: objectives.map(objective => ({
+            id: objective.id,
+            description: objective.description,
+            type: objective.type,
+            target: objective.target,
+            current: objective.current,
+            required: objective.required,
+            completed: objective.completed,
+        })),
         message: `Created quest "${quest.name}" with ${objectives.length} objectives`
     };
 }
@@ -520,6 +532,11 @@ Aliases: new→create, accept→assign, progress→update_objective, finish→co
 4. complete_objective - Mark objectives done
 5. complete - Turn in quest for rewards
 6. get_log - View character's quest journal
+
+IMPORTANT: create returns the exact questId and objective IDs. Use those IDs
+for update_objective and complete_objective; never derive an objective ID from
+the quest ID, objective name, or array position. If an ID is unavailable, use
+get or get_log first.
 
 🎯 OBJECTIVE TYPES (for create):
 Each objective requires a "type" field. Valid values:

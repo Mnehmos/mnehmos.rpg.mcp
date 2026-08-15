@@ -189,6 +189,38 @@ describe('invokeAgent', () => {
         expect(deps.agentRepo.listJournal(agent.id)).toHaveLength(0);
     });
 
+    it('treats exact budget consumption as exhausted and clears stale circuit failures', async () => {
+        const agent = setupAgent({ budgetTokens: 1000, circuitState: 'half_open', consecutiveFailures: 2 });
+        factory.register('openai', fakeProvider(async () => ({
+            text: 'exactly at the limit', promptTokens: 400, completionTokens: 600, raw: '{}', durationMs: 1
+        })));
+
+        const result = await invokeAgent({ agentId: agent.id }, deps);
+
+        expect(result.status).toBe('budget_exhausted');
+        expect(deps.agentRepo.findCallById(result.callId!)!.status).toBe('budget_exhausted');
+        expect(deps.agentRepo.findById(agent.id)!.consecutiveFailures).toBe(0);
+        expect(deps.agentRepo.findById(agent.id)!.circuitState).toBe('closed');
+    });
+
+    it('does not call a reasoning provider when the remaining budget cannot fund its floor', async () => {
+        const agent = setupAgent({
+            budgetTokens: 5000,
+            competencyOverride: { model: 'gpt-5.6-luna', reasoningEffort: 'medium' }
+        });
+        let called = false;
+        factory.register('openai', fakeProvider(async () => {
+            called = true;
+            return { text: 'should not run', raw: '{}', durationMs: 1 };
+        }));
+
+        const result = await invokeAgent({ agentId: agent.id }, deps);
+
+        expect(called).toBe(false);
+        expect(result.status).toBe('budget_exhausted');
+        expect(result.reason).toContain('cannot fund the reasoning completion floor');
+        expect(deps.agentRepo.findCallById(result.callId!)!.status).toBe('budget_exhausted');
+    });
     it('appends a journal entry of kind=response on success', async () => {
         const agent = setupAgent();
         factory.register('openai', fakeProvider(async () => ({
