@@ -88,6 +88,10 @@ interface CallRow {
     raw_response: string | null;
     prompt_tokens: number | null;
     completion_tokens: number | null;
+    total_tokens: number | null;
+    reasoning_tokens: number | null;
+    cost_micros: number | null;
+    cost_source: string | null;
     duration_ms: number | null;
     status: string;
     reasoning_effort: string | null;
@@ -171,6 +175,10 @@ function rowToCall(row: CallRow): AgentCall {
         rawResponse: row.raw_response,
         promptTokens: row.prompt_tokens,
         completionTokens: row.completion_tokens,
+        totalTokens: row.total_tokens,
+        reasoningTokens: row.reasoning_tokens,
+        costMicros: row.cost_micros,
+        costSource: row.cost_source as 'provider' | 'provider_upstream' | 'estimated' | null,
         durationMs: row.duration_ms,
         status: row.status as AgentCallStatus,
         reasoningEffort: row.reasoning_effort as ReasoningEffort | null,
@@ -527,6 +535,10 @@ export class AgentRepository {
         rawResponse?: string | null;
         promptTokens?: number | null;
         completionTokens?: number | null;
+        totalTokens?: number | null;
+        reasoningTokens?: number | null;
+        costUsd?: number | null;
+        costSource?: 'provider' | 'provider_upstream' | 'estimated' | null;
         durationMs?: number | null;
         status: AgentCallStatus;
         reasoningEffort?: ReasoningEffort | null;
@@ -539,9 +551,10 @@ export class AgentRepository {
         this.db.prepare(`
             INSERT INTO agent_calls (
                 id, agent_id, request_id, provider, model, messages_json, raw_response,
-                prompt_tokens, completion_tokens, duration_ms, status, reasoning_effort,
+                prompt_tokens, completion_tokens, total_tokens, reasoning_tokens,
+                cost_micros, cost_source, duration_ms, status, reasoning_effort,
                 competency_source, error_message, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         `).run(
             id,
             input.agentId,
@@ -552,6 +565,10 @@ export class AgentRepository {
             input.rawResponse ?? null,
             input.promptTokens ?? null,
             input.completionTokens ?? null,
+            input.totalTokens ?? null,
+            input.reasoningTokens ?? null,
+            input.costUsd === null || input.costUsd === undefined ? null : Math.round(input.costUsd * 1_000_000),
+            input.costSource ?? null,
             input.durationMs ?? null,
             input.status,
             input.reasoningEffort ?? null,
@@ -570,6 +587,10 @@ export class AgentRepository {
             raw_response: input.rawResponse ?? null,
             prompt_tokens: input.promptTokens ?? null,
             completion_tokens: input.completionTokens ?? null,
+            total_tokens: input.totalTokens ?? null,
+            reasoning_tokens: input.reasoningTokens ?? null,
+            cost_micros: input.costUsd === null || input.costUsd === undefined ? null : Math.round(input.costUsd * 1_000_000),
+            cost_source: input.costSource ?? null,
             duration_ms: input.durationMs ?? null,
             status: input.status,
             reasoning_effort: input.reasoningEffort ?? null,

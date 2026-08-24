@@ -44,6 +44,35 @@ describe('OpenRouterProvider', () => {
         expect(result.completionTokens).toBe(80);
     });
 
+    it('preserves provider total, reasoning, and dollar cost metadata', async () => {
+        const mock = mockFetch({
+            body: JSON.stringify({
+                id: 'gen-usage-1',
+                choices: [{ message: { content: 'The guard nods.' }, finish_reason: 'stop' }],
+                usage: {
+                    prompt_tokens: 44,
+                    completion_tokens: 12,
+                    total_tokens: 56,
+                    completion_tokens_details: { reasoning_tokens: 3 },
+                    cost: 0.000456
+                }
+            })
+        });
+        const provider = new OpenRouterProvider({ apiKey: 'or-test', fetchImpl: mock.fn });
+
+        const result = await provider.call({
+            model: 'openai/gpt-5.6-luna',
+            messages: [{ role: 'user', content: 'Greet the guard.' }],
+            maxTokens: 100,
+            reasoningEffort: 'medium'
+        });
+
+        expect(result.totalTokens).toBe(56);
+        expect(result.reasoningTokens).toBe(3);
+        expect(result.costUsd).toBe(0.000456);
+        expect(result.costSource).toBe('provider');
+    });
+
     it('sends attribution headers when configured', async () => {
         const mock = mockFetch({
             body: JSON.stringify({ choices: [{ message: { content: 'x' } }] })

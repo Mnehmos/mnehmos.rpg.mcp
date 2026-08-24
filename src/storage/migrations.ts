@@ -1119,6 +1119,10 @@ function runMigrations(db: Database.Database) {
       raw_response TEXT,
       prompt_tokens INTEGER,
       completion_tokens INTEGER,
+      total_tokens INTEGER,
+      reasoning_tokens INTEGER,
+      cost_micros INTEGER,
+      cost_source TEXT,
       duration_ms INTEGER,
       status TEXT NOT NULL CHECK (status IN ('ok', 'timeout', 'rate_limited', 'error', 'circuit_open', 'budget_exhausted', 'incapable', 'paused', 'skipped')),
       reasoning_effort TEXT,
@@ -1143,6 +1147,22 @@ function runMigrations(db: Database.Database) {
   if (!callColumns.some(col => col.name === 'competency_source')) {
     console.error('[Migration] Adding competency_source column to agent_calls table');
     db.exec(`ALTER TABLE agent_calls ADD COLUMN competency_source TEXT;`);
+  }
+  if (!callColumns.some(col => col.name === 'total_tokens')) {
+    console.error('[Migration] Adding total_tokens column to agent_calls table');
+    db.exec(`ALTER TABLE agent_calls ADD COLUMN total_tokens INTEGER;`);
+  }
+  if (!callColumns.some(col => col.name === 'reasoning_tokens')) {
+    console.error('[Migration] Adding reasoning_tokens column to agent_calls table');
+    db.exec(`ALTER TABLE agent_calls ADD COLUMN reasoning_tokens INTEGER;`);
+  }
+  if (!callColumns.some(col => col.name === 'cost_micros')) {
+    console.error('[Migration] Adding cost_micros column to agent_calls table');
+    db.exec(`ALTER TABLE agent_calls ADD COLUMN cost_micros INTEGER;`);
+  }
+  if (!callColumns.some(col => col.name === 'cost_source')) {
+    console.error('[Migration] Adding cost_source column to agent_calls table');
+    db.exec(`ALTER TABLE agent_calls ADD COLUMN cost_source TEXT;`);
   }
 }
 

@@ -13,6 +13,7 @@ export interface ChatMessage {
 }
 
 export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh';
+export type ProviderCostSource = 'provider' | 'provider_upstream' | 'estimated';
 
 export interface ProviderCallOpts {
     model: string;
@@ -31,6 +32,14 @@ export interface ProviderCallResult {
     promptTokens?: number;
     /** Tokens charged by the provider (completion). May be undefined for some providers. */
     completionTokens?: number;
+    /** Total provider-reported tokens when available. */
+    totalTokens?: number;
+    /** Reasoning tokens included in completion_tokens when the provider reports them. */
+    reasoningTokens?: number;
+    /** Provider-reported USD cost when the gateway includes it. */
+    costUsd?: number;
+    /** Whether costUsd came from the provider or a local estimate. */
+    costSource?: ProviderCostSource;
     /** Raw response body as a string (for replay/debug). */
     raw: string;
     /** Wall-clock duration of the request, milliseconds. */

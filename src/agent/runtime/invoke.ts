@@ -49,6 +49,10 @@ export interface InvokeResult {
     reason?: string;
     promptTokens: number | null;
     completionTokens: number | null;
+    totalTokens: number | null;
+    reasoningTokens: number | null;
+    costUsd: number | null;
+    costSource: 'provider' | 'provider_upstream' | 'estimated' | null;
     durationMs: number | null;
     finishReason?: string;
 }
@@ -64,6 +68,10 @@ function notFound(reason: string): InvokeResult {
         reason,
         promptTokens: null,
         completionTokens: null,
+        totalTokens: null,
+        reasoningTokens: null,
+        costUsd: null,
+        costSource: null,
         durationMs: null
     };
 }
@@ -79,6 +87,10 @@ function emptyResult(agent: Agent, character: Character | NPC | null, status: Ag
         reason,
         promptTokens: null,
         completionTokens: null,
+        totalTokens: null,
+        reasoningTokens: null,
+        costUsd: null,
+        costSource: null,
         durationMs: null
     };
 }
@@ -230,6 +242,8 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
         // budget cannot be bypassed by an incomplete response envelope.
         const promptTokens = result.promptTokens ?? estimateTokens(composed.messages);
         const completionTokens = result.completionTokens ?? estimateTokens(result.text);
+        const totalTokens = result.totalTokens ?? promptTokens + completionTokens;
+        const reasoningTokens = result.reasoningTokens ?? 0;
         const tokensSpent = promptTokens + completionTokens;
         if (tokensSpent > 0) {
             deps.agentRepo.incrementTokensUsed(agent.id, tokensSpent);
@@ -253,6 +267,10 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
             rawResponse: result.raw,
             promptTokens,
             completionTokens,
+            totalTokens,
+            reasoningTokens,
+            costUsd: result.costUsd ?? null,
+            costSource: result.costSource ?? 'estimated',
             durationMs: result.durationMs,
             status: callStatus,
             reasoningEffort: competency?.reasoningEffort ?? null,
@@ -275,8 +293,12 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
                 response: '',
                 status: 'budget_exhausted',
                 reason: budgetMessage,
-                promptTokens: result.promptTokens ?? null,
-                completionTokens: result.completionTokens ?? null,
+                promptTokens,
+                completionTokens,
+                totalTokens,
+                reasoningTokens,
+                costUsd: result.costUsd ?? null,
+                costSource: result.costSource ?? 'estimated',
                 durationMs: result.durationMs,
                 finishReason: result.finishReason
             };
@@ -308,6 +330,10 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
                     round: input.round ?? null,
                     promptTokens: result.promptTokens ?? null,
                     completionTokens: result.completionTokens ?? null,
+                    totalTokens,
+                    reasoningTokens,
+                    costUsd: result.costUsd ?? null,
+                    costSource: result.costSource ?? 'estimated',
                     durationMs: result.durationMs,
                     status: 'ok'
                 }
@@ -323,8 +349,12 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
             characterName: character?.name ?? null,
             response: result.text,
             status: 'ok',
-            promptTokens: result.promptTokens ?? null,
-            completionTokens: result.completionTokens ?? null,
+            promptTokens,
+            completionTokens,
+            totalTokens,
+            reasoningTokens,
+            costUsd: result.costUsd ?? null,
+            costSource: result.costSource ?? 'estimated',
             durationMs: result.durationMs,
             finishReason: result.finishReason
         };
@@ -368,6 +398,10 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
             reason: message,
             promptTokens: null,
             completionTokens: null,
+            totalTokens: null,
+            reasoningTokens: null,
+            costUsd: null,
+            costSource: null,
             durationMs: null
         };
     }
