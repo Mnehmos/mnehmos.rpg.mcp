@@ -35,6 +35,10 @@ interface OpenRouterChatResponse {
     usage?: {
         prompt_tokens?: number;
         completion_tokens?: number;
+        total_tokens?: number;
+        completion_tokens_details?: { reasoning_tokens?: number };
+        cost?: number;
+        cost_details?: { upstream_inference_cost?: number };
     };
     error?: { message?: string; code?: number };
 }
@@ -130,6 +134,13 @@ export class OpenRouterProvider implements LLMProvider {
             text,
             promptTokens: parsed.usage?.prompt_tokens,
             completionTokens: parsed.usage?.completion_tokens,
+            totalTokens: parsed.usage?.total_tokens,
+            reasoningTokens: parsed.usage?.completion_tokens_details?.reasoning_tokens,
+            ...(typeof parsed.usage?.cost === 'number'
+                ? { costUsd: parsed.usage.cost, costSource: 'provider' as const }
+                : typeof parsed.usage?.cost_details?.upstream_inference_cost === 'number'
+                    ? { costUsd: parsed.usage.cost_details.upstream_inference_cost, costSource: 'provider_upstream' as const }
+                    : {}),
             raw: rawText,
             durationMs,
             finishReason: choice?.finish_reason

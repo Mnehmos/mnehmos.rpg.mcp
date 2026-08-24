@@ -38,6 +38,8 @@ interface OpenAIChatResponse {
     usage?: {
         prompt_tokens?: number;
         completion_tokens?: number;
+        total_tokens?: number;
+        completion_tokens_details?: { reasoning_tokens?: number };
     };
     error?: { message?: string; type?: string };
 }
@@ -147,6 +149,8 @@ export class OpenAIProvider implements LLMProvider {
             text,
             promptTokens: parsed.usage?.prompt_tokens,
             completionTokens: parsed.usage?.completion_tokens,
+            totalTokens: parsed.usage?.total_tokens,
+            reasoningTokens: parsed.usage?.completion_tokens_details?.reasoning_tokens,
             raw: rawText,
             durationMs,
             finishReason: choice?.finish_reason
