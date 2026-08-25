@@ -1,6 +1,6 @@
 /**
  * Tests for consolidated inventory_manage tool
- * Validates all 8 actions: give, remove, transfer, use, equip, unequip, get, get_detailed
+ * Validates all 9 actions: give, remove, transfer, use, extinguish, equip, unequip, get, get_detailed
  */
 
 import { handleInventoryManage, InventoryManageTool } from '../../../src/server/consolidated/inventory-manage.js';
@@ -79,6 +79,7 @@ describe('inventory_manage consolidated tool', () => {
             expect(InventoryManageTool.description).toContain('remove');
             expect(InventoryManageTool.description).toContain('transfer');
             expect(InventoryManageTool.description).toContain('use');
+            expect(InventoryManageTool.description).toContain('extinguish');
             expect(InventoryManageTool.description).toContain('equip');
             expect(InventoryManageTool.description).toContain('unequip');
             expect(InventoryManageTool.description).toContain('get');
@@ -442,6 +443,63 @@ describe('inventory_manage consolidated tool', () => {
                 characterId: testCharId,
             }, ctx));
             expect(inventory.inventory.find((entry: { item: { id: string } }) => entry.item.id === lanternId).quantity).toBe(1);
+        });
+
+        it('extinguishes a light source, preserves the source item, and is idempotent', async () => {
+            const torchResult = await handleItemManage({
+                action: 'create',
+                name: 'Torch',
+                type: 'misc',
+                weight: 1,
+                value: 0.01,
+            }, ctx);
+            const torchId = parseItemResult(torchResult).item.id;
+            await handleInventoryManage({
+                action: 'give',
+                characterId: testCharId,
+                itemId: torchId,
+                quantity: 1,
+            }, ctx);
+            await handleInventoryManage({
+                action: 'use',
+                characterId: testCharId,
+                itemId: torchId,
+            }, ctx);
+
+            const extinguished = parseResult(await handleInventoryManage({
+                action: 'extinguish',
+                characterId: testCharId,
+                itemId: torchId,
+            }, ctx));
+
+            expect(extinguished).toMatchObject({
+                success: true,
+                actionType: 'extinguish',
+                extinguished: true,
+                lightSource: {
+                    kind: 'torch',
+                    active: false,
+                    effectId: expect.any(Number),
+                    provenance: { itemId: torchId, itemName: 'Torch' },
+                },
+            });
+            const repeated = parseResult(await handleInventoryManage({
+                action: 'extinguish',
+                characterId: testCharId,
+                itemId: torchId,
+            }, ctx));
+            expect(repeated).toMatchObject({
+                success: true,
+                actionType: 'extinguish',
+                alreadyExtinguished: true,
+                lightSource: { active: false, effectId: null },
+            });
+
+            const inventory = parseResult(await handleInventoryManage({
+                action: 'get',
+                characterId: testCharId,
+            }, ctx));
+            expect(inventory.inventory.find((entry: { item: { id: string }; quantity: number }) => entry.item.id === torchId)?.quantity ?? 0).toBe(0);
         });
     });
 
