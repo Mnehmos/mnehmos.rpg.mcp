@@ -1,6 +1,6 @@
 /**
  * Consolidated Inventory Management Tool
- * Replaces 8 separate tools: give_item, remove_item, transfer_item, use_item, equip_item, unequip_item, get_inventory, get_inventory_detailed
+ * Replaces 9 separate tools: give_item, remove_item, transfer_item, use_item, extinguish_light, equip_item, unequip_item, get_inventory, get_inventory_detailed
  */
 
 import { z } from 'zod';
@@ -17,7 +17,7 @@ import { getLightSourceProfile } from '../../services/light-source.service.js';
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════════════════
 
-const ACTIONS = ['give', 'remove', 'transfer', 'use', 'equip', 'unequip', 'get', 'get_detailed'] as const;
+const ACTIONS = ['give', 'remove', 'transfer', 'use', 'extinguish', 'equip', 'unequip', 'get', 'get_detailed'] as const;
 type InventoryAction = typeof ACTIONS[number];
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -148,6 +148,12 @@ const UseSchema = z.object({
     characterId: z.string().describe('Character using the item'),
     itemId: z.string().describe('The consumable item to use'),
     targetId: z.string().optional().describe('Optional target character for the effect')
+});
+
+const ExtinguishSchema = z.object({
+    action: z.literal('extinguish'),
+    characterId: z.string().describe('Character carrying or benefiting from the light source'),
+    itemId: z.string().describe('The light-source item to extinguish')
 });
 
 const EquipSchema = z.object({
@@ -440,6 +446,69 @@ const definitions: Record<InventoryAction, ActionDefinition> = {
         aliases: ['consume', 'apply', 'activate']
     },
 
+    extinguish: {
+        schema: ExtinguishSchema,
+        handler: async (params: z.infer<typeof ExtinguishSchema>) => {
+            const { itemRepo, effectsRepo } = ensureDb();
+            const item = itemRepo.findById(params.itemId);
+            if (!item) {
+                throw new Error(`Item not found: ${params.itemId}`);
+            }
+
+            const lightSource = getLightSourceProfile(item);
+            if (!lightSource) {
+                throw new Error(`Item "${item.name}" is not a recognized light source`);
+            }
+
+            const effectName = `Light source: ${item.name}`;
+            const activeEffect = effectsRepo.findByTargetAndName(params.characterId, 'character', effectName);
+            const provenance = {
+                itemId: item.id,
+                itemName: item.name,
+                open5e: item.properties?.open5e && typeof item.properties.open5e === 'object'
+                    ? item.properties.open5e
+                    : null,
+            };
+
+            if (!activeEffect) {
+                return {
+                    success: true,
+                    actionType: 'extinguish',
+                    characterId: params.characterId,
+                    itemName: item.name,
+                    lightSource: {
+                        ...lightSource,
+                        active: false,
+                        effectId: null,
+                        expiresAt: null,
+                        provenance,
+                    },
+                    alreadyExtinguished: true,
+                    message: `${item.name} is already extinguished`,
+                };
+            }
+
+            const extinguished = effectsRepo.deactivate(activeEffect.id);
+            return {
+                success: true,
+                actionType: 'extinguish',
+                characterId: params.characterId,
+                itemName: item.name,
+                effectId: extinguished?.id ?? activeEffect.id,
+                lightSource: {
+                    ...lightSource,
+                    active: false,
+                    effectId: extinguished?.id ?? activeEffect.id,
+                    expiresAt: activeEffect.expires_at,
+                    provenance,
+                },
+                extinguished: true,
+                message: `Extinguished ${item.name}`,
+            };
+        },
+        aliases: ['put_out', 'douse']
+    },
+
     equip: {
         schema: EquipSchema,
         handler: async (params: z.infer<typeof EquipSchema>) => {
@@ -599,6 +668,7 @@ export const InventoryManageTool = {
 🔄 COMMON ACTIONS:
 - transfer: Move items between characters atomically (use this for a player-to-NPC handoff)
 - use: Consume potions/scrolls or light a torch/lantern (persists duration and provenance)
+- extinguish: Put out an active torch/lantern without consuming or removing the source item
 - get_detailed: Show weight, capacity, and item details
 
 IMPORTANT: give is a world/DM grant to one character and does not remove an item from another character. For a handoff, always use transfer with fromCharacterId and toCharacterId.
@@ -679,6 +749,14 @@ export async function handleInventoryManage(args: unknown, _ctx: SessionContext)
                     'Effect ID': parsed.lightSource.effectId,
                 });
             }
+            output += RichFormatter.success(parsed.message);
+        } else if (parsed.actionType === 'extinguish') {
+            output = RichFormatter.header('Light Source Extinguished', '🕯️');
+            output += RichFormatter.keyValue({
+                'Item': parsed.itemName,
+                'Character': parsed.characterId,
+                'Effect ID': parsed.effectId,
+            });
             output += RichFormatter.success(parsed.message);
         } else if (parsed.actionType === 'equip' || parsed.actionType === 'unequip') {
             output = RichFormatter.header(parsed.actionType === 'equip' ? 'Item Equipped' : 'Item Unequipped', parsed.actionType === 'equip' ? '⚔️' : '📦');
