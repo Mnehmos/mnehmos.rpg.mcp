@@ -45,6 +45,13 @@ describe('math_manage consolidated tool', () => {
             expect(MathManageTool.description).toContain('simplify');
             expect(MathManageTool.description).toContain('projectile');
         });
+
+        it('points RPG checks at the registered stunt tool instead of nonexistent tools', () => {
+            expect(MathManageTool.description).toContain('improvisation_manage { action: "stunt"');
+            expect(MathManageTool.description).toContain('there is no standalone roll_saving_throw tool');
+            expect(MathManageTool.description).not.toContain('Use roll_skill_check');
+            expect(MathManageTool.description).not.toContain('Use roll_ability_check');
+        });
     });
 
     describe('roll action', () => {
