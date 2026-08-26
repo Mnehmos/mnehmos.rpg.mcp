@@ -45,6 +45,14 @@ describe('character_manage consolidated tool', () => {
             expect(CharacterManageTool.description).toContain('level_up');
         });
 
+        it('documents class-aware spell choices and exposes the D&D level range', () => {
+            expect(CharacterManageTool.description).toContain('knownSpells');
+            expect(CharacterManageTool.description).toContain('preparedSpells');
+            expect(CharacterManageTool.description).toContain('daily preparation is not used');
+            expect(CharacterManageTool.inputSchema.parse({ action: 'create', name: 'Level Seven', level: 7 }).level).toBe(7);
+            expect(() => CharacterManageTool.inputSchema.parse({ action: 'create', name: 'Too Powerful', level: 21 })).toThrow();
+        });
+
         it('exposes cantripsKnown through the MCP registration schema', () => {
             const parsed = CharacterManageTool.inputSchema.parse({
                 action: 'update',
@@ -123,6 +131,34 @@ describe('character_manage consolidated tool', () => {
             const updated = extractJson(updatedResult.content[0].text);
 
             expect(updated.cantripsKnown).toEqual(['Ray of Frost']);
+        });
+
+        it('rejects Wizard preparation outside the persisted spellbook', async () => {
+            const createdResult = await handleCharacterManage({
+                action: 'create',
+                name: 'Wizard Invariant Test',
+                class: 'Wizard',
+                knownSpells: ['Magic Missile'],
+                preparedSpells: ['Magic Missile'],
+            }, ctx);
+            const created = extractJson(createdResult.content[0].text);
+
+            const rejectedResult = await handleCharacterManage({
+                action: 'update',
+                characterId: created.id,
+                preparedSpells: ['Shield'],
+            }, ctx);
+            const rejected = extractJson(rejectedResult.content[0].text);
+
+            expect(rejected.error).toBe(true);
+            expect(rejected.message).toContain('spellbook');
+
+            const fetchedResult = await handleCharacterManage({
+                action: 'get',
+                characterId: created.id,
+            }, ctx);
+            const fetched = extractJson(fetchedResult.content[0].text);
+            expect(fetched.preparedSpells).toEqual(['Magic Missile']);
         });
 
         it('round-trips all character proficiency fields through get and update', async () => {

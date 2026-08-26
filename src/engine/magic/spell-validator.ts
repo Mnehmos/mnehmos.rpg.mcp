@@ -342,6 +342,12 @@ export function characterKnowsSpell(character: Character, spellName: string): { 
 
     // For classes that require preparation
     if (config.preparationRequired) {
+        if (charClass === 'wizard' && !knownSpells.some(s => s.toLowerCase() === spellName.toLowerCase())) {
+            return {
+                knows: false,
+                reason: `${spell.name} is not in your spellbook`
+            };
+        }
         if (!preparedSpells.some(s => s.toLowerCase() === spellName.toLowerCase())) {
             if (knownSpells.some(s => s.toLowerCase() === spellName.toLowerCase())) {
                 return {
