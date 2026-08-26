@@ -300,11 +300,10 @@ export const MathManageTool = {
 ⚠️ REDIRECT - DO NOT USE FOR:
 - Attack rolls → Use combat_action { action: "attack" }
 - Spell damage → Use combat_action { action: "cast_spell" }
-- Skill checks → Use roll_skill_check (auto-applies proficiency)
-- Ability checks → Use roll_ability_check (auto-applies modifier)
-- Saving throws → Use roll_saving_throw (auto-applies save proficiency)
+- Ability or skill checks → Use improvisation_manage { action: "stunt", actorId, skill, dc, effectType: "none" }
+- Saving throws → Use the combat/effect tool that requires the save; there is no standalone roll_saving_throw tool on this MCP surface
 
-These specialized tools look up character stats and apply bonuses automatically!
+The DM chooses the appropriate skill and DC, and the stunt action rolls the d20 and applies the character's skill modifier automatically. Do not invent or call roll_skill_check, roll_ability_check, or roll_saving_throw; those tools are not registered here.
 
 🎲 DICE ROLLING (roll) - Use ONLY for:
 - Stat generation (4d6dl1)
