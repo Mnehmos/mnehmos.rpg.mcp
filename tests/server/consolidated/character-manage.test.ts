@@ -45,6 +45,14 @@ describe('character_manage consolidated tool', () => {
             expect(CharacterManageTool.description).toContain('level_up');
         });
 
+        it('documents class-aware spell choices and exposes the D&D level range', () => {
+            expect(CharacterManageTool.description).toContain('knownSpells');
+            expect(CharacterManageTool.description).toContain('preparedSpells');
+            expect(CharacterManageTool.description).toContain('daily preparation is not used');
+            expect(CharacterManageTool.inputSchema.parse({ action: 'create', name: 'Level Seven', level: 7 }).level).toBe(7);
+            expect(() => CharacterManageTool.inputSchema.parse({ action: 'create', name: 'Too Powerful', level: 21 })).toThrow();
+        });
+
         it('exposes cantripsKnown through the MCP registration schema', () => {
             const parsed = CharacterManageTool.inputSchema.parse({
                 action: 'update',

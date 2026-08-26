@@ -19,7 +19,7 @@ const TOOL_DESCRIPTORS: Readonly<Record<string, ToolDescriptor>> = {
     concentration_manage: { category: 'concentration', keywords: ['concentration', 'spell', 'save', 'break', 'maintain'], capabilities: ['Concentration checks', 'Break concentration', 'Duration tracking'] },
     narrative_manage: { category: 'narrative', keywords: ['narrative', 'story', 'note', 'journal', 'log'], capabilities: ['Story notes', 'Search history', 'Context retrieval'] },
     scroll_manage: { category: 'scroll', keywords: ['scroll', 'spell', 'use', 'create', 'identify', 'arcana'], capabilities: ['Use scrolls', 'Create scrolls', 'Check usability'] },
-    character_manage: { category: 'character', keywords: ['character', 'pc', 'npc', 'create', 'update', 'stats', 'level'], capabilities: ['CRUD characters', 'Level up', 'Stats management'] },
+    character_manage: { category: 'character', keywords: ['character', 'pc', 'npc', 'create', 'update', 'stats', 'level', 'spell', 'spells', 'prepare', 'prepared', 'spellbook', 'cantrip', 'slots'], capabilities: ['CRUD characters', 'Level up', 'Stats management', 'Known/prepared spell management', 'Class spell-slot progression'] },
     party_manage: { category: 'party', keywords: ['party', 'group', 'member', 'leader', 'formation', 'gold'], capabilities: ['Party management', 'Member operations', 'Treasury'] },
     item_manage: { category: 'inventory', keywords: ['item', 'weapon', 'armor', 'gear', 'equipment', 'create'], capabilities: ['Item templates', 'CRUD items', 'Item search'] },
     inventory_manage: { category: 'inventory', keywords: ['inventory', 'give', 'take', 'equip', 'use', 'transfer'], capabilities: ['Give/take items', 'Equip/use', 'Transfer between characters'] },

@@ -95,7 +95,8 @@ const CreateSchema = z.object({
     hp: z.number().int().min(1).optional(),
     maxHp: z.number().int().min(1).optional(),
     ac: z.number().int().min(0).optional(),
-    level: z.number().int().min(1).optional().default(1),
+    level: z.number().int().min(1).max(20).optional().default(1)
+        .describe('Starting character level, from 1 through 20; determines class progression, features, and spell slots'),
     characterType: CharacterTypeSchema.optional().default('pc'),
     factionId: z.string().optional(),
     behavior: z.string().optional(),
@@ -140,7 +141,8 @@ const UpdateSchema = z.object({
     hp: z.number().int().min(0).optional(),
     maxHp: z.number().int().min(1).optional(),
     ac: z.number().int().min(0).optional(),
-    level: z.number().int().min(1).optional(),
+    level: z.number().int().min(1).max(20).optional()
+        .describe('Character level, from 1 through 20'),
     characterType: CharacterTypeSchema.optional(),
     stats: StatsSchema.partial().optional(),
     cantripsKnown: z.array(z.string()).optional(),
@@ -803,6 +805,14 @@ export const CharacterManageTool = {
 - provisionEquipment: true (default) auto-grants starting equipment
 - For custom items, create with item_manage first, then use inventory_manage
 
+✨ SPELLCASTING:
+- cantripsKnown, knownSpells, and preparedSpells are durable character fields.
+- Bard, Ranger, Sorcerer, and Warlock cast leveled spells from knownSpells; daily preparation is not used.
+- Cleric, Druid, Paladin, and Artificer cast leveled spells from preparedSpells.
+- Wizards keep leveled spells in knownSpells as their spellbook and cast only preparedSpells.
+- Class and level determine available spell levels and slot progression; spell casting validates the saved choices and consumes the authoritative slots.
+- Use character_manage.update to change a character's durable spell choices. Do not invent spell names, slots, or class progression.
+
 Actions: ${ACTIONS.join(', ')}
 Aliases: new/add/spawn->create, fetch/find->get, modify/edit->update`,
     actionSchemas: router.actionSchemas,
@@ -819,13 +829,13 @@ Aliases: new/add/spawn->create, fetch/find->get, modify/edit->update`,
         hp: z.number().int().optional(),
         maxHp: z.number().int().optional(),
         ac: z.number().int().optional(),
-        level: z.number().int().optional(),
+        level: z.number().int().min(1).max(20).optional().describe('Character level from 1 through 20'),
         characterType: CharacterTypeSchema.optional(),
         factionId: z.string().optional(),
         behavior: z.string().optional(),
-        cantripsKnown: z.array(z.string()).optional(),
-        knownSpells: z.array(z.string()).optional(),
-        preparedSpells: z.array(z.string()).optional(),
+        cantripsKnown: z.array(z.string()).optional().describe('Persisted cantrips the character knows'),
+        knownSpells: z.array(z.string()).optional().describe('Persisted known spells; for Wizards this is the spellbook'),
+        preparedSpells: z.array(z.string()).optional().describe('Persisted leveled spells currently prepared'),
         skillProficiencies: z.array(SkillProficiencySchema).optional(),
         saveProficiencies: z.array(SaveProficiencySchema).optional(),
         expertise: z.array(z.string()).optional(),
