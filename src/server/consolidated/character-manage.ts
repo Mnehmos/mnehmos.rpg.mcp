@@ -240,6 +240,21 @@ function uniqueStrings(...groups: Array<readonly string[] | undefined>): string[
     return [...values.values()];
 }
 
+function validateWizardPreparedSpells(
+    characterClass: string | null | undefined,
+    knownSpells: readonly string[] | undefined,
+    preparedSpells: readonly string[] | undefined,
+): void {
+    if ((characterClass ?? '').trim().toLowerCase() !== 'wizard') return;
+
+    const spellbook = new Set((knownSpells ?? []).map((spell) => spell.trim().toLowerCase()));
+    const missing = [...new Set((preparedSpells ?? [])
+        .filter((spell) => !spellbook.has(spell.trim().toLowerCase())))];
+    if (missing.length > 0) {
+        throw new Error(`Wizard prepared spells must be present in knownSpells (spellbook): ${missing.join(', ')}`);
+    }
+}
+
 function validSkillProficiencies(values: readonly string[] | undefined): Array<z.infer<typeof SkillProficiencySchema>> {
     return (values ?? []).flatMap((value) => {
         const parsed = SkillProficiencySchema.safeParse(value);
@@ -500,6 +515,17 @@ async function handleGet(args: z.infer<typeof GetSchema>): Promise<object> {
 
 async function handleUpdate(args: z.infer<typeof UpdateSchema>): Promise<object> {
     const { characterRepo } = ensureDb();
+    const character = characterRepo.findById(args.characterId);
+    if (!character) {
+        throw new Error(`Character ${args.characterId} not found`);
+    }
+
+    validateWizardPreparedSpells(
+        args.class ?? character.characterClass,
+        args.knownSpells ?? character.knownSpells,
+        args.preparedSpells ?? character.preparedSpells,
+    );
+
     const updateData: Record<string, unknown> = {};
 
     // Map fields
@@ -530,13 +556,8 @@ async function handleUpdate(args: z.infer<typeof UpdateSchema>): Promise<object>
     if (args.conditions !== undefined) {
         updateData.conditions = args.conditions;
     } else if (args.addConditions !== undefined || args.removeConditions !== undefined) {
-        const existing = characterRepo.findById(args.characterId);
-        if (!existing) {
-            throw new Error(`Character ${args.characterId} not found`);
-        }
-
         let currentConditions: Array<{ name: string; duration?: number; source?: string }> =
-            (existing as any).conditions || [];
+            (character as any).conditions || [];
 
         if (args.removeConditions?.length) {
             const toRemove = new Set(args.removeConditions.map(n => n.toLowerCase()));
@@ -808,7 +829,7 @@ export const CharacterManageTool = {
 ✨ SPELLCASTING:
 - cantripsKnown, knownSpells, and preparedSpells are durable character fields.
 - Bard, Ranger, Sorcerer, and Warlock cast leveled spells from knownSpells; daily preparation is not used.
-- Cleric, Druid, Paladin, and Artificer cast leveled spells from preparedSpells.
+- Cleric, Druid, and Paladin cast leveled spells from preparedSpells.
 - Wizards keep leveled spells in knownSpells as their spellbook and cast only preparedSpells.
 - Class and level determine available spell levels and slot progression; spell casting validates the saved choices and consumes the authoritative slots.
 - Use character_manage.update to change a character's durable spell choices. Do not invent spell names, slots, or class progression.

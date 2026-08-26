@@ -133,6 +133,34 @@ describe('character_manage consolidated tool', () => {
             expect(updated.cantripsKnown).toEqual(['Ray of Frost']);
         });
 
+        it('rejects Wizard preparation outside the persisted spellbook', async () => {
+            const createdResult = await handleCharacterManage({
+                action: 'create',
+                name: 'Wizard Invariant Test',
+                class: 'Wizard',
+                knownSpells: ['Magic Missile'],
+                preparedSpells: ['Magic Missile'],
+            }, ctx);
+            const created = extractJson(createdResult.content[0].text);
+
+            const rejectedResult = await handleCharacterManage({
+                action: 'update',
+                characterId: created.id,
+                preparedSpells: ['Shield'],
+            }, ctx);
+            const rejected = extractJson(rejectedResult.content[0].text);
+
+            expect(rejected.error).toBe(true);
+            expect(rejected.message).toContain('spellbook');
+
+            const fetchedResult = await handleCharacterManage({
+                action: 'get',
+                characterId: created.id,
+            }, ctx);
+            const fetched = extractJson(fetchedResult.content[0].text);
+            expect(fetched.preparedSpells).toEqual(['Magic Missile']);
+        });
+
         it('round-trips all character proficiency fields through get and update', async () => {
             const createdResult = await handleCharacterManage({
                 action: 'create',
