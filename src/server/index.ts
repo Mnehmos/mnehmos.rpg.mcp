@@ -54,6 +54,7 @@ if (existsSync(envFromFile)) {
 // Meta-tools and registry
 import { MetaTools, handleSearchTools, handleLoadToolSchema } from './meta-tools.js';
 import { buildConsolidatedRegistry } from './consolidated-registry.js';
+import { atomicHandler, serializedHandler } from './types.js';
 // MINIMAL_SCHEMA removed - must pass actual schema for MCP SDK to pass arguments
 
 // PubSub and utilities
@@ -171,9 +172,15 @@ function buildServer(pubsub: PubSub, auditLogger: AuditLogger): McpServer {
       toolName,
       entry.metadata.description,
       schemaShape(extendedSchema),
-      auditLogger.wrapHandler(
-        toolName,
-        withSession(entry.schema, entry.handler as any)
+      // All or nothing: the call runs in one transaction (atomic) and rolls
+      // back entirely if it throws or returns isError. The lock (serialized)
+      // wraps the audit write too, so the audit row for this call can never
+      // land inside some other call's open transaction.
+      serializedHandler(
+        auditLogger.wrapHandler(
+          toolName,
+          atomicHandler(withSession(entry.schema, entry.handler as any))
+        )
       )
     );
   }

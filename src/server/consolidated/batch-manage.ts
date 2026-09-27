@@ -13,10 +13,13 @@ import { CharacterRepository } from '../../storage/repos/character.repo.js';
 import { InventoryRepository } from '../../storage/repos/inventory.repo.js';
 import { ItemRepository } from '../../storage/repos/item.repo.js';
 import { SessionContext } from '../types.js';
+import { atomic, savepoint } from '../../storage/unit-of-work.js';
+import { parseToolResponse, responseFailure } from '../../utils/tool-response.js';
 import { handleCreate as handleCharacterCreate } from './character-manage.js';
 
 export interface McpResponse {
     content: Array<{ type: 'text'; text: string }>;
+    isError?: boolean;
 }
 
 const ACTIONS = [
@@ -250,10 +253,13 @@ async function handleCreateCharacters(input: BatchManageInput, _ctx: SessionCont
             // Batch creation delegates to the same authoritative path as
             // character_manage so HP, proficiencies, backgrounds, and starter
             // items cannot drift between two engine entry points.
-            const character = await handleCharacterCreate({
+            // Savepoint per character: a create that throws after inserting the
+            // character row but before its starter items must not leave half a
+            // character behind. The rest of the batch still goes ahead.
+            const character = await savepoint(() => handleCharacterCreate({
                 action: 'create',
                 ...charData
-            } as any) as any;
+            } as any)) as any;
             createdCharacters.push({
                 id: character.id,
                 name: character.name,
@@ -632,8 +638,9 @@ async function handleGetTemplate(input: BatchManageInput, _ctx: SessionContext):
  */
 function resolveStepReferences(
     args: Record<string, unknown>,
-    stepResults: Map<string, unknown>
-): Record<string, unknown> {
+    stepResults: Map<string, unknown>,
+    missing: string[] = []
+): { resolved: Record<string, unknown>; missing: string[] } {
     const resolved: Record<string, unknown> = {};
 
     for (const [key, value] of Object.entries(args)) {
@@ -646,25 +653,29 @@ function resolveStepReferences(
                 const propertyPath = refPath.slice(dotIndex + 1);
 
                 const stepResult = stepResults.get(stepId);
-                if (stepResult) {
-                    // Navigate the property path
-                    resolved[key] = getNestedValue(stepResult as Record<string, unknown>, propertyPath);
-                } else {
-                    // Reference not found, keep original
-                    resolved[key] = value;
+                const value2 = stepResult
+                    ? getNestedValue(stepResult as Record<string, unknown>, propertyPath)
+                    : undefined;
+                if (value2 === undefined) {
+                    // Passing undefined (or the literal "{{...}}") on to the next
+                    // tool is how chaining failed silently. Fail the step instead.
+                    missing.push(refPath);
                 }
+                resolved[key] = value2;
             } else {
                 resolved[key] = value;
             }
         } else if (typeof value === 'object' && value !== null) {
             // Recursively resolve nested objects
-            resolved[key] = resolveStepReferences(value as Record<string, unknown>, stepResults);
+            resolved[key] = Array.isArray(value)
+                ? value.map(item => resolveStepReferences({ v: item }, stepResults, missing).resolved.v)
+                : resolveStepReferences(value as Record<string, unknown>, stepResults, missing).resolved;
         } else {
             resolved[key] = value;
         }
     }
 
-    return resolved;
+    return { resolved, missing };
 }
 
 /**
@@ -683,6 +694,8 @@ function getNestedValue(obj: Record<string, unknown>, path: string): unknown {
     return current;
 }
 
+class StepFailure extends Error {}
+
 async function handleExecuteSequence(input: BatchManageInput, ctx: SessionContext): Promise<McpResponse> {
     if (!input.steps || input.steps.length === 0) {
         return {
@@ -693,6 +706,14 @@ async function handleExecuteSequence(input: BatchManageInput, ctx: SessionContex
             }]
         };
     }
+
+    // Joins the tool call's unit of work when there is one; when the handler is
+    // driven directly (tests) it opens its own, so the guarantee holds either way.
+    return atomic(() => runSequence(input, ctx));
+}
+
+async function runSequence(input: BatchManageInput, ctx: SessionContext): Promise<McpResponse> {
+    const steps = input.steps!;
 
     // Load the registry only when a sequence executes. Keeping this import
     // lazy avoids a module cycle: the registry includes batch_manage, while
@@ -712,117 +733,98 @@ async function handleExecuteSequence(input: BatchManageInput, ctx: SessionContex
     }> = [];
 
     let output = RichFormatter.header('Executing Sequence', '⚙️');
-    output += `*${input.steps.length} step(s) to execute*\n\n`;
+    output += `*${steps.length} step(s) to execute*\n\n`;
 
-    for (let i = 0; i < input.steps.length; i++) {
-        const step = input.steps[i];
+    for (let i = 0; i < steps.length; i++) {
+        const step = steps[i];
         const stepId = step.id || `step${i + 1}`;
         const toolEntry = registry[step.tool];
 
-        output += `**Step ${i + 1}/${input.steps.length}**: \`${step.tool}\`\n`;
+        output += `**Step ${i + 1}/${steps.length}**: \`${step.tool}\`\n`;
 
-        if (!toolEntry) {
-            const error = `Unknown tool: ${step.tool}`;
-            output += `  ❌ ${error}\n`;
+        let result: Record<string, unknown> | undefined;
+        let error: string | undefined;
 
-            executedSteps.push({
-                stepIndex: i,
-                stepId,
-                tool: step.tool,
-                success: false,
-                error
-            });
+        try {
+            if (!toolEntry) throw new StepFailure(`Unknown tool: ${step.tool}`);
 
-            if (stopOnError) {
-                output += `\n*Execution stopped due to error (stopOnError=true)*\n`;
-                break;
+            const { resolved, missing } = resolveStepReferences(step.args, stepResults);
+            if (missing.length > 0) {
+                throw new StepFailure(`Unresolved reference(s): ${missing.join(', ')}`);
             }
+
+            // Each step is its own savepoint: a failed step never leaves half
+            // of itself behind, whatever happens to the rest of the sequence.
+            await savepoint(async () => {
+                const response = await toolEntry.handler(resolved, ctx) as McpResponse;
+                const parsed = parseToolResponse(response);
+                // A step that reports success: false has failed as far as the
+                // sequence is concerned, even if the tool didn't flag an error.
+                const failure = responseFailure(response, parsed)
+                    ?? (parsed.success === false
+                        ? (typeof parsed.message === 'string' ? parsed.message : 'Step reported success: false')
+                        : undefined);
+                result = parsed;
+                if (failure) throw new StepFailure(failure);
+                return response;
+            });
+        } catch (err: unknown) {
+            error = (err instanceof Error ? err.message : String(err)) || 'Unknown error';
+        }
+
+        if (error === undefined) {
+            stepResults.set(stepId, result);
+            output += `  ✅ Success\n`;
+            executedSteps.push({ stepIndex: i, stepId, tool: step.tool, success: true, result });
             continue;
         }
 
-        try {
-            // Resolve any references to previous step results
-            const resolvedArgs = resolveStepReferences(step.args, stepResults);
+        output += `  ❌ ${error}\n`;
+        executedSteps.push({ stepIndex: i, stepId, tool: step.tool, success: false, result, error });
 
-            // Execute the tool
-            const response = await toolEntry.handler(resolvedArgs, ctx);
-
-            // Parse the result from the response
-            let result: unknown = null;
-            if (response.content?.[0]?.text) {
-                // Try to extract JSON from embedded data
-                const text = response.content[0].text;
-                const jsonMatch = text.match(/<!--JSON:([^>]+)-->/);
-                if (jsonMatch) {
-                    try {
-                        result = JSON.parse(jsonMatch[1]);
-                    } catch {
-                        // Use raw text if JSON parsing fails
-                        result = { raw: text };
-                    }
-                } else {
-                    result = { raw: text };
-                }
-            }
-
-            // Store result for reference by later steps
-            stepResults.set(stepId, result);
-
-            const success = !(result as Record<string, unknown> | null)?.error;
-            output += success ? `  ✅ Success\n` : `  ⚠️ Completed with warnings\n`;
-
-            executedSteps.push({
-                stepIndex: i,
-                stepId,
-                tool: step.tool,
-                success,
-                result
-            });
-
-        } catch (err: unknown) {
-            const error = (err instanceof Error ? err.message : String(err)) || 'Unknown error';
-            output += `  ❌ Error: ${error}\n`;
-
-            executedSteps.push({
-                stepIndex: i,
-                stepId,
-                tool: step.tool,
-                success: false,
-                error
-            });
-
-            if (stopOnError) {
-                output += `\n*Execution stopped due to error (stopOnError=true)*\n`;
-                break;
-            }
+        if (stopOnError) {
+            output += `\n*Execution stopped due to error (stopOnError=true)*\n`;
+            break;
         }
     }
 
     const successCount = executedSteps.filter(s => s.success).length;
     const failureCount = executedSteps.filter(s => !s.success).length;
+    // stopOnError (the default) makes the sequence one unit: any failure undoes
+    // every step. With stopOnError=false the caller asked for best effort, so
+    // successful steps stand and only the failed steps were undone.
+    const rolledBack = failureCount > 0 && stopOnError;
 
     output += RichFormatter.section('Summary');
     output += RichFormatter.keyValue({
-        'Total Steps': input.steps.length,
+        'Total Steps': steps.length,
         'Executed': executedSteps.length,
         'Succeeded': successCount,
-        'Failed': failureCount
+        'Failed': failureCount,
+        'Applied': rolledBack ? 'none — sequence rolled back' : failureCount > 0 ? 'successful steps only' : 'all'
     });
+    if (rolledBack) {
+        output += `\n*All changes from this sequence were rolled back. Nothing was applied.*\n`;
+    }
 
     const resultPayload = {
         success: failureCount === 0,
         actionType: 'execute_sequence',
-        totalSteps: input.steps.length,
+        totalSteps: steps.length,
         executedSteps: executedSteps.length,
         successCount,
         failureCount,
+        rolledBack,
         steps: executedSteps,
         stepResults: Object.fromEntries(stepResults)
     };
 
     output += RichFormatter.embedJson(resultPayload, 'BATCH_MANAGE');
 
-    return { content: [{ type: 'text', text: output }] };
+    return {
+        ...(rolledBack ? { isError: true } : {}),
+        content: [{ type: 'text', text: output }]
+    };
 }
 
 // Main handler

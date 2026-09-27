@@ -1054,8 +1054,12 @@ MAZE WITH ROOMS:
 export async function handleCreateEncounter(args: unknown, ctx: SessionContext) {
     const parsed = CombatTools.CREATE_ENCOUNTER.inputSchema.parse(args);
 
+    // Generate the id first so the engine can stamp it on the events it
+    // publishes from startEncounter onward.
+    const encounterId = `encounter-${parsed.seed}-${Date.now()}`;
+
     // Create combat engine
-    const engine = new CombatEngine(parsed.seed, pubsub || undefined);
+    const engine = new CombatEngine(parsed.seed, pubsub || undefined, encounterId);
 
     // Convert participants to proper format (preserve isEnemy, position, and resistances)
     const participants: CombatParticipant[] = parsed.participants.map(p => {
@@ -1122,8 +1126,6 @@ export async function handleCreateEncounter(args: unknown, ctx: SessionContext) 
         (state as any).terrain = parsed.terrain;
     }
 
-    // Generate encounter ID
-    const encounterId = `encounter-${parsed.seed}-${Date.now()}`;
     // Store with session namespace
     getCombatManager().create(`${ctx.sessionId}:${encounterId}`, engine);
 
@@ -1205,7 +1207,7 @@ export async function handleGetEncounterState(args: unknown, ctx: SessionContext
         }
 
         // Create engine and load state
-        engine = new CombatEngine(parsed.encounterId, pubsub || undefined);
+        engine = new CombatEngine(parsed.encounterId, pubsub || undefined, parsed.encounterId);
         engine.loadState(state);
         getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
     }
@@ -1255,7 +1257,7 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
             throw new Error(`Encounter ${parsed.encounterId} not found.`);
         }
 
-        engine = new CombatEngine(parsed.encounterId, pubsub || undefined);
+        engine = new CombatEngine(parsed.encounterId, pubsub || undefined, parsed.encounterId);
         engine.loadState(state);
         getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
     }
@@ -2104,7 +2106,7 @@ export async function handleAdvanceTurn(args: unknown, ctx: SessionContext) {
             throw new Error(`Encounter ${parsed.encounterId} not found.`);
         }
 
-        engine = new CombatEngine(parsed.encounterId, pubsub || undefined);
+        engine = new CombatEngine(parsed.encounterId, pubsub || undefined, parsed.encounterId);
         engine.loadState(state);
         getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
     }
@@ -2246,7 +2248,7 @@ export async function handleLoadEncounter(args: unknown, ctx: SessionContext) {
     }
 
     // Create engine and load state
-    const engine = new CombatEngine(parsed.encounterId, pubsub || undefined);
+    const engine = new CombatEngine(parsed.encounterId, pubsub || undefined, parsed.encounterId);
     engine.loadState(state);
 
     getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
@@ -2507,7 +2509,7 @@ export async function handleRenderMap(args: unknown, ctx: SessionContext) {
             throw new Error(`Encounter ${parsed.encounterId} not found.`);
         }
 
-        engine = new CombatEngine(parsed.encounterId, pubsub || undefined);
+        engine = new CombatEngine(parsed.encounterId, pubsub || undefined, parsed.encounterId);
         engine.loadState(state);
         getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
     }
@@ -2545,7 +2547,7 @@ export async function handleCalculateAoe(args: unknown, ctx: SessionContext) {
             throw new Error(`Encounter ${parsed.encounterId} not found.`);
         }
 
-        engine = new CombatEngine(parsed.encounterId, pubsub || undefined);
+        engine = new CombatEngine(parsed.encounterId, pubsub || undefined, parsed.encounterId);
         engine.loadState(state);
         getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
     }
@@ -2979,7 +2981,7 @@ export async function handleUpdateTerrain(args: unknown, ctx: SessionContext) {
             throw new Error(`Encounter ${parsed.encounterId} not found.`);
         }
 
-        engine = new CombatEngine(parsed.encounterId, pubsub || undefined);
+        engine = new CombatEngine(parsed.encounterId, pubsub || undefined, parsed.encounterId);
         engine.loadState(state);
         getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
     }
@@ -3074,7 +3076,7 @@ export async function handlePlaceProp(args: unknown, ctx: SessionContext) {
             throw new Error(`Encounter ${parsed.encounterId} not found.`);
         }
 
-        engine = new CombatEngine(parsed.encounterId, pubsub || undefined);
+        engine = new CombatEngine(parsed.encounterId, pubsub || undefined, parsed.encounterId);
         engine.loadState(state);
         getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
     }
@@ -3165,7 +3167,7 @@ export async function handleMeasureDistance(args: unknown, ctx: SessionContext) 
             throw new Error(`Encounter ${parsed.encounterId} not found.`);
         }
 
-        engine = new CombatEngine(parsed.encounterId, pubsub || undefined);
+        engine = new CombatEngine(parsed.encounterId, pubsub || undefined, parsed.encounterId);
         engine.loadState(state);
         getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
     }
@@ -3248,7 +3250,7 @@ export async function handleGenerateTerrainPatch(args: unknown, ctx: SessionCont
             throw new Error(`Encounter ${parsed.encounterId} not found.`);
         }
 
-        engine = new CombatEngine(parsed.encounterId, pubsub || undefined);
+        engine = new CombatEngine(parsed.encounterId, pubsub || undefined, parsed.encounterId);
         engine.loadState(state);
         getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
     }
@@ -3526,7 +3528,7 @@ export async function handleGenerateTerrainPattern(args: unknown, ctx: SessionCo
             throw new Error(`Encounter ${parsed.encounterId} not found.`);
         }
 
-        engine = new CombatEngine(parsed.encounterId, pubsub || undefined);
+        engine = new CombatEngine(parsed.encounterId, pubsub || undefined, parsed.encounterId);
         engine.loadState(state);
         getCombatManager().create(`${ctx.sessionId}:${parsed.encounterId}`, engine);
     }
