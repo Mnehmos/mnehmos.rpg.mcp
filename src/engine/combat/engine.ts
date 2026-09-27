@@ -184,9 +184,24 @@ export class CombatEngine {
     private state: CombatState | null = null;
     private emitter?: EventEmitter;
 
-    constructor(seed: string, emitter?: EventEmitter) {
+    private encounterId?: string;
+
+    /**
+     * @param encounterId Stamped on every event this engine publishes, so the
+     *   durable inbox can say which encounter an event came from (#95 review:
+     *   bridged combat events had no producer id).
+     */
+    constructor(seed: string, emitter?: EventEmitter, encounterId?: string) {
         this.rng = new CombatRNG(seed);
         this.emitter = emitter;
+        this.encounterId = encounterId;
+    }
+
+    private emit(topic: string, payload: Record<string, unknown>): void {
+        if (!this.emitter) return;
+        this.emitter.publish(topic, this.encounterId && payload.encounterId === undefined
+            ? { encounterId: this.encounterId, ...payload }
+            : payload);
     }
 
     /**
@@ -307,7 +322,7 @@ export class CombatEngine {
             lairOwnerId: lairOwner?.id
         };
 
-        this.emitter?.publish('combat', {
+        this.emit('combat', {
             type: 'encounter_started',
             state: this.state
         });
@@ -481,7 +496,7 @@ export class CombatEngine {
 
         participant.legendaryActionsRemaining = remaining - cost;
 
-        this.emitter?.publish('combat', {
+        this.emit('combat', {
             type: 'legendary_action_used',
             participantId,
             cost,
@@ -520,7 +535,7 @@ export class CombatEngine {
 
         participant.legendaryResistancesRemaining = remaining - 1;
 
-        this.emitter?.publish('combat', {
+        this.emit('combat', {
             type: 'legendary_resistance_used',
             participantId,
             remaining: participant.legendaryResistancesRemaining
@@ -687,7 +702,7 @@ export class CombatEngine {
             message = `MISS! ${actor.name}'s attack misses ${target.name}`;
         }
 
-        this.emitter?.publish('combat', {
+        this.emit('combat', {
             type: 'attack_executed',
             result: {
                 actor: actor.name,
@@ -737,7 +752,7 @@ export class CombatEngine {
 
         const message = `${actor.name} heals ${target.name} for ${actualHeal} HP`;
 
-        this.emitter?.publish('combat', {
+        this.emit('combat', {
             type: 'heal_executed',
             result: {
                 actor: actor.name,
@@ -785,7 +800,7 @@ export class CombatEngine {
         const participant = this.state.participants.find(p => p.id === participantId);
         if (participant) {
             participant.hp = Math.max(0, participant.hp - damage);
-            this.emitter?.publish('combat', {
+            this.emit('combat', {
                 type: 'damage_applied',
                 participantId,
                 amount: damage,
@@ -813,7 +828,7 @@ export class CombatEngine {
                 participant.isStabilized = false;
             }
 
-            this.emitter?.publish('combat', {
+            this.emit('combat', {
                 type: 'healed',
                 participantId,
                 amount,
@@ -904,7 +919,7 @@ export class CombatEngine {
             regainedHp: isNat20
         };
 
-        this.emitter?.publish('combat', {
+        this.emit('combat', {
             type: 'death_save',
             participantId,
             result
@@ -939,7 +954,7 @@ export class CombatEngine {
         // No longer stabilized if taking damage
         participant.isStabilized = false;
 
-        this.emitter?.publish('combat', {
+        this.emit('combat', {
             type: 'death_save_failure',
             participantId,
             failures,
@@ -1207,7 +1222,7 @@ export class CombatEngine {
             this.processStartOfTurnConditions(newParticipant);
         }
 
-        this.emitter?.publish('combat', {
+        this.emit('combat', {
             type: 'turn_changed',
             round: this.state.round,
             activeParticipantId: newParticipant?.id,
@@ -1455,7 +1470,7 @@ export class CombatEngine {
             ? `OPPORTUNITY ATTACK HIT! ${attacker.name} strikes ${target.name} for ${damageDealt} damage`
             : `OPPORTUNITY ATTACK MISS! ${attacker.name}'s attack misses ${target.name}`;
 
-        this.emitter?.publish('combat', {
+        this.emit('combat', {
             type: 'opportunity_attack',
             result: {
                 attacker: attacker.name,

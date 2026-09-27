@@ -4,7 +4,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { getDomainServices } from './domain-services.js';
 import { runInTenant, type TenantContext } from '../storage/tenant-context.js';
 import type { EventPollOptions, EventType, SourceType } from '../storage/repos/event-inbox.repo.js';
-import { withSession, type SessionContext } from './types.js';
+import { withSession, atomicHandler, serializedHandler, type SessionContext } from './types.js';
+import { isSingleUserDatabase } from '../storage/index.js';
 
 export const EventTools = {
     SUBSCRIBE: {
@@ -63,20 +64,28 @@ export function registerEventInboxBridge(pubsub: PubSub): () => void {
     const subscriptions = BRIDGED_TOPICS.map((topic: BridgedTopic) =>
         pubsub.subscribe(topic, (payload) => {
             const tenant = pubsub.getTenantContext(payload);
-            if (!tenant) {
-                console.error(`[EventBridge] Dropped ${topic} event without verified tenant context`);
+            if (tenant) {
+                persistBridgedEvent(topic, payload, tenant);
                 return;
             }
 
-            persistBridgedEvent(topic, payload, tenant);
+            // Single-user transports (stdio, TCP, unix, WebSocket) never carry a
+            // tenant: there is exactly one database and no one to isolate from.
+            // Dropping here left poll_events permanently empty on those transports.
+            if (isSingleUserDatabase()) {
+                persistBridgedEvent(topic, payload);
+                return;
+            }
+
+            console.error(`[EventBridge] Dropped ${topic} event without verified tenant context`);
         })
     );
 
     return () => subscriptions.forEach(unsubscribe => unsubscribe());
 }
 
-function persistBridgedEvent(topic: BridgedTopic, payload: unknown, tenant: TenantContext): void {
-    runInTenant(tenant, () => {
+function persistBridgedEvent(topic: BridgedTopic, payload: unknown, tenant?: TenantContext): void {
+    const persist = () => {
         try {
             const normalized = eventPayload(payload);
             const eventType: EventType = topic === 'combat' ? 'combat_update' : 'world_change';
@@ -92,7 +101,9 @@ function persistBridgedEvent(topic: BridgedTopic, payload: unknown, tenant: Tena
             // A notification must never make the originating game action fail.
             console.error(`[EventBridge] Failed to persist ${topic} event:`, error);
         }
-    });
+    };
+    if (tenant) runInTenant(tenant, persist);
+    else persist();
 }
 
 export async function handlePollEvents(
@@ -179,6 +190,8 @@ export function registerEventTools(server: McpServer, pubsub: PubSub) {
         EventTools.POLL.name,
         EventTools.POLL.description,
         EventTools.POLL.inputSchema.extend({ sessionId: z.string().optional() }).shape,
-        withSession(EventTools.POLL.inputSchema, handlePollEvents)
+        // poll_events writes (consume=true), so it takes the same per-connection
+        // lock as every other tool rather than writing into someone's open unit.
+        serializedHandler(atomicHandler(withSession(EventTools.POLL.inputSchema, handlePollEvents)))
     );
 }
