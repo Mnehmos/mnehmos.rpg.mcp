@@ -2,6 +2,7 @@
  * Simple Pub/Sub system for event streaming.
  */
 import { getTenant, type TenantContext } from '../storage/tenant-context.js';
+import { afterCommit } from '../storage/unit-of-work.js';
 
 export class PubSub {
     private subscribers: Map<string, Set<(payload: any) => void>> = new Map();
@@ -40,6 +41,13 @@ export class PubSub {
             this.tenantByPayload.set(publishedPayload, tenant);
         }
 
+        // Inside a unit of work, delivery waits for COMMIT: subscribers (the
+        // durable inbox, live client notifications) must never hear about a
+        // change that is then rolled back. Outside a unit it is immediate.
+        afterCommit(() => this.deliver(topic, publishedPayload));
+    }
+
+    private deliver(topic: string, publishedPayload: any): void {
         const subs = this.subscribers.get(topic);
         if (subs) {
             subs.forEach(callback => {

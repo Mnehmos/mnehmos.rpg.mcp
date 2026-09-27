@@ -1,20 +1,46 @@
 import { CombatEngine } from '../../engine/combat/engine.js';
+import { onRollback } from '../../storage/unit-of-work.js';
 
+/**
+ * Live combat engines, keyed by `${sessionId}:${encounterId}`.
+ *
+ * The engines hold state in memory and write it to the `encounters` table as
+ * they go. A database rollback cannot reach them, so the first time an engine
+ * is touched inside a unit of work we snapshot it and register an undo: if the
+ * unit rolls back, the engine returns to exactly what it was before the unit
+ * began (or disappears, if the unit created it).
+ */
 export class CombatManager {
     private encounters: Map<string, CombatEngine> = new Map();
+
+    private guard(id: string): void {
+        const engine = this.encounters.get(id);
+        const snapshot = engine ? cloneState(engine.getState()) : undefined;
+        onRollback(() => {
+            if (!engine) {
+                this.encounters.delete(id);
+                return;
+            }
+            engine.loadState(cloneState(snapshot) as any);
+            this.encounters.set(id, engine);
+        }, `combat:${id}`);
+    }
 
     create(id: string, engine: CombatEngine): void {
         if (this.encounters.has(id)) {
             throw new Error(`Encounter ${id} already exists`);
         }
+        this.guard(id);
         this.encounters.set(id, engine);
     }
 
     get(id: string): CombatEngine | null {
+        if (this.encounters.has(id)) this.guard(id);
         return this.encounters.get(id) || null;
     }
 
     delete(id: string): boolean {
+        if (this.encounters.has(id)) this.guard(id);
         return this.encounters.delete(id);
     }
 
@@ -70,7 +96,7 @@ export class CombatManager {
         }
         
         for (const id of toDelete) {
-            this.encounters.delete(id);
+            this.delete(id);
         }
         
         return toDelete.length;
@@ -82,4 +108,8 @@ let instance: CombatManager | null = null;
 export function getCombatManager(): CombatManager {
     if (!instance) instance = new CombatManager();
     return instance;
+}
+
+function cloneState<T>(state: T): T {
+    return state == null ? state : structuredClone(state);
 }
