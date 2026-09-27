@@ -8,6 +8,7 @@ import {
     DEFAULT_LOOT_TABLES
 } from '../../schema/corpse.js';
 import { InventoryRepository } from './inventory.repo.js';
+import { ItemRepository } from './item.repo.js';
 
 /**
  * FAILED-004: Corpse Repository
@@ -476,41 +477,41 @@ export class CorpseRepository {
             }
         }
 
-        // Mark as harvested
+        // Mark harvested, mint the item, hand it over: one transaction, so a
+        // failure partway can't leave a harvested corpse with no pelt anywhere.
         resource.harvested = true;
         const now = new Date().toISOString();
-        const stmt = this.db.prepare(`
-            UPDATE corpses
-            SET harvestable_resources = ?, updated_at = ?
-            WHERE id = ?
-        `);
-        stmt.run(JSON.stringify(resources), now, corpseId);
-
-        // Optionally create item and add to harvester inventory
         let itemId: string | undefined;
         let transferred = false;
-        if (options?.createItem) {
-            // Create the item in items table
-            itemId = uuid();
-            const createStmt = this.db.prepare(`
-                INSERT INTO items (id, name, description, type, weight, value, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-            `);
-            createStmt.run(
-                itemId,
-                resourceType, // Use resource type as item name (e.g., "wolf pelt")
-                `Harvested ${resourceType} from a corpse`,
-                'misc',
-                1,
-                10, // Default value, could be parameterized
-                now,
-                now
-            );
 
-            // Add to harvester inventory
-            this.inventoryRepo.addItem(harvesterId, itemId, resource.quantity);
-            transferred = true;
-        }
+        this.db.transaction(() => {
+            this.db.prepare(`
+                UPDATE corpses
+                SET harvestable_resources = ?, updated_at = ?
+                WHERE id = ?
+            `).run(JSON.stringify(resources), now, corpseId);
+
+            if (options?.createItem) {
+                // Created through ItemRepository, the one writer of `items`. The
+                // hand-rolled INSERT that used to live here skipped `properties`,
+                // so harvested items read back without it — the same drift as #81.
+                itemId = uuid();
+                new ItemRepository(this.db).create({
+                    id: itemId,
+                    name: resourceType, // e.g. "wolf pelt"
+                    description: `Harvested ${resourceType} from a corpse`,
+                    type: 'misc',
+                    weight: 1,
+                    value: 10, // Default value, could be parameterized
+                    properties: {},
+                    createdAt: now,
+                    updatedAt: now
+                });
+
+                this.inventoryRepo.addItem(harvesterId, itemId, resource.quantity);
+                transferred = true;
+            }
+        })();
 
         return { success: true, quantity: resource.quantity, resourceType, itemId, transferred };
     }

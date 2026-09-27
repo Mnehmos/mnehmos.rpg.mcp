@@ -20,6 +20,7 @@ import { getDb } from '../../storage/index.js';
 import { CharacterRepository } from '../../storage/repos/character.repo.js';
 import { ConcentrationRepository } from '../../storage/repos/concentration.repo.js';
 import { PerceptionAssessmentRepository } from '../../storage/repos/perception-assessment.repo.js';
+import { EventLogRepository } from '../../storage/repos/event-log.repo.js';
 import {
     TargetRefSchema,
     TargetRef,
@@ -75,10 +76,7 @@ function logPerceptionEvent(
     payload: Record<string, unknown>,
     intentId: string,
 ): void {
-    db.prepare(`
-        INSERT INTO event_logs (type, payload, timestamp)
-        VALUES (?, ?, ?)
-    `).run('perception_assessment', JSON.stringify({ ...payload, intentId }), new Date().toISOString());
+    new EventLogRepository(db).append('perception_assessment', { ...payload, intentId });
 }
 
 // ─────────────────────────────────────────────────────────────────
