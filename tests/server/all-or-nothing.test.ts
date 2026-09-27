@@ -13,6 +13,7 @@ import { CombatEngine } from '../../src/engine/combat/engine.js';
 import { registerEventInboxBridge } from '../../src/server/events.js';
 import { parseToolResponse, responseFailure, withErrorFlag } from '../../src/utils/tool-response.js';
 import { atomicHandler } from '../../src/server/types.js';
+import { atomic } from '../../src/storage/unit-of-work.js';
 
 process.env.NODE_ENV = 'test';
 
@@ -172,6 +173,25 @@ describe('event inbox (#95 review findings)', () => {
         const events = new EventInboxRepository(getDb()).poll({ limit: 10 });
         expect(events).toHaveLength(1);
         expect(events[0].sourceId).toBe('enc-1');
+        unregister();
+    });
+
+    it('writes the inbox row in the producing transaction, so it commits or rolls back with the change', async () => {
+        closeDb();
+        useSingleUserDatabase(':memory:');
+        const pubsub = new PubSub();
+        const unregister = registerEventInboxBridge(pubsub);
+
+        await atomic(async () => {
+            pubsub.publish('combat', { type: 'ghost', encounterId: 'enc-ghost' });
+            throw new Error('rolled back');
+        }).catch(() => undefined);
+        await atomic(async () => {
+            pubsub.publish('combat', { type: 'real', encounterId: 'enc-real' });
+        });
+
+        const events = new EventInboxRepository(getDb()).poll({ limit: 10 });
+        expect(events.map(e => e.sourceId)).toEqual(['enc-real']);
         unregister();
     });
 

@@ -406,6 +406,22 @@ export class CombatEngine {
     }
 
     /**
+     * Everything mutable in the engine: encounter state and dice position.
+     * Restoring both means a rolled-back action replays with the same rolls.
+     */
+    snapshot(): { state: CombatState | null; rng: ReturnType<CombatRNG['snapshot']> } {
+        return {
+            state: this.state == null ? null : structuredClone(this.state),
+            rng: this.rng.snapshot()
+        };
+    }
+
+    restore(snapshot: ReturnType<CombatEngine['snapshot']>): void {
+        this.state = snapshot.state == null ? null : structuredClone(snapshot.state);
+        this.rng.restore(snapshot.rng);
+    }
+
+    /**
      * Load an existing combat state
      */
     loadState(state: CombatState): void {

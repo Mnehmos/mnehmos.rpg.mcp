@@ -78,7 +78,7 @@ export function registerEventInboxBridge(pubsub: PubSub): () => void {
             }
 
             console.error(`[EventBridge] Dropped ${topic} event without verified tenant context`);
-        })
+        }, { transactional: true })
     );
 
     return () => subscriptions.forEach(unsubscribe => unsubscribe());

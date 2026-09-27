@@ -10,20 +10,24 @@ import { onRollback } from '../../storage/unit-of-work.js';
  * unit rolls back, the engine returns to exactly what it was before the unit
  * began (or disappears, if the unit created it).
  */
+let nextManagerId = 0;
+
 export class CombatManager {
     private encounters: Map<string, CombatEngine> = new Map();
+    /** Scopes rollback keys, so two managers guarding the same id don't collide. */
+    private readonly managerId = ++nextManagerId;
 
     private guard(id: string): void {
         const engine = this.encounters.get(id);
-        const snapshot = engine ? cloneState(engine.getState()) : undefined;
+        const snapshot = engine?.snapshot();
         onRollback(() => {
-            if (!engine) {
+            if (!engine || !snapshot) {
                 this.encounters.delete(id);
                 return;
             }
-            engine.loadState(cloneState(snapshot) as any);
+            engine.restore(snapshot);
             this.encounters.set(id, engine);
-        }, `combat:${id}`);
+        }, `combat:${this.managerId}:${id}`);
     }
 
     create(id: string, engine: CombatEngine): void {
@@ -108,8 +112,4 @@ let instance: CombatManager | null = null;
 export function getCombatManager(): CombatManager {
     if (!instance) instance = new CombatManager();
     return instance;
-}
-
-function cloneState<T>(state: T): T {
-    return state == null ? state : structuredClone(state);
 }

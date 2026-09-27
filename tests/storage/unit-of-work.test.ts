@@ -175,6 +175,53 @@ describe('unit of work', () => {
         expect(manager.get('s:enc-2')).toBeNull();
     });
 
+    it('rewinds the dice with the state, so a retried action rolls the same', async () => {
+        const manager = new CombatManager();
+        const engine = new CombatEngine('dice-seed');
+        engine.loadState({ round: 1, currentTurnIndex: 0, turnOrder: [], participants: [] } as any);
+        manager.create('s:enc-1', engine);
+        const rng = (e: CombatEngine) => (e as any).rng;
+
+        let firstTry = 0;
+        await atomic(async () => {
+            firstTry = rng(manager.get('s:enc-1')!).roll('1d20');
+            throw new Error('rolled back');
+        }).catch(() => undefined);
+
+        const retry = rng(manager.get('s:enc-1')!).roll('1d20');
+        expect(retry).toBe(firstTry);
+    });
+
+    it('keeps rollback hooks separate for two managers guarding the same id', async () => {
+        const a = new CombatManager();
+        const b = new CombatManager();
+        for (const m of [a, b]) {
+            const e = new CombatEngine('x');
+            e.loadState({ round: 1, currentTurnIndex: 0, turnOrder: [], participants: [] } as any);
+            m.create('s:enc-1', e);
+        }
+
+        await atomic(async () => {
+            (a.get('s:enc-1')!.getState() as any).round = 9;
+            (b.get('s:enc-1')!.getState() as any).round = 9;
+            throw new Error('rolled back');
+        }).catch(() => undefined);
+
+        expect((a.get('s:enc-1')!.getState() as any).round).toBe(1);
+        expect((b.get('s:enc-1')!.getState() as any).round).toBe(1);
+    });
+
+    it('delivers transactional subscribers inside the transaction and live ones after commit', async () => {
+        const pubsub = new PubSub();
+        const order: string[] = [];
+        pubsub.subscribe('world', () => order.push(`inbox (inTransaction=${getDb().inTransaction})`), { transactional: true });
+        pubsub.subscribe('world', () => order.push(`live (inTransaction=${getDb().inTransaction})`));
+
+        await atomic(async () => { pubsub.publish('world', { type: 'x' }); });
+
+        expect(order).toEqual(['inbox (inTransaction=true)', 'live (inTransaction=false)']);
+    });
+
     it('brings back an engine deleted by a rolled-back call', async () => {
         const manager = new CombatManager();
         const engine = new CombatEngine('enc-1');
