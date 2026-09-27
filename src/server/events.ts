@@ -6,6 +6,7 @@ import { runInTenant, type TenantContext } from '../storage/tenant-context.js';
 import type { EventPollOptions, EventType, SourceType } from '../storage/repos/event-inbox.repo.js';
 import { withSession, atomicHandler, serializedHandler, type SessionContext } from './types.js';
 import { isSingleUserDatabase } from '../storage/index.js';
+import { inUnitOfWork } from '../storage/unit-of-work.js';
 
 export const EventTools = {
     SUBSCRIBE: {
@@ -98,7 +99,10 @@ function persistBridgedEvent(topic: BridgedTopic, payload: unknown, tenant?: Ten
                 payload: normalized,
             });
         } catch (error) {
-            // A notification must never make the originating game action fail.
+            // Inside a tool call the inbox row is part of the change: fail the
+            // call so it rolls back rather than committing without its event.
+            // Outside one there is no transaction to keep consistent; log it.
+            if (inUnitOfWork()) throw error;
             console.error(`[EventBridge] Failed to persist ${topic} event:`, error);
         }
     };

@@ -2,7 +2,7 @@
  * Simple Pub/Sub system for event streaming.
  */
 import { getTenant, type TenantContext } from '../storage/tenant-context.js';
-import { afterCommit } from '../storage/unit-of-work.js';
+import { afterCommit, inUnitOfWork } from '../storage/unit-of-work.js';
 
 type Subscriber = (payload: any) => void;
 
@@ -72,6 +72,10 @@ export class PubSub {
             try {
                 callback(publishedPayload);
             } catch (error) {
+                // A transactional subscriber is part of the change: if it fails
+                // inside a unit of work, the change must fail with it, or the
+                // unit would commit a change with no record of it.
+                if (transactional && inUnitOfWork()) throw error;
                 console.error(`Error in subscriber for topic ${topic}:`, error);
             }
         }

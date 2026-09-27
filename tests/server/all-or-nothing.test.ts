@@ -195,6 +195,24 @@ describe('event inbox (#95 review findings)', () => {
         unregister();
     });
 
+    it('rolls the producing change back if its inbox row cannot be written', async () => {
+        closeDb();
+        useSingleUserDatabase(':memory:');
+        const db = getDb();
+        db.exec('CREATE TABLE IF NOT EXISTS uow_probe (id INTEGER PRIMARY KEY, label TEXT)');
+        const pubsub = new PubSub();
+        const unregister = registerEventInboxBridge(pubsub);
+        db.exec('DROP TABLE event_inbox'); // make the inbox write fail
+
+        await expect(atomic(async () => {
+            db.prepare('INSERT INTO uow_probe (label) VALUES (?)').run('game change');
+            pubsub.publish('combat', { type: 'x', encounterId: 'enc-1' });
+        })).rejects.toThrow();
+
+        expect(db.prepare('SELECT COUNT(*) AS n FROM uow_probe').get()).toEqual({ n: 0 });
+        unregister();
+    });
+
     it('combat engines stamp their encounter id on published events', () => {
         const pubsub = new PubSub();
         const seen: any[] = [];
