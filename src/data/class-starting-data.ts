@@ -93,7 +93,7 @@ const SCHOLARS_PACK = [
 
 const BURGLAR_PACK = [
     'Backpack',
-    'Ball Bearings x1000',
+    'Ball Bearings (bag of 1000)',
     'String (10 feet)',
     'Bell',
     'Candles x5',
