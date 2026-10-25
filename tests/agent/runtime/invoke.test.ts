@@ -149,7 +149,27 @@ describe('invokeAgent', () => {
 
         await invokeAgent({ agentId: agent.id, situation: 'Your move.' }, deps);
 
-        expect(sentMaxTokens).toBe(5_000);
+        // The prompt is charged against the budget too, so it is reserved first.
+        expect(typeof sentMaxTokens).toBe('number');
+        expect(sentMaxTokens as number).toBeLessThan(5_000);
+        expect(sentMaxTokens as number).toBeGreaterThan(0);
+    });
+
+    it('does not call the provider when the budget cannot cover the prompt', async () => {
+        const agent = setupAgent({ budgetTokens: 5 });
+        let called = false;
+        factory.register('openai', {
+            name: 'openai',
+            call: async () => {
+                called = true;
+                return { text: 'x', promptTokens: 1, completionTokens: 1, raw: '{}', durationMs: 1, finishReason: 'stop' };
+            }
+        });
+
+        const result = await invokeAgent({ agentId: agent.id, situation: 'Your move.' }, deps);
+
+        expect(called).toBe(false);
+        expect(result.status).toBe('budget_exhausted');
     });
 
     it('derives provider model and reasoning effort from character INT', async () => {

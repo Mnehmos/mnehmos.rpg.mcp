@@ -216,14 +216,34 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
         deps
     );
 
+    // No per-call output cap: an agent answers at whatever length it needs.
+    // Only an explicit per-agent budgetTokens (null by default) bounds a call,
+    // and the prompt is charged against it too, so reserve the prompt first.
+    const completionBudget = agent.budgetTokens === null
+        ? undefined
+        : agent.budgetTokens - agent.tokensUsed - estimateTokens(composed.messages);
+    if (completionBudget !== undefined && completionBudget <= 0) {
+        const reason = `budget_exhausted (remaining ${agent.budgetTokens! - agent.tokensUsed} tokens cannot cover the prompt)`;
+        const call = deps.agentRepo.recordCall({
+            agentId: agent.id,
+            requestId: input.requestId ?? null,
+            provider: agent.provider,
+            model: resolvedModel,
+            messagesJson: '[]',
+            status: 'budget_exhausted',
+            reasoningEffort: competency?.reasoningEffort ?? null,
+            competencySource: competency?.source ?? null,
+            errorMessage: reason
+        });
+        return {
+            ...emptyResult(agent, character, 'budget_exhausted', reason),
+            callId: call.id
+        };
+    }
+
     // 5. Call provider with timeout
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), agent.timeoutMs);
-    // No per-call output cap: an agent answers at whatever length it needs.
-    // Only an explicit per-agent budgetTokens (null by default) bounds a call.
-    const completionBudget = agent.budgetTokens === null
-        ? undefined
-        : Math.max(0, agent.budgetTokens - agent.tokensUsed);
 
     try {
         const result = await provider.call({
