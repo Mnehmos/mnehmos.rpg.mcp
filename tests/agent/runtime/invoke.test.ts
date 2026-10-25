@@ -119,6 +119,39 @@ describe('invokeAgent', () => {
         expect(result.callId).toBeTruthy();
     });
 
+    it('sends no output cap when the agent has no explicit budget', async () => {
+        const agent = setupAgent();
+        expect(agent.maxTokens).toBe(800);
+        let sentMaxTokens: unknown = 'not-called';
+        factory.register('openai', {
+            name: 'openai',
+            call: async (opts) => {
+                sentMaxTokens = opts.maxTokens;
+                return { text: 'Kara waits.', promptTokens: 10, completionTokens: 5, raw: '{}', durationMs: 5, finishReason: 'stop' };
+            }
+        });
+
+        await invokeAgent({ agentId: agent.id, situation: 'Your move.' }, deps);
+
+        expect(sentMaxTokens).toBeUndefined();
+    });
+
+    it('bounds a call only by the remaining explicit budget', async () => {
+        const agent = setupAgent({ budgetTokens: 5_000 });
+        let sentMaxTokens: unknown = 'not-called';
+        factory.register('openai', {
+            name: 'openai',
+            call: async (opts) => {
+                sentMaxTokens = opts.maxTokens;
+                return { text: 'Kara waits.', promptTokens: 10, completionTokens: 5, raw: '{}', durationMs: 5, finishReason: 'stop' };
+            }
+        });
+
+        await invokeAgent({ agentId: agent.id, situation: 'Your move.' }, deps);
+
+        expect(sentMaxTokens).toBe(5_000);
+    });
+
     it('derives provider model and reasoning effort from character INT', async () => {
         const agent = setupAgent({ characterInt: 18 });
         let observedModel = '';

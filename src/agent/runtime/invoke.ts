@@ -219,12 +219,11 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
     // 5. Call provider with timeout
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), agent.timeoutMs);
-    const remainingBudget = agent.budgetTokens === null
-        ? null
+    // No per-call output cap: an agent answers at whatever length it needs.
+    // Only an explicit per-agent budgetTokens (null by default) bounds a call.
+    const completionBudget = agent.budgetTokens === null
+        ? undefined
         : Math.max(0, agent.budgetTokens - agent.tokensUsed);
-    const completionBudget = remainingBudget === null
-        ? agent.maxTokens
-        : Math.min(agent.maxTokens, remainingBudget);
 
     try {
         const result = await provider.call({
