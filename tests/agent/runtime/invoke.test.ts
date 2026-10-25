@@ -119,6 +119,59 @@ describe('invokeAgent', () => {
         expect(result.callId).toBeTruthy();
     });
 
+    it('sends no output cap when the agent has no explicit budget', async () => {
+        const agent = setupAgent();
+        expect(agent.maxTokens).toBe(800);
+        let sentMaxTokens: unknown = 'not-called';
+        factory.register('openai', {
+            name: 'openai',
+            call: async (opts) => {
+                sentMaxTokens = opts.maxTokens;
+                return { text: 'Kara waits.', promptTokens: 10, completionTokens: 5, raw: '{}', durationMs: 5, finishReason: 'stop' };
+            }
+        });
+
+        await invokeAgent({ agentId: agent.id, situation: 'Your move.' }, deps);
+
+        expect(sentMaxTokens).toBeUndefined();
+    });
+
+    it('bounds a call only by the remaining explicit budget', async () => {
+        const agent = setupAgent({ budgetTokens: 5_000 });
+        let sentMaxTokens: unknown = 'not-called';
+        factory.register('openai', {
+            name: 'openai',
+            call: async (opts) => {
+                sentMaxTokens = opts.maxTokens;
+                return { text: 'Kara waits.', promptTokens: 10, completionTokens: 5, raw: '{}', durationMs: 5, finishReason: 'stop' };
+            }
+        });
+
+        await invokeAgent({ agentId: agent.id, situation: 'Your move.' }, deps);
+
+        // The prompt is charged against the budget too, so it is reserved first.
+        expect(typeof sentMaxTokens).toBe('number');
+        expect(sentMaxTokens as number).toBeLessThan(5_000);
+        expect(sentMaxTokens as number).toBeGreaterThan(0);
+    });
+
+    it('does not call the provider when the budget cannot cover the prompt', async () => {
+        const agent = setupAgent({ budgetTokens: 5 });
+        let called = false;
+        factory.register('openai', {
+            name: 'openai',
+            call: async () => {
+                called = true;
+                return { text: 'x', promptTokens: 1, completionTokens: 1, raw: '{}', durationMs: 1, finishReason: 'stop' };
+            }
+        });
+
+        const result = await invokeAgent({ agentId: agent.id, situation: 'Your move.' }, deps);
+
+        expect(called).toBe(false);
+        expect(result.status).toBe('budget_exhausted');
+    });
+
     it('derives provider model and reasoning effort from character INT', async () => {
         const agent = setupAgent({ characterInt: 18 });
         let observedModel = '';
