@@ -16,6 +16,8 @@ import { requireTenant } from './tenant-context.js';
  */
 let overrideDb: Database.Database | null = null;
 let configuredDbPath: string | null = null;
+/** Set only by useSingleUserDatabase(): the local transports, not tests' setDb(). */
+let singleUserMode = false;
 
 /**
  * Open per-campaign handles, most-recently-used last.
@@ -290,6 +292,7 @@ function evictBeyondCap(): void {
  * boundary: there is no second tenant to isolate from.
  */
 export function useSingleUserDatabase(path?: string): Database.Database {
+    singleUserMode = true;
     if (!overrideDb) {
         const resolvedPath = resolveDbPath(path);
         console.error(`[Database] Single-user mode: ${resolvedPath}`);
@@ -297,6 +300,14 @@ export function useSingleUserDatabase(path?: string): Database.Database {
         migrate(overrideDb);
     }
     return overrideDb;
+}
+
+/**
+ * True when the process serves one local database with no tenant boundary:
+ * the single-user transports (stdio, TCP, unix socket, WebSocket).
+ */
+export function isSingleUserDatabase(): boolean {
+    return singleUserMode && overrideDb !== null;
 }
 
 /**
@@ -357,6 +368,7 @@ export function closeDb() {
         close(overrideDb, 'override');
         overrideDb = null;
     }
+    singleUserMode = false;
     for (const [campaignId, db] of pool) close(db, campaignId);
     pool.clear();
 }

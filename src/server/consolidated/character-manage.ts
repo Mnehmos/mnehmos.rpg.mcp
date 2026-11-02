@@ -614,8 +614,7 @@ async function handleList(args: z.infer<typeof ListSchema>): Promise<object> {
 
 async function handleDelete(args: z.infer<typeof DeleteSchema>): Promise<object> {
     const { db } = ensureDb();
-    const stmt = db.prepare('DELETE FROM characters WHERE id = ?');
-    stmt.run(args.characterId);
+    new CharacterRepository(db).delete(args.characterId);
 
     return {
         success: true,

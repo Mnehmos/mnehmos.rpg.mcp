@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import { Inventory, InventoryItem, InventorySchema } from '../../schema/inventory.js';
+import { CharacterRepository } from './character.repo.js';
 
 export class InventoryRepository {
     constructor(private db: Database.Database) { }
@@ -207,8 +208,7 @@ export class InventoryRepository {
             copper: currency.copper ?? current.copper
         };
 
-        const stmt = this.db.prepare('UPDATE characters SET currency = ? WHERE id = ?');
-        stmt.run(JSON.stringify(updated), characterId);
+        new CharacterRepository(this.db).updateCurrency(characterId, updated);
     }
 
     /**
@@ -222,8 +222,7 @@ export class InventoryRepository {
             copper: current.copper + (currency.copper ?? 0)
         };
 
-        const stmt = this.db.prepare('UPDATE characters SET currency = ? WHERE id = ?');
-        stmt.run(JSON.stringify(updated), characterId);
+        new CharacterRepository(this.db).updateCurrency(characterId, updated);
 
         return updated;
     }
@@ -266,8 +265,7 @@ export class InventoryRepository {
             return false; // Shouldn't happen if our total check was correct
         }
 
-        const stmt = this.db.prepare('UPDATE characters SET currency = ? WHERE id = ?');
-        stmt.run(JSON.stringify(updated), characterId);
+        new CharacterRepository(this.db).updateCurrency(characterId, updated);
 
         return true;
     }

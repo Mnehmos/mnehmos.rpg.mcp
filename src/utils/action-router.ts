@@ -83,6 +83,7 @@ export interface ActionRouterConfig<TActions extends string> {
  */
 export interface McpResponse {
     content: Array<{ type: 'text'; text: string }>;
+    isError?: boolean;
 }
 
 /**
@@ -341,6 +342,10 @@ export function formatMcpError(
     details: Record<string, unknown>
 ): McpResponse {
     return {
+        // isError is the MCP-standard failure signal. Without it a failed call
+        // looked identical to a successful one to every caller that didn't
+        // parse the text — batch_manage and the unit-of-work included.
+        isError: true,
         content: [{
             type: 'text',
             text: JSON.stringify({
@@ -366,6 +371,7 @@ export function formatValidationError(
     }));
 
     return {
+        isError: true,
         content: [{
             type: 'text',
             text: JSON.stringify({

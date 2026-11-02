@@ -12,6 +12,15 @@ The reference backend game engine. **35 MCP tools** (31 consolidated action-rout
 
 The Tauri desktop app (`mnehmos.quest-keeper.game`, "Lantern") still declares this engine as an `externalBin` sidecar, but it is **deprecated and unused** — do not treat its build or deploy steps as live.
 
+## Every tool call is all-or-nothing
+
+Each MCP tool call runs as one unit of work (`src/storage/unit-of-work.ts`): one SQLite transaction, rolled back if the call throws or reports an error (`isError`, or `error` in its payload). Calls on the same campaign database are serialized.
+
+- Don't `db.exec('BEGIN')` by hand. `db.transaction()` is fine; it nests as a savepoint.
+- Anything that keeps authoritative state in memory must register an undo with `onRollback()` (see `CombatManager`). SQLite rolls back; JavaScript objects don't.
+- Side effects that announce a change (pubsub) go through `afterCommit()`, so nothing is announced for a rolled-back call.
+- One writer per table: put SQL for a table in its repository, not in a handler.
+
 ## Bastion subsystems
 
 Layer-1 SubsystemDefs live in `data/subsystems/`. The first installed is the Operator's `constraint-perception` (Hierarchy of Controls as engine primitive) — the first ceremony, the first DLC, the first page of Biography #1, the first build, all the same act.

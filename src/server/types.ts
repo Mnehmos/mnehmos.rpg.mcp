@@ -1,5 +1,7 @@
 import { z } from 'zod';
 import { getTenant } from '../storage/tenant-context.js';
+import { atomic, serialized } from '../storage/unit-of-work.js';
+import { withErrorFlag } from '../utils/tool-response.js';
 
 export interface SessionContext {
     sessionId: string;
@@ -41,4 +43,19 @@ export function withSession<T extends z.ZodType<any>>(
         };
         return handler(parsed, ctx);
     };
+}
+
+/**
+ * Run a tool handler as one all-or-nothing unit of work (see storage/unit-of-work.ts).
+ *
+ * A response that reports an error — thrown, `isError`, or an `error` field in
+ * its payload — rolls the whole call back, and goes out with `isError: true`.
+ */
+export function atomicHandler<A, R>(handler: (args: A) => Promise<R>) {
+    return (args: A) => atomic(async () => withErrorFlag(await handler(args)));
+}
+
+/** Hold the request's per-connection lock around a handler (and anything it wraps). */
+export function serializedHandler<A, R>(handler: (args: A) => Promise<R>) {
+    return (args: A) => serialized(() => handler(args));
 }

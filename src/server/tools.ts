@@ -9,7 +9,6 @@ import { getWorldManager } from './state/world-manager.js';
 import { SessionContext } from './types.js';
 import { WorldRepository } from '../storage/repos/world.repo.js';
 import { getDb } from '../storage/index.js';
-import * as zlib from 'zlib';
 import { StructureType } from '../schema/structure.js';
 import { BiomeType } from '../schema/biome.js';
 import { WorldSnapshotRepository } from '../storage/repos/world-snapshot.repo.js';
@@ -110,54 +109,30 @@ export const Tools = {
     }
 } as const;
 
-// Helper to ensure tile_cache column exists
-function ensureTileCacheColumn(db: any) {
-    try {
-        const columns = db.prepare(`PRAGMA table_info(worlds)`).all() as any[];
-        const hasCache = columns.some((col: any) => col.name === 'tile_cache');
-        if (!hasCache) {
-            console.error('[WorldGen] Adding tile_cache column to worlds table');
-            db.exec(`ALTER TABLE worlds ADD COLUMN tile_cache BLOB`);
-        }
-    } catch (err) {
-        // Ignore if table doesn't exist yet
-    }
-}
-
-// Helper to get cached tiles from database
+// Tile cache helpers. The SQL lives in WorldRepository, the one writer of
+// `worlds`; these wrappers keep the cache best-effort (a cache failure must
+// never fail world generation or a patch).
 function getCachedTiles(db: any, worldId: string): any | null {
     try {
-        ensureTileCacheColumn(db);
-        const row = db.prepare('SELECT tile_cache FROM worlds WHERE id = ?').get(worldId) as any;
-        if (row?.tile_cache) {
-            // Decompress and parse
-            const decompressed = zlib.gunzipSync(row.tile_cache);
-            return JSON.parse(decompressed.toString('utf-8'));
-        }
+        return new WorldRepository(db).getTileCache(worldId);
     } catch (err) {
         console.error('[WorldGen] Failed to read tile cache:', err);
     }
     return null;
 }
 
-// Helper to save tiles to database cache
 function saveTilesToCache(db: any, worldId: string, tileData: any) {
     try {
-        ensureTileCacheColumn(db);
-        const json = JSON.stringify(tileData);
-        const compressed = zlib.gzipSync(json);
-        db.prepare('UPDATE worlds SET tile_cache = ? WHERE id = ?').run(compressed, worldId);
-        console.error(`[WorldGen] Cached ${compressed.length} bytes of tile data for world ${worldId}`);
+        const bytes = new WorldRepository(db).setTileCache(worldId, tileData);
+        console.error(`[WorldGen] Cached ${bytes} bytes of tile data for world ${worldId}`);
     } catch (err) {
         console.error('[WorldGen] Failed to save tile cache:', err);
     }
 }
 
-// Helper to invalidate tile cache (when world is modified)
 function invalidateTileCache(db: any, worldId: string) {
     try {
-        ensureTileCacheColumn(db);
-        db.prepare('UPDATE worlds SET tile_cache = NULL WHERE id = ?').run(worldId);
+        new WorldRepository(db).clearTileCache(worldId);
         console.error(`[WorldGen] Invalidated tile cache for world ${worldId}`);
     } catch (err) {
         console.error('[WorldGen] Failed to invalidate tile cache:', err);

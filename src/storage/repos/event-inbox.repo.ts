@@ -126,15 +126,34 @@ export class EventInboxRepository {
   }
 
   /**
-   * Poll and immediately mark as consumed (atomic)
+   * Poll and mark as consumed as one claim.
+   *
+   * The select and the update run in a single IMMEDIATE transaction, so two
+   * consumers (another process on the same file included) cannot both select
+   * the same unconsumed rows before either marks them. The update is also
+   * guarded on `consumed_at IS NULL`, so only rows this call actually claimed
+   * are returned.
    */
   pollAndConsume(limitOrOptions: number | EventPollOptions = 20): GameEvent[] {
-    const events = this.poll(limitOrOptions);
-    const ids = events.map(e => e.id!).filter(Boolean);
-    if (ids.length > 0) {
-      this.markConsumed(ids);
-    }
-    return events;
+    const claim = this.db.transaction((): GameEvent[] => {
+      const events = this.poll(limitOrOptions);
+      if (events.length === 0) return events;
+
+      const now = new Date().toISOString();
+      const mark = this.db.prepare(`
+        UPDATE event_inbox SET consumed_at = ?
+        WHERE id = ? AND consumed_at IS NULL
+      `);
+      const claimed: GameEvent[] = [];
+      for (const event of events) {
+        if (event.id === undefined) continue;
+        if (mark.run(now, event.id).changes === 1) {
+          claimed.push({ ...event, consumedAt: now });
+        }
+      }
+      return claimed;
+    });
+    return claim.immediate();
   }
 
   /**

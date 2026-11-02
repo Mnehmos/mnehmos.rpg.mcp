@@ -210,6 +210,15 @@ export class CharacterRepository {
         return validChar;
     }
 
+    /**
+     * Write only the currency column. InventoryRepository used to issue its own
+     * UPDATE against `characters`; routing it here keeps one writer per table.
+     */
+    updateCurrency(id: string, currency: { gold: number; silver: number; copper: number }): void {
+        this.db.prepare('UPDATE characters SET currency = ? WHERE id = ?')
+            .run(JSON.stringify(currency), id);
+    }
+
     delete(id: string): boolean {
         const stmt = this.db.prepare('DELETE FROM characters WHERE id = ?');
         const result = stmt.run(id);

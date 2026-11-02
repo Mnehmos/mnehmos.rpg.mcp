@@ -12,10 +12,20 @@ import seedrandom from 'seedrandom';
  * - Pathfinder 2e: Degree-of-success mechanics (in CombatEngine)
  */
 export class CombatRNG {
-    private rng: seedrandom.PRNG;
+    private rng: seedrandom.StatefulPRNG<seedrandom.State.Arc4>;
 
     constructor(seed: string) {
-        this.rng = seedrandom(seed);
+        // Stateful so a rolled-back call can rewind the dice (see snapshot()).
+        this.rng = seedrandom(seed, { state: true });
+    }
+
+    /** Position in the roll sequence, for restoring after a rollback. */
+    snapshot(): seedrandom.State.Arc4 {
+        return this.rng.state();
+    }
+
+    restore(state: seedrandom.State.Arc4): void {
+        this.rng = seedrandom('', { state });
     }
 
     /**

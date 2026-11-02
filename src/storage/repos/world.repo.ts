@@ -1,3 +1,4 @@
+import { gzipSync, gunzipSync } from 'zlib';
 import Database from 'better-sqlite3';
 import {
     normalizeWorldEnvironment,
@@ -91,6 +92,35 @@ export class WorldRepository {
                 })(),
             })
         );
+    }
+
+    /** Adds the tile_cache column on databases created before it existed. */
+    private ensureTileCacheColumn(): void {
+        const columns = this.db.prepare(`PRAGMA table_info(worlds)`).all() as Array<{ name: string }>;
+        if (!columns.some(col => col.name === 'tile_cache')) {
+            this.db.exec(`ALTER TABLE worlds ADD COLUMN tile_cache BLOB`);
+        }
+    }
+
+    /** Decompressed tile cache for a world, or null if none is stored. */
+    getTileCache(id: string): unknown | null {
+        this.ensureTileCacheColumn();
+        const row = this.db.prepare('SELECT tile_cache FROM worlds WHERE id = ?').get(id) as { tile_cache?: Buffer | null } | undefined;
+        if (!row?.tile_cache) return null;
+        return JSON.parse(gunzipSync(row.tile_cache).toString('utf-8'));
+    }
+
+    /** Store a gzipped tile cache for a world. Returns the compressed size in bytes. */
+    setTileCache(id: string, tileData: unknown): number {
+        this.ensureTileCacheColumn();
+        const compressed = gzipSync(JSON.stringify(tileData));
+        this.db.prepare('UPDATE worlds SET tile_cache = ? WHERE id = ?').run(compressed, id);
+        return compressed.length;
+    }
+
+    clearTileCache(id: string): void {
+        this.ensureTileCacheColumn();
+        this.db.prepare('UPDATE worlds SET tile_cache = NULL WHERE id = ?').run(id);
     }
 
     delete(id: string): void {

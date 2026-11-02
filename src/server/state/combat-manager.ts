@@ -1,20 +1,50 @@
 import { CombatEngine } from '../../engine/combat/engine.js';
+import { onRollback } from '../../storage/unit-of-work.js';
+
+/**
+ * Live combat engines, keyed by `${sessionId}:${encounterId}`.
+ *
+ * The engines hold state in memory and write it to the `encounters` table as
+ * they go. A database rollback cannot reach them, so the first time an engine
+ * is touched inside a unit of work we snapshot it and register an undo: if the
+ * unit rolls back, the engine returns to exactly what it was before the unit
+ * began (or disappears, if the unit created it).
+ */
+let nextManagerId = 0;
 
 export class CombatManager {
     private encounters: Map<string, CombatEngine> = new Map();
+    /** Scopes rollback keys, so two managers guarding the same id don't collide. */
+    private readonly managerId = ++nextManagerId;
+
+    private guard(id: string): void {
+        const engine = this.encounters.get(id);
+        const snapshot = engine?.snapshot();
+        onRollback(() => {
+            if (!engine || !snapshot) {
+                this.encounters.delete(id);
+                return;
+            }
+            engine.restore(snapshot);
+            this.encounters.set(id, engine);
+        }, `combat:${this.managerId}:${id}`);
+    }
 
     create(id: string, engine: CombatEngine): void {
         if (this.encounters.has(id)) {
             throw new Error(`Encounter ${id} already exists`);
         }
+        this.guard(id);
         this.encounters.set(id, engine);
     }
 
     get(id: string): CombatEngine | null {
+        if (this.encounters.has(id)) this.guard(id);
         return this.encounters.get(id) || null;
     }
 
     delete(id: string): boolean {
+        if (this.encounters.has(id)) this.guard(id);
         return this.encounters.delete(id);
     }
 
@@ -70,7 +100,7 @@ export class CombatManager {
         }
         
         for (const id of toDelete) {
-            this.encounters.delete(id);
+            this.delete(id);
         }
         
         return toDelete.length;
