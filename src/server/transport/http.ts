@@ -3,6 +3,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { runInTenant, type TenantContext } from '../../storage/tenant-context.js';
 import { verifyTenantToken } from './tenant-token.js';
+import { tokensMatch } from './auth.js';
 import { eraseCampaignDatabase } from '../../storage/index.js';
 
 export interface HttpServerTransportOptions {
@@ -27,7 +28,7 @@ function isAuthorized(req: IncomingMessage, authToken: string): boolean {
     const headerToken = req.headers['x-rpg-mcp-token'];
     const authHeader = req.headers.authorization;
     const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
-    return headerToken === authToken || bearerToken === authToken;
+    return tokensMatch(headerToken, authToken) || tokensMatch(bearerToken, authToken);
 }
 
 /**

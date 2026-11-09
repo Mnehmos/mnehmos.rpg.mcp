@@ -2,6 +2,7 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import type { IncomingMessage } from 'http';
+import { tokensMatch } from './auth.js';
 
 export interface WebSocketServerTransportOptions {
     host?: string;
@@ -186,9 +187,9 @@ export class WebSocketServerTransport implements Transport {
         const authHeader = req.headers.authorization;
         const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
 
-        return queryToken === this.authToken ||
-            headerToken === this.authToken ||
-            bearerToken === this.authToken;
+        return tokensMatch(queryToken, this.authToken) ||
+            tokensMatch(headerToken, this.authToken) ||
+            tokensMatch(bearerToken, this.authToken);
     }
 
     private hasAllowedOrigin(req: IncomingMessage): boolean {
