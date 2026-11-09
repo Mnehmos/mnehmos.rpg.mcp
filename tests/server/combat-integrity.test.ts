@@ -73,7 +73,7 @@ describe('combat integrity', () => {
 
             await expect(handleExecuteCombatAction({
                 encounterId, action: 'attack', actorId: 'hero', targetId: 'gob',
-                attackBonus: 100, dc: 1, damage: -50,
+                attackBonus: 30, dc: 1, damage: -50,
             }, ctx)).rejects.toThrow(/negative/i);
 
             expect(participant(encounterId, 'gob').hp).toBe(7);
@@ -84,7 +84,7 @@ describe('combat integrity', () => {
 
             await handleExecuteCombatAction({
                 encounterId, action: 'attack', actorId: 'hero', targetId: 'gob',
-                attackBonus: 100, dc: 1, damage: '1d4-10',
+                attackBonus: 30, dc: 1, damage: '1d4-10',
             }, ctx);
 
             expect(participant(encounterId, 'gob').hp).toBe(7);

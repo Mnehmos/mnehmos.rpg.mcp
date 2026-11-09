@@ -32,7 +32,9 @@ const AttackSchema = z.object({
     attackBonus: z.number().int().optional(),
     dc: z.number().int().optional(),
     damage: z.union([z.number(), z.string()]).optional(),
-    damageType: z.string().optional()
+    damageType: z.string().optional(),
+    range: z.number().int().min(5).max(600).optional()
+        .describe('Reach or range of the attack in feet. Omit for melee (5ft). Required to attack a target farther than 5ft away.')
 });
 
 const HealSchema = z.object({
@@ -115,7 +117,8 @@ const definitions: Record<CombatAction, ActionDefinition> = {
                 attackBonus: params.attackBonus,
                 dc: params.dc,
                 damage: params.damage,
-                damageType: params.damageType
+                damageType: params.damageType,
+                range: params.range
             }, ctx);
             return extractResultData(result, 'attack');
         },

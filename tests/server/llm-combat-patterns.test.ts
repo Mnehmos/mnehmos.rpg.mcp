@@ -586,7 +586,7 @@ describe('Chat Output Formatting', () => {
             action: 'attack',
             actorId: hero.id!,
             targetId: 'minion-defeat',
-            attackBonus: 50,
+            attackBonus: 30,
             damage: 200,  // Guaranteed kill
             dc: 12
         }, getTestContext() as any);

@@ -994,7 +994,7 @@ describe('Category 7: Concentration Mechanics', () => {
             action: 'attack',
             actorId: 'enemy-1',
             targetId: wizard.id!,
-            attackBonus: 100, // Ensure hit
+            attackBonus: 30, // Ensure hit
             dc: 5,
             damage: 20 // Ensure > HP
         }, getTestContext() as any);

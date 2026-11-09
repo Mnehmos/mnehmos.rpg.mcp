@@ -20,6 +20,7 @@ import { startConcentration, checkConcentration, breakConcentration } from '../.
 import type { Character } from '../../schema/character.js';
 import { getPatternGenerator, PATTERN_DESCRIPTIONS } from '../terrain-patterns.js';
 import { CREATURE_PRESETS } from '../../data/creature-presets.js';
+import { assertAttackNumbersWithinBounds, assertTargetInRange, MAX_ATTACK_RANGE_FT } from '../../engine/combat/attack-rules.js';
 
 // Global combat state (in-memory for MVP)
 let pubsub: PubSub | null = null;
@@ -661,6 +662,8 @@ Examples:
             damage: z.union([z.number(), z.string()]).optional().describe('Damage amount (number) or dice expression (e.g., "1d6+2")'),
             damageType: z.string().optional()
                 .describe('HIGH-002: Damage type (e.g., "fire", "cold", "slashing") for resistance calculation'),
+            range: z.number().int().min(5).max(MAX_ATTACK_RANGE_FT).optional()
+                .describe('Reach or range of the attack in feet. Omit for a melee attack (5ft). Required to attack a target farther than 5ft away.'),
             amount: z.number().int().optional(),
             targetPosition: z.object({ x: z.number(), y: z.number() }).optional()
                 .describe('CRIT-003: Target position for move action'),
@@ -1270,6 +1273,7 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
     // some legitimate flows could be disrupted. A stricter mode can be
     // layered on top later.
     let turnWarning: string | undefined;
+    let isOffTurn = false;
     {
         const liveState = engine.getState();
         if (liveState) {
@@ -1288,6 +1292,7 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
                     ? 'LAIR action'
                     : (liveState.participants.find((p) => p.id === activeId)?.name ?? activeId);
                 turnWarning = `off_turn_action: ${parsed.actorId} acting during ${activeLabel}'s turn`;
+                isOffTurn = true;
             }
         }
     }
@@ -1388,9 +1393,26 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
             throw new Error('Attack action requires targetId');
         }
 
-        // Validate Action Economy
-        const validation = engine.validateActionEconomy(parsed.actorId, 'action');
+        // The numbers may come from the caller; keep them inside the rules.
+        assertAttackNumbersWithinBounds(attackBonus, dc, damage);
+
+        if (actor && target) {
+            assertTargetInRange(actor, target, parsed.range);
+        }
+
+        // Validate Action Economy. An attack outside the attacker's own turn
+        // can only be its reaction, and it has one per round — this used to
+        // be a warning, which let a combatant attack any number of times
+        // during someone else's turn.
+        const attackEconomy: 'action' | 'reaction' = isOffTurn ? 'reaction' : 'action';
+        const validation = engine.validateActionEconomy(parsed.actorId, attackEconomy);
         if (!validation.valid) {
+            if (isOffTurn) {
+                throw new Error(
+                    `It is not ${actor?.name ?? parsed.actorId}'s turn, and an off-turn attack needs a reaction: ${validation.error}. ` +
+                    'Call advance_turn until it is their turn.'
+                );
+            }
             throw new Error(validation.error);
         }
 
@@ -1457,9 +1479,12 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
         }
 
         output = formatAttackResult(result);
-        
+
         // Commit Action Economy
-        engine.commitAction(parsed.actorId, 'action');
+        engine.commitAction(parsed.actorId, attackEconomy);
+        if (isOffTurn) {
+            turnWarning += ` (resolved as ${actor?.name ?? parsed.actorId}'s reaction for this round)`;
+        }
 
     } else if (parsed.action === 'heal') {
         if (parsed.amount === undefined) {

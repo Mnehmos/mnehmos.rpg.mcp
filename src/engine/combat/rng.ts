@@ -342,7 +342,7 @@ export interface DamageResult {
     total: number;          // Final damage total
 }
 
-type DiceTerm =
+export type DiceTerm =
     | { kind: 'dice'; count: number; sides: number; sign: 1 | -1 }
     | { kind: 'scalar'; value: number; sign: 1 | -1 };
 
