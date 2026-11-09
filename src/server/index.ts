@@ -69,28 +69,13 @@ import { setCombatPubSub } from './handlers/combat-handlers.js';
 // Agent runtime
 import { ProviderFactory } from '../agent/provider/factory.js';
 import { schemaShape } from './schema-shape.js';
+import { createShutdown } from './shutdown.js';
 
 /**
  * Setup graceful shutdown handlers to ensure database is properly closed.
  */
 function setupShutdownHandlers(): void {
-  let isShuttingDown = false;
-
-  const shutdown = (signal: string) => {
-    if (isShuttingDown) return;
-    isShuttingDown = true;
-
-    console.error(`[Server] Received ${signal}, shutting down gracefully...`);
-
-    try {
-      closeDb();
-      console.error('[Server] Shutdown complete');
-      process.exit(0);
-    } catch (e) {
-      console.error('[Server] Error during shutdown:', (e as Error).message);
-      process.exit(1);
-    }
-  };
+  const shutdown = createShutdown({ close: closeDb, exit: (code) => process.exit(code) });
 
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGTERM', () => shutdown('SIGTERM'));
@@ -102,16 +87,16 @@ function setupShutdownHandlers(): void {
 
   process.on('uncaughtException', (error) => {
     console.error('[Server] Uncaught exception:', error);
-    shutdown('uncaughtException');
+    shutdown('uncaughtException', { crashed: true });
   });
 
   process.on('unhandledRejection', (reason) => {
     console.error('[Server] Unhandled rejection:', reason);
-    shutdown('unhandledRejection');
+    shutdown('unhandledRejection', { crashed: true });
   });
 
   process.on('exit', (code) => {
-    if (!isShuttingDown) {
+    if (!shutdown.started()) {
       console.error(`[Server] Process exiting with code ${code}`);
       closeDb();
     }
@@ -127,13 +112,17 @@ function setupShutdownHandlers(): void {
  * `pubsub` and `auditLogger` are app-level singletons shared across calls —
  * only the protocol-level McpServer/tool-registration wrapper is rebuilt.
  */
-function buildServer(pubsub: PubSub, auditLogger: AuditLogger): McpServer {
+function buildServer(
+  pubsub: PubSub,
+  auditLogger: AuditLogger,
+  options: { liveNotifications?: boolean } = {}
+): McpServer {
   const server = new McpServer({
     name: 'rpg-mcp',
     version: '1.0.3'
   });
 
-  registerEventTools(server, pubsub);
+  registerEventTools(server, pubsub, { liveNotifications: options.liveNotifications });
 
   server.tool(
     MetaTools.SEARCH_TOOLS.name,
@@ -328,7 +317,10 @@ async function main() {
     // '::' binds dual-stack (IPv6 + IPv4). Required for Railway private
     // networking, which is IPv6-only — see transport/http.ts.
     const httpHost = getArgValue('--host') || '::';
-    await startHttpServerTransport(() => buildServer(pubsub, auditLogger), port, {
+    // Each request gets its own server and transport, closed when the response
+    // ends. Nothing can be pushed to the caller afterwards, so live event
+    // subscriptions are off here; poll_events is the durable equivalent.
+    await startHttpServerTransport(() => buildServer(pubsub, auditLogger, { liveNotifications: false }), port, {
       host: httpHost,
       authToken: transportToken,
       maxBodyBytes: maxMessageBytes,
