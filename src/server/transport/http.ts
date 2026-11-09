@@ -3,7 +3,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { runInTenant, type TenantContext } from '../../storage/tenant-context.js';
 import { verifyTenantToken } from './tenant-token.js';
-import { deleteCampaignDatabase } from '../../storage/index.js';
+import { eraseCampaignDatabase } from '../../storage/index.js';
 
 export interface HttpServerTransportOptions {
     host?: string;
@@ -176,17 +176,19 @@ export async function startHttpServerTransport(
                 res.end(JSON.stringify({ error: 'invalid_tenant_context' }));
                 return;
             }
-            try {
-                // The campaign comes from the signed context, never from the
-                // request body — a caller cannot name someone else's campaign.
-                const deleted = deleteCampaignDatabase(scope.context.campaignId);
-                res.writeHead(200, { 'content-type': 'application/json' });
-                res.end(JSON.stringify({ deleted }));
-            } catch (error) {
-                console.error(`[HTTP] Campaign deletion failed: ${(error as Error).message}`);
-                res.writeHead(400, { 'content-type': 'application/json' });
-                res.end(JSON.stringify({ error: 'delete_failed' }));
-            }
+            // The campaign comes from the signed context, never from the
+            // request body — a caller cannot name someone else's campaign.
+            // Erasure waits for any call still running on that campaign.
+            eraseCampaignDatabase(scope.context.campaignId)
+                .then((deleted) => {
+                    res.writeHead(200, { 'content-type': 'application/json' });
+                    res.end(JSON.stringify({ deleted }));
+                })
+                .catch((error: Error) => {
+                    console.error(`[HTTP] Campaign deletion failed: ${error.message}`);
+                    res.writeHead(400, { 'content-type': 'application/json' });
+                    res.end(JSON.stringify({ error: 'delete_failed' }));
+                });
             return;
         }
 

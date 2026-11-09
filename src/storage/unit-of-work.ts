@@ -1,6 +1,7 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type Database from 'better-sqlite3';
 import { getDb } from './index.js';
+import { withDatabaseLock } from './db-locks.js';
 
 /**
  * Unit of work: one tool call either happens or it doesn't.
@@ -51,13 +52,7 @@ interface Unit {
     savepointSeq: number;
 }
 
-interface LockScope {
-    db: Database.Database;
-}
-
 const unitStore = new AsyncLocalStorage<Unit>();
-const lockStore = new AsyncLocalStorage<LockScope>();
-const locks = new WeakMap<Database.Database, Promise<void>>();
 
 function newFrame(): Frame {
     return { rollback: [], keys: new Set(), afterCommit: [] };
@@ -155,23 +150,7 @@ function mergeInto(parent: Frame, child: Frame): void {
 export async function serialized<T>(fn: () => Promise<T>): Promise<T> {
     const db = tryGetDb();
     if (!db) return fn();
-
-    const held = lockStore.getStore();
-    if (held && held.db === db) return fn();
-
-    const previous = locks.get(db) ?? Promise.resolve();
-    let release!: () => void;
-    const current = new Promise<void>(resolve => { release = resolve; });
-    const tail = previous.then(() => current);
-    locks.set(db, tail);
-
-    await previous;
-    try {
-        return await lockStore.run({ db }, fn);
-    } finally {
-        release();
-        if (locks.get(db) === tail) locks.delete(db);
-    }
+    return withDatabaseLock(db, fn);
 }
 
 export interface AtomicOptions<T> {
