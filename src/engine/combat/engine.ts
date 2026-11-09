@@ -642,6 +642,12 @@ export class CombatEngine {
         if (!actor) throw new Error(`Actor ${actorId} not found`);
         if (!target) throw new Error(`Target ${targetId} not found`);
 
+        // Checked before any roll: a negative amount would be subtracted from
+        // the target's HP as healing, with no cap at maxHp.
+        if (typeof damage === 'number' && (!Number.isFinite(damage) || damage < 0)) {
+            throw new Error(`Damage cannot be negative (got ${damage}). Use the heal action to restore hit points.`);
+        }
+
         const hpBefore = target.hp;
 
         // Roll with full transparency
@@ -656,7 +662,8 @@ export class CombatEngine {
 
         if (typeof damage === 'string') {
             const dmgResult = this.rng.rollDamageDetailed(damage);
-            baseDamageVal = dmgResult.total;
+            // A penalty can take a roll to zero, never below: damage does not heal.
+            baseDamageVal = Math.max(0, dmgResult.total);
             damageBreakdownStr = ` (${dmgResult.rolls.join('+')}${dmgResult.modifier >= 0 ? '+' + dmgResult.modifier : dmgResult.modifier})`;
         } else {
             baseDamageVal = damage;
@@ -672,6 +679,7 @@ export class CombatEngine {
             const modResult = this.calculateDamageWithModifiers(finalBaseDamage, damageType, target);
             damageDealt = modResult.finalDamage;
             damageModifier = modResult.modifier;
+            damageDealt = Math.max(0, damageDealt);
             target.hp = Math.max(0, target.hp - damageDealt);
         }
 
@@ -758,6 +766,10 @@ export class CombatEngine {
         if (!actor) throw new Error(`Actor ${actorId} not found`);
         if (!target) throw new Error(`Target ${targetId} not found`);
 
+        if (!Number.isFinite(amount) || amount < 0) {
+            throw new Error(`Heal amount cannot be negative (got ${amount}).`);
+        }
+
         const hpBefore = target.hp;
         const actualHeal = Math.min(amount, target.maxHp - target.hp);
         target.hp = Math.min(target.maxHp, target.hp + amount);
@@ -815,6 +827,8 @@ export class CombatEngine {
 
         const participant = this.state.participants.find(p => p.id === participantId);
         if (participant) {
+            // Damage never heals: a negative amount is no damage at all.
+            damage = Math.max(0, damage);
             participant.hp = Math.max(0, participant.hp - damage);
             this.emit('combat', {
                 type: 'damage_applied',
@@ -835,6 +849,8 @@ export class CombatEngine {
         const participant = this.state.participants.find(p => p.id === participantId);
         if (participant) {
             const wasAtZero = participant.hp === 0;
+            // Healing never harms: a negative amount is no healing at all.
+            amount = Math.max(0, amount);
             participant.hp = Math.min(participant.maxHp, participant.hp + amount);
 
             // MED-003: Reset death saves when healed from 0 HP

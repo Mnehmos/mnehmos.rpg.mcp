@@ -1556,7 +1556,60 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
             (actor as any).position = parsed.targetPosition;
             output = formatMoveResult(actor.name, undefined, parsed.targetPosition, true, null);
         } else {
-            // HIGH-003: Check for opportunity attacks BEFORE moving
+            // Decide whether the move can happen before anything reacts to it.
+            // Opportunity attacks used to resolve first, so a move that was then
+            // refused still cost the mover hit points and the attacker its
+            // reaction — consequences of something that never took place.
+            const rejectMove = (reason: string): never => {
+                throw new Error(
+                    `${actor.name} cannot move to (${parsed.targetPosition!.x}, ${parsed.targetPosition!.y}). Reason: ${reason}`
+                );
+            };
+
+            // Build obstacle set from other participants and terrain
+            const obstacles = new Set<string>();
+
+            // Add other participant positions as obstacles
+            for (const p of currentState.participants) {
+                if (p.id !== parsed.actorId && (p as any).position) {
+                    const pos = (p as any).position;
+                    obstacles.add(`${pos.x},${pos.y}`);
+                }
+            }
+
+            // Add terrain obstacles if available
+            const terrain = (currentState as any).terrain;
+            if (terrain?.obstacles) {
+                for (const obs of terrain.obstacles) {
+                    obstacles.add(obs);
+                }
+            }
+
+            const destKey = `${parsed.targetPosition.x},${parsed.targetPosition.y}`;
+            if (obstacles.has(destKey)) {
+                rejectMove('Destination is blocked');
+            }
+
+            // Use spatial engine to find path
+            const spatial = new SpatialEngine();
+            const path = spatial.findPath(
+                { x: actorPos.x, y: actorPos.y },
+                { x: parsed.targetPosition.x, y: parsed.targetPosition.y },
+                obstacles
+            );
+            if (path === null) {
+                return rejectMove('No valid path - blocked by obstacles');
+            }
+
+            // Calculate movement cost (5ft per step)
+            // path includes start node, so steps = length - 1
+            const moveCost = (path.length - 1) * 5;
+            const currentMovement = (actor as any).movementRemaining ?? 30; // Default 30 if undefined
+            if (currentMovement < moveCost) {
+                rejectMove(`Insufficient movement (Cost: ${moveCost}ft, Remaining: ${currentMovement}ft)`);
+            }
+
+            // HIGH-003: The move is legal, so it now provokes opportunity attacks.
             const opportunityAttackers = engine.getOpportunityAttackers(
                 parsed.actorId,
                 actorPos,
@@ -1587,70 +1640,21 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
                 }
             }
 
-            // Only continue with move if not defeated
+            // Only complete the move if the mover survived
             const updatedActor = currentState.participants.find(p => p.id === parsed.actorId);
             if (updatedActor && updatedActor.hp > 0) {
-                // Build obstacle set from other participants and terrain
-                const obstacles = new Set<string>();
+                (updatedActor as any).position = parsed.targetPosition;
+                (updatedActor as any).movementRemaining = currentMovement - moveCost;
 
-                // Add other participant positions as obstacles
-                for (const p of currentState.participants) {
-                    if (p.id !== parsed.actorId && (p as any).position) {
-                        const pos = (p as any).position;
-                        obstacles.add(`${pos.x},${pos.y}`);
-                    }
-                }
+                output = opportunityAttackOutput + formatMoveResult(actor.name, actorPos, parsed.targetPosition, true, null, path.length - 1);
 
-                // Add terrain obstacles if available
-                const terrain = (currentState as any).terrain;
-                if (terrain?.obstacles) {
-                    for (const obs of terrain.obstacles) {
-                        obstacles.add(obs);
-                    }
-                }
-
-                // Check if destination is blocked
-                const destKey = `${parsed.targetPosition.x},${parsed.targetPosition.y}`;
-                if (obstacles.has(destKey)) {
-                    output = opportunityAttackOutput + formatMoveResult(actor.name, actorPos, parsed.targetPosition, false, 'Destination is blocked');
-                } else {
-                    // Use spatial engine to find path
-                    const spatial = new SpatialEngine();
-                    const path = spatial.findPath(
-                        { x: actorPos.x, y: actorPos.y },
-                        { x: parsed.targetPosition.x, y: parsed.targetPosition.y },
-                        obstacles
-                    );
-
-                    if (path === null) {
-                        // No valid path
-                        output = opportunityAttackOutput + formatMoveResult(actor.name, actorPos, parsed.targetPosition, false, 'No valid path - blocked by obstacles');
-                    } else {
-                        // Calculate movement cost (5ft per step)
-                        // path includes start node, so steps = length - 1
-                        const moveCost = (path.length - 1) * 5;
-                        const currentMovement = (actor as any).movementRemaining ?? 30; // Default 30 if undefined
-
-                        if (currentMovement < moveCost) {
-                            output = opportunityAttackOutput + formatMoveResult(actor.name, actorPos, parsed.targetPosition, false, `Insufficient movement (Cost: ${moveCost}ft, Remaining: ${currentMovement}ft)`);
-                        } else {
-                            // Move successful - update position and remaining movement
-                            (updatedActor as any).position = parsed.targetPosition;
-                            (updatedActor as any).movementRemaining = currentMovement - moveCost;
-                            
-                            output = opportunityAttackOutput + formatMoveResult(actor.name, actorPos, parsed.targetPosition, true, null, path.length - 1);
-                        }
-                    }
-                }
-
-                // Create result for consistency
                 result = {
                     type: 'attack',
-                    success: output.includes('moved'),
+                    success: true,
                     actor: { id: actor.id, name: actor.name },
                     target: { id: actor.id, name: actor.name, hpBefore: actor.hp, hpAfter: updatedActor.hp, maxHp: actor.maxHp },
-                    defeated: updatedActor.hp <= 0,
-                    message: output.includes('moved') ? `${actor.name} moved` : `${actor.name} could not move`,
+                    defeated: false,
+                    message: `${actor.name} moved`,
                     detailedBreakdown: output
                 };
             }
