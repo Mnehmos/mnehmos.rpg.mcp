@@ -279,7 +279,8 @@ function openCampaignDb(campaignId: string): Database.Database {
 
     const path = campaignDbPath(campaignId);
     mkdirSync(dirname(path), { recursive: true });
-    const db = initDB(path);
+    // A damaged campaign is refused, never replaced with an empty one.
+    const db = initDB(path, { onCorruption: 'fail' });
     // Migrations run lazily per database on first open, so adding a campaign
     // never requires a separate migration pass over every existing file.
     migrate(db);

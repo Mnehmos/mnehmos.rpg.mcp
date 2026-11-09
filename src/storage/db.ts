@@ -64,9 +64,31 @@ function handleCorruptedDatabase(path: string, error: Error): void {
     }
 }
 
-export function initDB(path: string): Database.Database {
+export interface InitDbOptions {
+    /**
+     * What to do with a database that fails its integrity check.
+     *
+     * - `quarantine` (default): move the damaged files aside and start a fresh
+     *   database. Right for a local single-user install, where there is no
+     *   operator and the alternative is an engine that will not start.
+     * - `fail`: throw and leave the files untouched. Right for a hosted
+     *   campaign: quietly swapping in an empty database makes a customer's
+     *   game look deleted, lets them keep playing into a second, diverging
+     *   file, and hides the damage from the people who could repair it.
+     */
+    onCorruption?: 'quarantine' | 'fail';
+}
+
+function refuseCorruptedDatabase(path: string, detail: string): never {
+    console.error(`[Database] CRITICAL: Database corruption detected at ${path}: ${detail}`);
+    // The path and detail stay in the server log; the message can reach a tool caller.
+    throw new Error('This database failed its integrity check and was left untouched for recovery.');
+}
+
+export function initDB(path: string, options: InitDbOptions = {}): Database.Database {
     console.error(`[Database] Opening database: ${path}`);
 
+    const failOnCorruption = options.onCorruption === 'fail';
     let db: Database.Database;
 
     try {
@@ -75,6 +97,7 @@ export function initDB(path: string): Database.Database {
         const error = e as Error;
         // If we can't even open the database, it's likely corrupted
         if (error.message.includes('SQLITE_CORRUPT') || error.message.includes('malformed')) {
+            if (failOnCorruption) refuseCorruptedDatabase(path, error.message);
             handleCorruptedDatabase(path, error);
             // Try again with fresh database
             db = new Database(path);
@@ -102,6 +125,8 @@ export function initDB(path: string): Database.Database {
 
         // Close the corrupted database
         db.close();
+
+        if (failOnCorruption) refuseCorruptedDatabase(path, integrity.errors.slice(0, 3).join('; '));
 
         // Handle the corruption
         handleCorruptedDatabase(path, new Error(integrity.errors.join(', ')));
