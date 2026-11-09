@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { PubSub } from '../engine/pubsub.js';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { getDomainServices } from './domain-services.js';
-import { runInTenant, type TenantContext } from '../storage/tenant-context.js';
+import { getTenant, runInTenant, type TenantContext } from '../storage/tenant-context.js';
 import type { EventPollOptions, EventType, SourceType } from '../storage/repos/event-inbox.repo.js';
 import { withSession, atomicHandler, serializedHandler, type SessionContext } from './types.js';
 import { isSingleUserDatabase } from '../storage/index.js';
@@ -136,7 +136,25 @@ export async function handlePollEvents(
     };
 }
 
-export function registerEventTools(server: McpServer, pubsub: PubSub) {
+export interface EventToolOptions {
+    /**
+     * Whether this server's connection outlives the tool call, so events can be
+     * pushed to the caller later. False for the stateless HTTP transport, where
+     * the connection closes with the response: a subscription there could never
+     * deliver, and would only leave a callback pointing at a dead transport.
+     */
+    liveNotifications?: boolean;
+}
+
+/** Same campaign on both sides, or no tenant on either (single-user transports). */
+function sameTenant(a: TenantContext | undefined, b: TenantContext | undefined): boolean {
+    if (!a || !b) return !a && !b;
+    return a.accountId === b.accountId && a.campaignId === b.campaignId;
+}
+
+export function registerEventTools(server: McpServer, pubsub: PubSub, options: EventToolOptions = {}) {
+    const liveNotifications = options.liveNotifications ?? true;
+
     server.tool(
         EventTools.SUBSCRIBE.name,
         EventTools.SUBSCRIBE.description,
@@ -144,22 +162,50 @@ export function registerEventTools(server: McpServer, pubsub: PubSub) {
         withSession(EventTools.SUBSCRIBE.inputSchema, async (args, ctx) => {
             const { sessionId } = ctx;
 
+            if (!liveNotifications) {
+                return {
+                    content: [{
+                        type: 'text',
+                        text: 'Live event notifications are not available on this connection, so no subscription was made. ' +
+                            `Use poll_events to read ${args.topics.join(' and ')} events for this campaign.`
+                    }]
+                };
+            }
+
             // Clean up previous subscriptions for this session
             const existing = activeSubscriptions.get(sessionId) || [];
             existing.forEach(unsub => unsub());
 
             const newSubs: Array<() => void> = [];
+            const subscriber = getTenant();
+
+            const drop = (reason: unknown) => {
+                console.error(`[Events] Dropping subscription for ${sessionId}: ${(reason as Error)?.message ?? reason}`);
+                newSubs.forEach(unsub => unsub());
+                if (activeSubscriptions.get(sessionId) === newSubs) activeSubscriptions.delete(sessionId);
+            };
 
             for (const topic of args.topics) {
                 const unsub = pubsub.subscribe(topic, (payload) => {
-                    server.server.notification({
-                        method: 'notifications/rpg/event',
-                        params: {
-                            topic,
-                            payload,
-                            sessionId // Optional: include sessionId in notification so client knows which session it's for
-                        }
-                    });
+                    // The pubsub is process-wide. A subscriber only ever hears
+                    // events produced by its own campaign.
+                    if (!sameTenant(subscriber, pubsub.getTenantContext(payload))) return;
+
+                    // notification() rejects once the connection is gone. Left
+                    // unhandled, that rejection took the whole process down, so
+                    // a dead subscriber is dropped instead.
+                    try {
+                        Promise.resolve(server.server.notification({
+                            method: 'notifications/rpg/event',
+                            params: {
+                                topic,
+                                payload,
+                                sessionId // Optional: include sessionId in notification so client knows which session it's for
+                            }
+                        })).catch(drop);
+                    } catch (error) {
+                        drop(error);
+                    }
                 });
                 newSubs.push(unsub);
             }

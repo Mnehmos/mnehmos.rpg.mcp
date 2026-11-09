@@ -1,5 +1,6 @@
 import seedrandom from 'seedrandom';
 import { DiceExpression, CalculationResult } from './schemas.js';
+import { assertDiceWithinLimits, MAX_EXPLOSIONS_PER_DIE } from './dice-limits.js';
 
 export class DiceEngine {
     private rng: seedrandom.PRNG;
@@ -25,6 +26,8 @@ export class DiceEngine {
         const modifier = match[5] ? parseInt(match[5], 10) : 0;
         const explode = !!match[6];
 
+        assertDiceWithinLimits(count, sides, explode);
+
         const result: DiceExpression = {
             count,
             sides,
@@ -43,6 +46,8 @@ export class DiceEngine {
 
     roll(expression: string | DiceExpression): CalculationResult {
         const expr = typeof expression === 'string' ? this.parse(expression) : expression;
+        // Expressions can also arrive as objects, which never pass through parse().
+        assertDiceWithinLimits(expr.count, expr.sides, !!expr.explode);
         const rolls: number[] = [];
         const steps: string[] = [];
 
@@ -72,10 +77,10 @@ export class DiceEngine {
 
             total = chosenSet.sum + expr.modifier;
             steps.push(`Total: ${chosenSet.sum} + ${expr.modifier} = ${total}`);
-            rolls.push(...chosenSet.rolls); // This is ambiguous, maybe we should store structure
+            for (const roll of chosenSet.rolls) rolls.push(roll);
         } else {
             const set = this.rollSet(expr);
-            rolls.push(...set.rolls);
+            for (const roll of set.rolls) rolls.push(roll);
             total = set.sum + expr.modifier;
             steps.push(`Rolled ${expr.count}d${expr.sides}: [${set.rolls.join(', ')}]`);
 
@@ -113,9 +118,11 @@ export class DiceEngine {
             if (expr.explode && roll === expr.sides) {
                 // Explode!
                 let exploded = roll;
-                while (exploded === expr.sides) {
+                let explosions = 0;
+                while (exploded === expr.sides && explosions < MAX_EXPLOSIONS_PER_DIE) {
                     exploded = Math.floor(this.rng() * expr.sides) + 1;
                     rolls.push(exploded);
+                    explosions++;
                 }
             }
         }

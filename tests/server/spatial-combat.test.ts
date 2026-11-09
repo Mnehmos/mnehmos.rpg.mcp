@@ -116,16 +116,13 @@ describe('CRIT-003: Spatial Combat Movement', () => {
             const encounterId = createData.encounterId;
 
             // Try to move ONTO the goblin's position - should be blocked
-            const moveResult = await handleExecuteCombatAction({
+            // A refused move is an error, so the call rolls back as a whole.
+            await expect(handleExecuteCombatAction({
                 encounterId,
                 action: 'move',
                 actorId: 'hero-1',
                 targetPosition: { x: 2, y: 0 } // Same as goblin position
-            }, mockCtx);
-
-            const moveText = moveResult.content[0].text;
-            // Should fail - destination is occupied
-            expect(moveText).toMatch(/blocked|cannot/i);
+            }, mockCtx)).rejects.toThrow(/blocked|cannot/i);
         });
     });
 
@@ -152,16 +149,12 @@ describe('CRIT-003: Spatial Combat Movement', () => {
             const encounterId = createData.encounterId;
 
             // Try to move ONTO the wall tile - should fail
-            const moveResult = await handleExecuteCombatAction({
+            await expect(handleExecuteCombatAction({
                 encounterId,
                 action: 'move',
                 actorId: 'hero-1',
                 targetPosition: { x: 2, y: 0 } // The wall position
-            }, mockCtx);
-
-            const moveText = moveResult.content[0].text;
-            // Should be blocked - destination is an obstacle
-            expect(moveText).toMatch(/blocked|cannot/i);
+            }, mockCtx)).rejects.toThrow(/blocked|cannot/i);
         });
     });
 });
