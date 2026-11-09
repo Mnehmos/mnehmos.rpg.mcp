@@ -362,6 +362,8 @@ DO NOT use math_manage for combat rolls - use this tool instead!
 ⚔️ ATTACK (minimal call):
 { action: "attack", encounterId, actorId, targetId }
 Everything else auto-calculated. Returns: roll result, damage dealt, HP change.
+Melee reaches 5ft. For a ranged or reach attack add range (feet), e.g. range: 150.
+An attack outside the attacker's own turn uses its reaction (one per round).
 
 🔮 CAST_SPELL (minimal call):
 { action: "cast_spell", encounterId, actorId, spellName, targetId }
@@ -393,6 +395,7 @@ Aliases: hit/strike→attack, cast/spell→cast_spell, sprint→dash, evade→do
         dc: z.number().optional().describe('DC for the attack'),
         damage: z.union([z.number(), z.string()]).optional().describe('Damage amount or dice'),
         damageType: z.string().optional().describe('Damage type (fire, slashing, etc.)'),
+        range: z.number().optional().describe('Attack reach or range in feet. Omit for melee (5ft); required to attack a target farther than 5ft away'),
         amount: z.number().optional().describe('Healing amount'),
         spellName: z.string().optional().describe('Spell name'),
         slotLevel: z.number().optional().describe('Spell slot level'),

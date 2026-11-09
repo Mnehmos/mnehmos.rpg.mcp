@@ -155,3 +155,28 @@ describe('opportunity attacks use the combatants\' own numbers', () => {
         expect(result.content[0].text).toMatch(/\+ 4 = \d+ vs AC 16/);
     });
 });
+
+describe('range through the combat_action tool', () => {
+    beforeEach(() => {
+        closeDb();
+        getDb(':memory:');
+        clearCombatState();
+    });
+
+    it('survives the schema the MCP server validates arguments against', async () => {
+        const { CombatActionTool, handleCombatAction } = await import('../../src/server/consolidated/combat-action.js');
+        const encounterId = await createEncounter('rules-tool-range', [hero, goblin, ogre]);
+
+        // Exactly what the server does: parse with the tool's input schema,
+        // which drops any key it does not declare, then call the handler.
+        const args = CombatActionTool.inputSchema.parse({
+            action: 'attack', encounterId, actorId: 'hero', targetId: 'ogre',
+            attackBonus: 5, dc: 11, damage: '1d8+3', range: 150,
+        });
+        expect(args.range).toBe(150);
+
+        const result = await handleCombatAction(args, ctx);
+        expect(result.isError).toBeFalsy();
+        expect(participant(encounterId, 'hero').actionUsed).toBe(true);
+    });
+});
