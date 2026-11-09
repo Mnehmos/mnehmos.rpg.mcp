@@ -112,6 +112,8 @@ function setupShutdownHandlers(): void {
  * `pubsub` and `auditLogger` are app-level singletons shared across calls —
  * only the protocol-level McpServer/tool-registration wrapper is rebuilt.
  */
+let registrationLogged = false;
+
 function buildServer(
   pubsub: PubSub,
   auditLogger: AuditLogger,
@@ -174,8 +176,12 @@ function buildServer(
     );
   }
 
-  console.error(`[Server] Registered ${toolCount} tools with minimal schemas`);
-  console.error(`[Server] Meta-tools: search_tools, load_tool_schema`);
+  // The HTTP transport builds a server per request; say this once, not per call.
+  if (!registrationLogged) {
+    registrationLogged = true;
+    console.error(`[Server] Registered ${toolCount} tools with minimal schemas`);
+    console.error(`[Server] Meta-tools: search_tools, load_tool_schema`);
+  }
 
   return server;
 }

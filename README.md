@@ -201,7 +201,7 @@ npm install mnehmos.rpg.mcp
 
 ### Option 2: Standalone Binaries
 
-Download pre-built binaries from [Releases](https://github.com/Mnehmos/rpg-mcp/releases):
+Download pre-built binaries from [Releases](https://github.com/Mnehmos/mnehmos.rpg.mcp/releases):
 
 ```bash
 # Windows
@@ -220,8 +220,8 @@ chmod +x rpg-mcp-linux && ./rpg-mcp-linux
 ### Option 3: From Source
 
 ```bash
-git clone https://github.com/Mnehmos/rpg-mcp.git
-cd rpg-mcp
+git clone https://github.com/Mnehmos/mnehmos.rpg.mcp.git
+cd mnehmos.rpg.mcp
 npm install
 npm run build
 npm test  # 2214 tests should pass
