@@ -7,6 +7,7 @@ import type { Spell, DamageType, SpellCastResult } from '../../schema/spell.js';
 import type { Character } from '../../schema/character.js';
 import { calculateUpcastDice } from './spell-database.js';
 import { calculateSpellSaveDC, calculateSpellAttackBonus } from './spell-validator.js';
+import { assertDiceWithinLimits } from '../../math/dice-limits.js';
 
 /**
  * Roll dice and return total
@@ -31,6 +32,7 @@ export function rollDice(diceNotation: string): { total: number; rolls: number[]
     const count = parseInt(match[1]);
     const size = parseInt(match[2]);
     const modifier = match[3] ? parseInt(match[3]) : 0;
+    assertDiceWithinLimits(count, size);
 
     for (let i = 0; i < count; i++) {
         const roll = Math.floor(Math.random() * size) + 1;

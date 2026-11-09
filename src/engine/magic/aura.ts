@@ -7,6 +7,7 @@ import { randomUUID } from 'crypto';
 import { AuraState, AuraEffect, AuraEffectResult, CreateAuraRequest, AuraTrigger } from '../../schema/aura.js';
 import { Position, Token } from '../../schema/encounter.js';
 import { AuraRepository } from '../../storage/repos/aura.repo.js';
+import { assertDiceWithinLimits } from '../../math/dice-limits.js';
 
 /**
  * Calculate distance in feet between two positions
@@ -165,6 +166,7 @@ export function rollDice(dice: string): number {
     const numDice = parseInt(numDiceStr, 10);
     const diceSize = parseInt(diceSizeStr, 10);
     const bonus = bonusStr ? parseInt(bonusStr, 10) : 0;
+    assertDiceWithinLimits(numDice, diceSize);
 
     let total = bonus;
     for (let i = 0; i < numDice; i++) {

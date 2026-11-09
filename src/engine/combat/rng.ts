@@ -1,3 +1,4 @@
+import { assertDiceWithinLimits } from '../../math/dice-limits.js';
 import seedrandom from 'seedrandom';
 
 /**
@@ -381,6 +382,7 @@ export function parseDiceTerms(notation: string): DiceTerm[] {
             if (count <= 0 || sides <= 0) {
                 throw new Error(`Invalid dice notation: ${notation}`);
             }
+            assertDiceWithinLimits(count, sides);
             terms.push({ kind: 'dice', count, sides, sign });
             continue;
         }

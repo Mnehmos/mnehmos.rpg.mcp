@@ -1,5 +1,13 @@
 import { DiceExpression } from './schemas.js';
 import { DiceEngine } from './dice.js';
+import { assertDiceWithinLimits } from './dice-limits.js';
+
+/**
+ * Cap on (outcomes of one die) x (number of dice). Convolution cost grows with
+ * the square of this, so it is bounded separately from the roll limits: rolling
+ * 1000d1000 is cheap, computing its exact distribution is not.
+ */
+const MAX_DISTRIBUTION_SIZE = 2000;
 
 type Distribution = Map<number, number>; // Value -> Probability
 
@@ -10,7 +18,14 @@ export class ProbabilityEngine {
         const expr = typeof expression === 'string' ? this.diceEngine.parse(expression) : expression;
 
         // 1. Base distribution for 1 die
+        assertDiceWithinLimits(expr.count, expr.sides, !!expr.explode);
         let dist = this.singleDieDistribution(expr.sides, !!expr.explode);
+        if (dist.size * expr.count > MAX_DISTRIBUTION_SIZE) {
+            throw new Error(
+                `Distribution too large to compute exactly for ${expr.count}d${expr.sides}${expr.explode ? '!' : ''}. ` +
+                'Use fewer or smaller dice.'
+            );
+        }
 
         // 2. Convolve for N dice
         let totalDist = dist;

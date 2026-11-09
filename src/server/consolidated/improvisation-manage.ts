@@ -10,6 +10,7 @@ import seedrandom from 'seedrandom';
 import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/action-router.js';
 import { SessionContext } from '../types.js';
 import { RichFormatter } from '../utils/formatter.js';
+import { assertDiceWithinLimits } from '../../math/dice-limits.js';
 import { getDb } from '../../storage/index.js';
 import { CustomEffectsRepository } from '../../storage/repos/custom-effects.repo.js';
 import { CharacterRepository } from '../../storage/repos/character.repo.js';
@@ -93,6 +94,7 @@ function rollDice(notation: string, rng?: seedrandom.PRNG): { total: number; rol
     const count = parseInt(match[1], 10);
     const sides = parseInt(match[2], 10);
     const modifier = match[3] ? parseInt(match[3], 10) : 0;
+    assertDiceWithinLimits(count, sides);
     const rolls: number[] = [];
     const random = rng || Math.random;
 
