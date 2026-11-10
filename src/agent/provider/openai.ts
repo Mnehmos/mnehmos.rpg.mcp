@@ -113,7 +113,14 @@ export class OpenAIProvider implements LLMProvider {
             throw classifyFetchError(err);
         }
 
-        const rawText = await response.text();
+        // The abort signal cancels the body read too; classify that the same
+        // way as an abort before the headers arrived.
+        let rawText: string;
+        try {
+            rawText = await response.text();
+        } catch (err) {
+            throw classifyFetchError(err);
+        }
         const durationMs = Date.now() - start;
 
         if (!response.ok) {

@@ -25,6 +25,7 @@ import {
     AgentSliceKindSchema,
     AgentSecretImportanceSchema,
     AgentJournalKindSchema,
+    AgentTimeoutInputSchema,
     CompetencyOverrideSchema
 } from '../../schema/agent.js';
 import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/action-router.js';
@@ -104,7 +105,7 @@ const CreateSchema = z.object({
     temperature: z.number().min(0).max(2).optional(),
     maxTokens: z.number().int().positive().optional(),
     budgetTokens: z.number().int().positive().optional(),
-    timeoutMs: z.number().int().positive().optional()
+    timeoutMs: AgentTimeoutInputSchema.optional()
 });
 
 const GetSchema = z.object({
@@ -131,7 +132,7 @@ const UpdateSchema = z.object({
     temperature: z.number().min(0).max(2).optional(),
     maxTokens: z.number().int().positive().optional(),
     budgetTokens: z.number().int().positive().nullable().optional(),
-    timeoutMs: z.number().int().positive().optional()
+    timeoutMs: AgentTimeoutInputSchema.optional()
 }).refine(d => d.agentId || d.characterId, { message: 'agentId or characterId required' });
 
 const DeleteSchema = z.object({

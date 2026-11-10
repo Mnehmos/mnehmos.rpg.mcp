@@ -1377,7 +1377,27 @@ describe('Category 11: Class-Specific Spellcasting', () => {
 describe('Category 12: Edge Cases & Exploits', () => {
 
     // 12.1 - Cantrip scaling by character level
-    test('12.1 - fire bolt damage scales with character level', { retry: 3 }, async () => {
+    // A spell attack that misses is still a result the caller has to narrate.
+    // It used to come back as a bare "casts Fire Bolt!" with no roll at all,
+    // indistinguishable from a hit for zero damage.
+    test('12.0 - a missed spell attack reports the roll and the miss', async () => {
+        const wizard = await createWizard(1, { cantripsKnown: ['Fire Bolt'] });
+        const random = vi.spyOn(Math, 'random').mockReturnValue(0); // every d20 is a 1
+        try {
+            const result = await castSpell(wizard.id!, 'Fire Bolt');
+            expect(result.rawText).toMatch(/Attack Roll: 1 \(d20\)/);
+            expect(result.rawText).toMatch(/MISS/);
+            expect(result.rawText).toMatch(/missed/i);
+            expect(result.diceRolled).toBe('1d10');
+            expect(result.damage ?? 0).toBe(0);
+        } finally {
+            random.mockRestore();
+        }
+    });
+
+    // 12.1 depended on all three attacks hitting and was retried to hide it.
+    // With misses reported properly, the dice are in the response either way.
+    test('12.1 - fire bolt damage scales with character level', async () => {
         const wizard1 = await createWizard(1, { cantripsKnown: ['Fire Bolt'] });
         const wizard5 = await createWizard(5, { cantripsKnown: ['Fire Bolt'] });
         const wizard11 = await createWizard(11, { cantripsKnown: ['Fire Bolt'] });

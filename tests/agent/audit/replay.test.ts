@@ -295,3 +295,41 @@ describe('replayCall', () => {
         expect(after.circuitState).toBe(before.circuitState);
     });
 });
+
+describe('replayCall model policy', () => {
+    let db: ReturnType<typeof initDB>;
+    let deps: ReturnType<typeof buildAgentRuntime>;
+
+    beforeEach(() => {
+        cleanup();
+        db = initDB(TEST_DB);
+        migrate(db);
+        deps = buildAgentRuntime(db, new ProviderFactory());
+    });
+
+    afterEach(() => {
+        db.close();
+        cleanup();
+    });
+
+    // invoke refuses pro model variants (the competency ladder and overrides
+    // both enforce it). Replay takes a model straight from the caller, so it
+    // was a way around the rule.
+    it('live mode: refuses a pro model override without calling the provider', async () => {
+        new CharacterRepository(db).create(char('char-1'));
+        const agent = deps.agentRepo.create({ characterId: 'char-1', provider: 'openai', model: 'gpt-4o-mini' });
+        let calls = 0;
+        deps.providerFactory.register('openai', provider(async () => {
+            calls++;
+            return { text: 'ok', promptTokens: 1, completionTokens: 1, raw: '{}', durationMs: 1 };
+        }));
+        const original = await invokeAgent({ agentId: agent.id, situation: 'go' }, deps);
+        expect(calls).toBe(1);
+
+        const result = await replayCall({ callId: original.callId!, model: 'gpt-5-pro' }, deps);
+
+        expect('error' in result).toBe(true);
+        if ('error' in result) expect(result.message).toMatch(/pro model/i);
+        expect(calls).toBe(1);
+    });
+});

@@ -15,6 +15,7 @@
 
 import { AgentRuntimeDeps } from '../runtime/deps.js';
 import { ChatMessage, ProviderError } from '../provider/types.js';
+import { effectiveTimeoutMs, isProModel } from '../../schema/agent.js';
 
 export interface ReplayInput {
     callId: string;
@@ -80,6 +81,12 @@ export async function replayCall(
     }
 
     // ─── Live mode: direct provider call with the override model ───
+    // The model comes straight from the caller here, so the rule that invoke
+    // enforces through the competency ladder has to be applied explicitly.
+    if (isProModel(input.model)) {
+        return { error: true, message: `Pro model variants are not allowed: ${input.model}` };
+    }
+
     const agent = deps.agentRepo.findById(call.agentId);
     if (!agent) {
         return { error: true, message: `Agent for original call is gone: ${call.agentId}` };
@@ -108,7 +115,7 @@ export async function replayCall(
     }
 
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), agent.timeoutMs);
+    const timeout = setTimeout(() => controller.abort(), effectiveTimeoutMs(agent.timeoutMs));
 
     try {
         const out = await provider.call({

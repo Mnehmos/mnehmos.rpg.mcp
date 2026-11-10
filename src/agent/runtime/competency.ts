@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { z } from 'zod';
+import { isProModel } from '../../schema/agent.js';
 
 export const ReasoningEffortSchema = z.enum(['low', 'medium', 'high', 'xhigh']);
 export type ReasoningEffort = z.infer<typeof ReasoningEffortSchema>;
@@ -29,7 +30,7 @@ export interface ResolvedCompetency extends CompetencyLadderEntry {
 const LADDER_PATH = fileURLToPath(new URL('../../../config/competency-ladder.json', import.meta.url));
 
 function assertNoProModel(model: string): void {
-    if (/-pro\b/i.test(model)) {
+    if (isProModel(model)) {
         throw new Error(`Competency model "${model}" violates the no-pro-model rule`);
     }
 }

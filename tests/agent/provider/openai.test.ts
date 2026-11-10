@@ -413,3 +413,31 @@ describe('OpenAIProvider', () => {
         expect(() => new OpenAIProvider({ apiKey: '' })).toThrow(/apiKey/);
     });
 });
+
+describe('provider timeout while reading the response body', () => {
+    // The abort signal also cancels the body read. That rejection used to
+    // escape as a bare AbortError, so the call was recorded as a generic
+    // error instead of a timeout.
+    const abortingBody = (async () => ({
+        ok: true,
+        status: 200,
+        text: async () => {
+            const error = new Error('This operation was aborted');
+            error.name = 'AbortError';
+            throw error;
+        },
+    })) as unknown as typeof fetch;
+
+    it('OpenAI: classifies it as a timeout', async () => {
+        const provider = new OpenAIProvider({ apiKey: 'k', fetchImpl: abortingBody });
+        await expect(provider.call({ model: 'gpt-4o-mini', messages: [{ role: 'user', content: 'hi' }] }))
+            .rejects.toMatchObject({ name: 'ProviderError', kind: 'timeout' });
+    });
+
+    it('OpenRouter: classifies it as a timeout', async () => {
+        const { OpenRouterProvider } = await import('../../../src/agent/provider/openrouter');
+        const provider = new OpenRouterProvider({ apiKey: 'k', fetchImpl: abortingBody });
+        await expect(provider.call({ model: 'openai/gpt-4o-mini', messages: [{ role: 'user', content: 'hi' }] }))
+            .rejects.toMatchObject({ name: 'ProviderError', kind: 'timeout' });
+    });
+});
