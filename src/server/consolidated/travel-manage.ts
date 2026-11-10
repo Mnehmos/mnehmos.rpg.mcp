@@ -14,6 +14,8 @@ import { CorpseRepository } from '../../storage/repos/corpse.repo.js';
 import { SpatialRepository } from '../../storage/repos/spatial.repo.js';
 import { PoiRepository } from '../../storage/repos/poi.repo.js';
 import { SessionContext } from '../types.js';
+import { recoverHitDice, spendHitDice } from '../../engine/rest/hit-dice.js';
+import { restoreAllSpellSlots, getSpellcastingConfig } from '../../engine/magic/spell-validator.js';
 
 export interface McpResponse {
     content: Array<{ type: 'text'; text: string }>;
@@ -464,32 +466,39 @@ async function handleRest(input: TravelManageInput, _ctx: SessionContext): Promi
     const isLongRest = input.restType === 'long';
 
     for (const member of party.members || []) {
-        const char = member.character;
+        // The member record is a summary; rests need the full sheet.
+        const char: any = charRepo.findById(member.character.id) ?? member.character;
         const hpBefore = char.hp;
         let hpAfter = hpBefore;
+        let update: Record<string, unknown>;
 
         if (isLongRest) {
-            // Long rest: restore to max HP
+            // Long rest: full HP, spell slots back, half the hit dice back —
+            // the same as rest_manage does for one character. This used to
+            // restore hit points only, leaving casters without their slots.
             hpAfter = char.maxHp;
+            update = { hp: hpAfter, resourcePools: recoverHitDice(char).resourcePools };
+
+            const spellConfig = getSpellcastingConfig(char.characterClass || 'fighter');
+            if (spellConfig.canCast && char.level >= spellConfig.startLevel) {
+                const restored = restoreAllSpellSlots(char);
+                if (spellConfig.pactMagic) update.pactMagicSlots = restored.pactMagicSlots;
+                else if (restored.spellSlots) update.spellSlots = restored.spellSlots;
+                update.concentratingOn = null;
+                update.activeSpells = [];
+            }
         } else {
-            // Short rest: roll hit dice
-            const hitDice = input.hitDiceAllocation?.[char.id]
+            // Short rest: spend hit dice from the member's own pool.
+            const requested = input.hitDiceAllocation?.[char.id]
                 ?? input.hitDicePerMember
                 ?? 1;
-
-            if (hitDice > 0) {
-                const conBonus = Math.floor(((char.stats?.con || 10) - 10) / 2);
-                let healing = 0;
-                for (let i = 0; i < hitDice; i++) {
-                    // Assume d8 hit die for simplicity
-                    healing += Math.max(1, Math.floor(Math.random() * 8) + 1 + conBonus);
-                }
-                hpAfter = Math.min(char.maxHp, hpBefore + healing);
-            }
+            const hitDice = spendHitDice(char, requested);
+            hpAfter = Math.min(char.maxHp, hpBefore + hitDice.healing);
+            update = { hp: hpAfter, resourcePools: hitDice.resourcePools };
         }
 
         // Update character
-        charRepo.update(char.id, { hp: hpAfter } as any);
+        charRepo.update(char.id, update as any);
 
         restResults.push({
             characterId: char.id,

@@ -101,7 +101,8 @@ describe('rest_manage consolidated tool', () => {
             const parsed = JSON.parse(result.content[0].text);
             expect(parsed.restType).toBe('short');
             expect(parsed.hitDiceSpent).toBe(2);
-            expect(parsed.hitDieSize).toBe('d8');
+            // The fixture has no class set, which defaults to fighter: a d10.
+            expect(parsed.hitDieSize).toBe('d10');
             expect(parsed.rolls).toHaveLength(2);
             expect(parsed.newHp).toBeGreaterThanOrEqual(parsed.previousHp);
         });
