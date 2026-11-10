@@ -1458,10 +1458,12 @@ export class CombatEngine {
         // Mark reaction as used
         attacker.reactionUsed = true;
 
-        // Simple attack calculation: use initiative bonus as attack modifier
-        // AC approximation: 10 + initiative bonus (simple heuristic)
-        const attackBonus = attacker.initiativeBonus + 2; // Add a small bonus
-        const targetAC = 10 + (target.initiativeBonus > 0 ? Math.floor(target.initiativeBonus / 2) : 0);
+        // Use the combatants' real numbers when the encounter has them. The
+        // initiative-based estimate is only a fallback: on its own it turned
+        // a high or low initiative bonus into an absurd attack bonus or AC.
+        const attackBonus = attacker.attackBonus ?? attacker.initiativeBonus + 2;
+        const targetAC = target.ac
+            ?? 10 + (target.initiativeBonus > 0 ? Math.floor(target.initiativeBonus / 2) : 0);
 
         // Fixed damage for opportunity attacks: 1d6 + 2
         const baseDamage = this.rng.roll('1d6') + 2;

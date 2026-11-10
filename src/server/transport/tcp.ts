@@ -2,6 +2,7 @@ import { Server, Socket } from 'net';
 
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
+import { tokensMatch } from './auth.js';
 
 /**
  * A TCP transport for the MCP server.
@@ -154,7 +155,7 @@ export class TCPServerTransport implements Transport {
         }
 
         const token = message?.authToken || message?.params?._transportAuthToken;
-        if (token === this.authToken) {
+        if (tokensMatch(token, this.authToken)) {
             this.authorizedClients.add(socket);
             if (message && typeof message === 'object' && message.params) {
                 delete message.params._transportAuthToken;

@@ -5,6 +5,7 @@ import { homedir } from 'os';
 import { initDB } from './db.js';
 import { migrate } from './migrations.js';
 import { requireTenant } from './tenant-context.js';
+import { isDatabaseBusy, withDatabaseLock } from './db-locks.js';
 
 /**
  * Explicitly injected database, used only by tests.
@@ -28,7 +29,13 @@ let singleUserMode = false;
  * campaigns than it holds.
  */
 const pool = new Map<string, Database.Database>();
-const MAX_OPEN_DATABASES = 64;
+const DEFAULT_MAX_OPEN_DATABASES = 64;
+
+/** Pool cap; RPG_MAX_OPEN_DATABASES overrides the default. */
+function maxOpenDatabases(): number {
+    const configured = Number.parseInt(process.env.RPG_MAX_OPEN_DATABASES ?? '', 10);
+    return Number.isInteger(configured) && configured > 0 ? configured : DEFAULT_MAX_OPEN_DATABASES;
+}
 
 /**
  * Campaign ids are UUIDs minted by the web host (reference-engine-adapter.ts).
@@ -241,6 +248,22 @@ export function deleteCampaignDatabase(campaignId: string): boolean {
     return existed;
 }
 
+/**
+ * Deletes a campaign's database once no call is running on it.
+ *
+ * `deleteCampaignDatabase` closes the handle immediately, which is only safe
+ * when nothing is using it. This waits its turn on the connection's lock, so a
+ * call in flight finishes (and commits or rolls back) before the file goes.
+ */
+export async function eraseCampaignDatabase(campaignId: string): Promise<boolean> {
+    if (!CAMPAIGN_ID_PATTERN.test(campaignId)) {
+        throw new Error('Refusing to delete a database for a malformed campaign id.');
+    }
+    const open = pool.get(campaignId);
+    if (!open) return deleteCampaignDatabase(campaignId);
+    return withDatabaseLock(open, async () => deleteCampaignDatabase(campaignId));
+}
+
 function openCampaignDb(campaignId: string): Database.Database {
     if (!CAMPAIGN_ID_PATTERN.test(campaignId)) {
         throw new Error('Refusing to open a database for a malformed campaign id.');
@@ -256,7 +279,8 @@ function openCampaignDb(campaignId: string): Database.Database {
 
     const path = campaignDbPath(campaignId);
     mkdirSync(dirname(path), { recursive: true });
-    const db = initDB(path);
+    // A damaged campaign is refused, never replaced with an empty one.
+    const db = initDB(path, { onCorruption: 'fail' });
     // Migrations run lazily per database on first open, so adding a campaign
     // never requires a separate migration pass over every existing file.
     migrate(db);
@@ -265,15 +289,25 @@ function openCampaignDb(campaignId: string): Database.Database {
     return db;
 }
 
+/**
+ * Closes least-recently-used handles until the pool is back under its cap.
+ *
+ * A handle with a call running on it is never closed: that call may be
+ * mid-transaction, waiting on an LLM provider, and closing the connection
+ * would fail it halfway. Busy handles are skipped, so the pool can sit above
+ * the cap for as long as more campaigns than that are active at once.
+ */
 function evictBeyondCap(): void {
-    while (pool.size > MAX_OPEN_DATABASES) {
-        const oldest = pool.keys().next().value as string | undefined;
-        if (oldest === undefined) return;
-        const db = pool.get(oldest);
-        pool.delete(oldest);
+    const cap = maxOpenDatabases();
+    if (pool.size <= cap) return;
+
+    for (const [campaignId, db] of [...pool]) {
+        if (pool.size <= cap) return;
+        if (isDatabaseBusy(db)) continue;
+        pool.delete(campaignId);
         try {
-            db?.pragma('wal_checkpoint(TRUNCATE)');
-            db?.close();
+            db.pragma('wal_checkpoint(TRUNCATE)');
+            db.close();
         } catch (e) {
             console.error(`[Database] Failed to close evicted campaign db: ${(e as Error).message}`);
         }

@@ -27,7 +27,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Mnehmos/rpg-mcp.git"
+    "url": "git+https://github.com/Mnehmos/mnehmos.rpg.mcp.git"
   },
   "keywords": [
     "mcp",
@@ -42,10 +42,13 @@
   ],
   "author": "Mnehmos",
   "license": "MIT",
-  "bugs": {
-    "url": "https://github.com/Mnehmos/rpg-mcp/issues"
+  "engines": {
+    "node": ">=20"
   },
-  "homepage": "https://github.com/Mnehmos/rpg-mcp#readme",
+  "bugs": {
+    "url": "https://github.com/Mnehmos/mnehmos.rpg.mcp/issues"
+  },
+  "homepage": "https://github.com/Mnehmos/mnehmos.rpg.mcp#readme",
   "description": "Complete tabletop RPG game engine via MCP - D&D 5e combat, procedural worldgen, NPC memory, 36 tools (31 consolidated + 5 meta/event)",
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.13",

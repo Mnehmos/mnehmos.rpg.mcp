@@ -73,7 +73,7 @@ describe('combat_action consolidated tool', () => {
                     hp: 7,
                     maxHp: 7,
                     isEnemy: true,
-                    position: { x: 10, y: 10 }
+                    position: { x: 6, y: 5 }
                 }
             ]
         }, ctx);
@@ -142,7 +142,7 @@ describe('combat_action consolidated tool', () => {
                 seed: 'lair-persist-test',
                 participants: [
                     { id: 'pc', name: 'Hero', initiativeBonus: 0, hp: 30, maxHp: 30, isEnemy: false, position: { x: 0, y: 0 } },
-                    { id: 'dragon', name: 'Dragon', initiativeBonus: 0, hp: 100, maxHp: 100, isEnemy: true, hasLairActions: true, position: { x: 5, y: 5 } }
+                    { id: 'dragon', name: 'Dragon', initiativeBonus: 0, hp: 100, maxHp: 100, isEnemy: true, hasLairActions: true, position: { x: 1, y: 1 } }
                 ]
             }, lairCtx);
             const eid = (create.content[0].text.match(/encounter-[\w-]+/) || [])[0]!;
@@ -169,7 +169,7 @@ describe('combat_action consolidated tool', () => {
                 seed: 'lair-warning-test',
                 participants: [
                     { id: 'pc', name: 'Hero', initiativeBonus: 0, hp: 30, maxHp: 30, isEnemy: false, position: { x: 0, y: 0 } },
-                    { id: 'dragon', name: 'Dragon', initiativeBonus: 0, hp: 100, maxHp: 100, isEnemy: true, hasLairActions: true, position: { x: 5, y: 5 } }
+                    { id: 'dragon', name: 'Dragon', initiativeBonus: 0, hp: 100, maxHp: 100, isEnemy: true, hasLairActions: true, position: { x: 1, y: 1 } }
                 ]
             }, lairCtx);
             const lairEncounterId = (create.content[0].text.match(/encounter-[\w-]+/) || [])[0]!;
