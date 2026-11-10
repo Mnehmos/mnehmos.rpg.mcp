@@ -50,3 +50,38 @@ describe('WorldManager', () => {
         expect(manager.get('w3')).toEqual(world('3'));
     });
 });
+
+describe('WorldManager memory bound', () => {
+    afterEach(() => { delete process.env.RPG_MAX_CACHED_WORLD_TILES; });
+    const sized = (label: string, side: number) => ({ label, width: side, height: side } as unknown as GeneratedWorld);
+
+    // A world can be a million tiles (~100 MB in memory). Counting worlds is
+    // not enough: thirty-two of those would not fit in the heap.
+    it('evicts by total size, so a few huge worlds cannot fill the heap', () => {
+        process.env.RPG_MAX_CACHED_WORLD_TILES = '2500000';
+        const manager = new WorldManager();
+        manager.create('big1', sized('1', 1000));
+        manager.create('big2', sized('2', 1000));
+        manager.create('big3', sized('3', 1000));
+
+        expect(manager.get('big1')).toBeNull();
+        expect(manager.get('big2')).not.toBeNull();
+        expect(manager.get('big3')).not.toBeNull();
+    });
+
+    it('always keeps the world just created, even if it alone exceeds the bound', () => {
+        process.env.RPG_MAX_CACHED_WORLD_TILES = '100';
+        const manager = new WorldManager();
+        manager.create('small', sized('s', 5));
+        manager.create('huge', sized('h', 1000));
+
+        expect(manager.get('huge')).not.toBeNull();
+        expect(manager.get('small')).toBeNull();
+    });
+
+    it('keeps many small worlds', () => {
+        const manager = new WorldManager();
+        for (let i = 0; i < 20; i++) manager.create(`w${i}`, sized(String(i), 50));
+        expect(manager.list()).toHaveLength(20);
+    });
+});

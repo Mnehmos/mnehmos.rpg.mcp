@@ -5,10 +5,22 @@ import { onRollback } from '../../storage/unit-of-work.js';
 let nextManagerId = 0;
 
 const DEFAULT_MAX_CACHED_WORLDS = 32;
+/** Total tiles held across all cached worlds: two maximum-size (1000x1000) worlds. */
+const DEFAULT_MAX_CACHED_TILES = 2_000_000;
 
 function maxCachedWorlds(): number {
     const configured = Number.parseInt(process.env.RPG_MAX_CACHED_WORLDS ?? '', 10);
     return Number.isInteger(configured) && configured > 0 ? configured : DEFAULT_MAX_CACHED_WORLDS;
+}
+
+function maxCachedTiles(): number {
+    const configured = Number.parseInt(process.env.RPG_MAX_CACHED_WORLD_TILES ?? '', 10);
+    return Number.isInteger(configured) && configured > 0 ? configured : DEFAULT_MAX_CACHED_TILES;
+}
+
+function tileCount(world: GeneratedWorld): number {
+    const tiles = (world.width ?? 0) * (world.height ?? 0);
+    return Number.isFinite(tiles) && tiles > 0 ? tiles : 0;
 }
 
 /**
@@ -21,8 +33,9 @@ function maxCachedWorlds(): number {
  *   ids (`world-<seed>-<timestamp>`) are guessable, so entries are keyed by
  *   the request's verified tenant as well as the id. One campaign cannot read,
  *   replace or delete another's world by naming its id.
- * - **Bounded.** A world can be a million tiles. The cache keeps the most
- *   recently used few and lets the rest be restored on demand, instead of
+ * - **Bounded.** A world can be a million tiles, around 100 MB in memory. The
+ *   cache is limited both by number of worlds and by total tiles, keeps the
+ *   most recently used, and lets the rest be restored on demand instead of
  *   holding every world ever generated for the life of the process.
  */
 export class WorldManager {
@@ -49,11 +62,21 @@ export class WorldManager {
         onRollback(() => { this.worlds.delete(key); }, `world:${this.managerId}:${key}`);
         this.worlds.set(key, world);
 
-        const cap = maxCachedWorlds();
-        while (this.worlds.size > cap) {
-            const oldest = this.worlds.keys().next().value as string | undefined;
-            if (oldest === undefined || oldest === key) break;
-            this.worlds.delete(oldest);
+        this.evict(key);
+    }
+
+    /** Drop least recently used worlds until both bounds hold. `keep` is never dropped. */
+    private evict(keep: string): void {
+        const maxWorlds = maxCachedWorlds();
+        const maxTiles = maxCachedTiles();
+        let tiles = 0;
+        for (const world of this.worlds.values()) tiles += tileCount(world);
+
+        for (const [candidate, world] of [...this.worlds]) {
+            if (this.worlds.size <= maxWorlds && tiles <= maxTiles) return;
+            if (candidate === keep) continue;
+            this.worlds.delete(candidate);
+            tiles -= tileCount(world);
         }
     }
 
