@@ -12,6 +12,7 @@ export class DiplomacyEngine {
         const toNation = this.nationRepo.findById(toNationId);
 
         if (!fromNation || !toNation) return { success: false, reason: 'Nation not found' };
+        if (fromNationId === toNationId) return { success: false, reason: 'A nation cannot ally with itself' };
 
         // Check existing relation
         const relation = this.diplomacyRepo.getRelation(fromNationId, toNationId);

@@ -50,7 +50,10 @@ export class TurnProcessor {
             const claims = this.diplomacyRepo.getClaimsByRegion(region.id);
             if (claims.length === 0) continue;
 
-            const claimantNations = claims.map(c => this.nationRepo.findById(c.nationId)).filter((n): n is Nation => !!n);
+            // One entry per nation: a nation that claimed the region several
+            // times is still one claimant, not several rolls or its own opponent.
+            const claimantIds = [...new Set(claims.map(c => c.nationId))];
+            const claimantNations = claimantIds.map(id => this.nationRepo.findById(id)).filter((n): n is Nation => !!n);
 
             if (claimantNations.length === 0) continue;
 
@@ -85,17 +88,13 @@ export class TurnProcessor {
                     `${worldId}-${turnNumber}-${region.id}`
                 );
 
-                this.regionRepo.updateOwnership(
-                    region.id,
-                    result.newControlLevel <= 0 ? null : (result.log.includes('conquered') ? result.winnerId : region.ownerNationId || null),
-                    result.newControlLevel
-                );
+                this.regionRepo.updateOwnership(region.id, result.newOwnerId, result.newControlLevel);
 
                 this.diplomacyRepo.logEvent({
                     worldId,
                     turnNumber,
-                    eventType: result.log.includes('conquered') ? 'REGION_CONQUERED' : 'REGION_CLAIMED',
-                    involvedNations: [result.winnerId, result.loserId],
+                    eventType: result.conquered ? 'REGION_CONQUERED' : 'REGION_CLAIMED',
+                    involvedNations: [result.battleWinnerId, result.loserId],
                     details: { log: result.log, regionId: region.id },
                     timestamp: new Date().toISOString()
                 });

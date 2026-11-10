@@ -1,7 +1,19 @@
 import Database from 'better-sqlite3';
 import { migrateClassProgression } from './migrations.class-progression.js';
 
+/**
+ * Bring a database up to the current schema.
+ *
+ * Runs every time a database is opened, so it has to be safe to repeat: it may
+ * add what is missing, never change game state that is already there. It also
+ * runs as one transaction, so a failure part-way leaves the database exactly as
+ * it was instead of half-migrated.
+ */
 export function migrate(db: Database.Database) {
+  db.transaction(() => applyMigrations(db))();
+}
+
+function applyMigrations(db: Database.Database) {
   // First, create all tables (without indexes that depend on new columns)
   db.exec(`
   CREATE TABLE IF NOT EXISTS worlds(
@@ -693,12 +705,17 @@ function runMigrations(db: Database.Database) {
     db.exec(`ALTER TABLE parties ADD COLUMN current_poi TEXT;`);
   }
 
-  // Set safe default positions for existing parties (map center)
-  db.exec(`
-    UPDATE parties
-    SET position_x = 50, position_y = 50
-    WHERE position_x IS NULL;
-  `);
+  // Give parties from before the column existed a starting position (map
+  // center). Only at the moment the column is added: this used to run on
+  // every open, so a party deliberately left off the map was moved to
+  // (50, 50) by the next restart or deploy.
+  if (!hasPositionX) {
+    db.exec(`
+      UPDATE parties
+      SET position_x = 50, position_y = 50
+      WHERE position_x IS NULL;
+    `);
+  }
 
   // CRIT-002/006: Add spellcasting columns to characters table
   const hasCharacterClass = charColumns.some(col => col.name === 'character_class');

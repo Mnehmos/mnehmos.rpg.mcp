@@ -13,6 +13,7 @@ import { CharacterRepository } from '../../storage/repos/character.repo.js';
 import { getCombatManager } from '../state/combat-manager.js';
 import { restoreAllSpellSlots, restorePactSlots, getSpellcastingConfig } from '../../engine/magic/spell-validator.js';
 import { createActionRouter, ActionDefinition, McpResponse } from '../../utils/action-router.js';
+import { recoverHitDice, spendHitDice } from '../../engine/rest/hit-dice.js';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // CONSTANTS
@@ -40,13 +41,6 @@ function getAbilityModifier(score: number): number {
     return Math.floor((score - 10) / 2);
 }
 
-function rollDie(sides: number): number {
-    return Math.floor(Math.random() * sides) + 1;
-}
-
-function getHitDieSize(_characterId: string): number {
-    return 8; // Default to d8, future: look up class
-}
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ACTION SCHEMAS
@@ -118,6 +112,10 @@ async function handleLongRest(args: z.infer<typeof LongRestSchema>): Promise<obj
         updatedChar = { ...updatedChar, concentratingOn: null, activeSpells: [] };
     }
 
+    // A long rest returns half the character's hit dice.
+    const hitDice = recoverHitDice(character);
+    updatedChar = { ...updatedChar, resourcePools: hitDice.resourcePools };
+
     characterRepo.update(args.characterId, updatedChar);
 
     return {
@@ -128,6 +126,8 @@ async function handleLongRest(args: z.infer<typeof LongRestSchema>): Promise<obj
         maxHp: character.maxHp,
         hpRestored,
         restType: 'long',
+        hitDiceRestored: hitDice.restored,
+        hitDiceRemaining: hitDice.remaining,
         spellSlotsRestored
     };
 }
@@ -147,21 +147,16 @@ async function handleShortRest(args: z.infer<typeof ShortRestSchema>): Promise<o
         throw new Error(`Character ${args.characterId} not found`);
     }
 
-    const hitDiceToSpend = args.hitDiceToSpend ?? 1;
-    const hitDieSize = getHitDieSize(args.characterId);
     const conModifier = getAbilityModifier(character.stats.con);
 
-    // Roll hit dice for healing
-    let totalHealing = 0;
-    const rolls: number[] = [];
+    // Spend hit dice from the character's pool: at most what is left of it,
+    // however many were asked for.
+    const hitDice = spendHitDice(character, args.hitDiceToSpend ?? 1);
+    const hitDiceToSpend = hitDice.spent;
+    const hitDieSize = hitDice.dieSize;
+    const rolls = hitDice.rolls;
 
-    for (let i = 0; i < hitDiceToSpend; i++) {
-        const roll = rollDie(hitDieSize);
-        rolls.push(roll);
-        totalHealing += Math.max(1, roll + conModifier);
-    }
-
-    const actualHealing = Math.min(totalHealing, character.maxHp - character.hp);
+    const actualHealing = Math.min(hitDice.healing, character.maxHp - character.hp);
     const newHp = character.hp + actualHealing;
 
     // Restore warlock pact slots on short rest
@@ -169,7 +164,7 @@ async function handleShortRest(args: z.infer<typeof ShortRestSchema>): Promise<o
     const spellConfig = getSpellcastingConfig(charClass);
 
     let pactSlotsRestored: { slotsRestored: number; slotLevel: number } | undefined = undefined;
-    let updatedChar: Record<string, unknown> = { hp: newHp };
+    let updatedChar: Record<string, unknown> = { hp: newHp, resourcePools: hitDice.resourcePools };
 
     if (spellConfig.pactMagic && spellConfig.canCast && character.level >= spellConfig.startLevel) {
         const restoredChar = restorePactSlots(character);
@@ -190,6 +185,7 @@ async function handleShortRest(args: z.infer<typeof ShortRestSchema>): Promise<o
         maxHp: character.maxHp,
         hpRestored: actualHealing,
         hitDiceSpent: hitDiceToSpend,
+        hitDiceRemaining: hitDice.remaining,
         hitDieSize: `d${hitDieSize}`,
         conModifier,
         rolls,
