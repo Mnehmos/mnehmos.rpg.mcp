@@ -14,7 +14,7 @@
  * Never throws to the caller — always returns a structured result the DM/UI can display.
  */
 
-import { Agent, AgentCallStatus } from '../../schema/agent.js';
+import { Agent, AgentCallStatus, effectiveTimeoutMs } from '../../schema/agent.js';
 import { Character, NPC } from '../../schema/character.js';
 import { AgentRuntimeDeps } from './deps.js';
 import { preflight } from './preflight.js';
@@ -243,7 +243,7 @@ export async function invokeAgent(input: InvokeInput, deps: AgentRuntimeDeps): P
 
     // 5. Call provider with timeout
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), agent.timeoutMs);
+    const timeout = setTimeout(() => controller.abort(), effectiveTimeoutMs(agent.timeoutMs));
 
     try {
         const result = await provider.call({

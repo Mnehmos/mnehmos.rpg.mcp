@@ -27,6 +27,28 @@ export const CompetencyOverrideSchema = z.object({
 });
 export type CompetencyOverride = z.infer<typeof CompetencyOverrideSchema>;
 
+/**
+ * Longest an agent's provider call may run.
+ *
+ * The call happens inside its campaign's unit of work, holding that campaign's
+ * lock and an open write transaction, so every other call on the campaign
+ * waits behind it. The timeout is the only bound on that wait.
+ */
+export const MAX_AGENT_TIMEOUT_MS = 120_000;
+
+/** Timeout accepted from a caller when creating or updating an agent. */
+export const AgentTimeoutInputSchema = z.number().int().positive().max(MAX_AGENT_TIMEOUT_MS);
+
+/** The timeout to actually use: rows stored before the limit existed are clamped. */
+export function effectiveTimeoutMs(timeoutMs: number): number {
+    return Math.min(timeoutMs, MAX_AGENT_TIMEOUT_MS);
+}
+
+/** Pro model variants are not allowed anywhere an agent's model is chosen. */
+export function isProModel(model: string): boolean {
+    return /-pro\b/i.test(model);
+}
+
 export const AgentSchema = z.object({
     id: z.string(),
     characterId: z.string(),
@@ -169,7 +191,7 @@ export const AgentCreateInputSchema = z.object({
     maxTokens: z.number().int().positive().optional(),
     budgetTokens: z.number().int().positive().nullable().optional(),
     tokensUsed: z.number().int().nonnegative().optional(),
-    timeoutMs: z.number().int().positive().optional(),
+    timeoutMs: AgentTimeoutInputSchema.optional(),
     consecutiveFailures: z.number().int().nonnegative().optional(),
     circuitState: AgentCircuitStateSchema.optional(),
     competencyOverride: CompetencyOverrideSchema.nullable().optional()
@@ -181,5 +203,7 @@ export const AgentUpdateInputSchema = AgentSchema.omit({
     characterId: true,
     createdAt: true,
     updatedAt: true
-}).partial();
+}).partial().extend({
+    timeoutMs: AgentTimeoutInputSchema.optional()
+});
 export type AgentUpdateInput = z.infer<typeof AgentUpdateInputSchema>;
