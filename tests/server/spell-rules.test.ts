@@ -6,6 +6,7 @@ import { CharacterRepository } from '../../src/storage/repos/character.repo.js';
 import { getInitialSpellSlots } from '../../src/engine/magic/spell-validator.js';
 import { resolveSpell } from '../../src/engine/magic/spell-resolver.js';
 import { getSpell } from '../../src/engine/magic/spell-database.js';
+import { CombatRNG } from '../../src/engine/combat/rng.js';
 
 const ctx = { sessionId: 'test-session' };
 const STATS = { str: 10, dex: 10, con: 10, int: 10, wis: 10, cha: 10 };
@@ -31,10 +32,16 @@ const hp = (encounterId: string, id: string): number =>
 const cast = (encounterId: string, actorId: string, spellName: string, extra: Record<string, unknown>) =>
     handleExecuteCombatAction({ encounterId, action: 'cast_spell', actorId, spellName, ...extra }, ctx);
 
-/** Math.random returning the given values in order, then the last one forever. */
+/**
+ * Spell rolls returning the given values in order, then the last one forever.
+ * In combat they come from the encounter's seeded dice; the resolver called on
+ * its own falls back to Math.random. Both draw from the one sequence here.
+ */
 function rolls(...values: number[]) {
     let i = 0;
-    return vi.spyOn(Math, 'random').mockImplementation(() => values[Math.min(i++, values.length - 1)]);
+    const next = () => values[Math.min(i++, values.length - 1)];
+    vi.spyOn(CombatRNG.prototype, 'random').mockImplementation(next);
+    return vi.spyOn(Math, 'random').mockImplementation(next);
 }
 const MAX = 0.999; // every die shows its highest face
 const MIN = 0;     // every die shows a 1

@@ -7,6 +7,14 @@ import {
     WorldSchema,
 } from '../../schema/world.js';
 
+/** Ten maximum-size (1000x1000) worlds, or a thousand 100x100 ones. */
+const DEFAULT_MAX_WORLD_TILES_PER_CAMPAIGN = 10_000_000;
+
+function maxWorldTilesPerCampaign(): number {
+    const configured = Number.parseInt(process.env.RPG_MAX_WORLD_TILES_PER_CAMPAIGN ?? '', 10);
+    return Number.isInteger(configured) && configured > 0 ? configured : DEFAULT_MAX_WORLD_TILES_PER_CAMPAIGN;
+}
+
 export class WorldRepository {
     constructor(private db: Database.Database) { 
         this.ensureEnvironmentColumn();
@@ -26,6 +34,21 @@ export class WorldRepository {
 
     create(world: World): void {
         const validWorld = WorldSchema.parse(world);
+
+        // Every world keeps a snapshot of its tiles (about 26 bytes a tile, so
+        // 26 MB for a 1000x1000 world), and nothing else limits how many a
+        // campaign holds.
+        const budget = maxWorldTilesPerCampaign();
+        const tiles = validWorld.width * validWorld.height;
+        const used = this.totalTiles();
+        if (used + tiles > budget) {
+            throw new Error(
+                `This campaign's world size budget is ${budget} tiles and ${used} are in use, ` +
+                `so a ${validWorld.width}x${validWorld.height} world (${tiles} tiles) does not fit. ` +
+                'Delete a world you no longer need, or generate a smaller one.'
+            );
+        }
+
         const stmt = this.db.prepare(`
       INSERT INTO worlds (id, name, seed, width, height, created_at, updated_at, environment)
       VALUES (@id, @name, @seed, @width, @height, @createdAt, @updatedAt, @environment)
@@ -40,6 +63,12 @@ export class WorldRepository {
             updatedAt: validWorld.updatedAt,
             environment: JSON.stringify(validWorld.environment || {})
         });
+    }
+
+    /** Tiles across every world in this database. */
+    totalTiles(): number {
+        const row = this.db.prepare('SELECT COALESCE(SUM(width * height), 0) AS tiles FROM worlds').get() as { tiles: number };
+        return row.tiles;
     }
 
     findById(id: string): World | null {

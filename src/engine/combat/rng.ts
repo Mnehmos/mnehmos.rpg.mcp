@@ -30,6 +30,15 @@ export class CombatRNG {
     }
 
     /**
+     * The next raw value in [0, 1) from the seeded sequence. For rolls that
+     * are resolved outside this class (spells) but must still follow the
+     * encounter's seed and rewind with it.
+     */
+    random(): number {
+        return this.rng();
+    }
+
+    /**
      * Roll a single die with N sides
      */
     private rollDie(sides: number): number {

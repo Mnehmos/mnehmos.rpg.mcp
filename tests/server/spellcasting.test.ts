@@ -16,6 +16,7 @@ import { EncounterRepository } from '../../src/storage/repos/encounter.repo.js';
 import { handleExecuteCombatAction, handleCreateEncounter, handleEndEncounter, handleAdvanceTurn, clearCombatState } from '../../src/server/handlers/combat-handlers.js';
 import { handleTakeLongRest, handleTakeShortRest } from '../helpers/legacy-handlers.js';
 import { closeDb, getDb } from '../../src/storage/index.js';
+import { CombatRNG } from '../../src/engine/combat/rng.js';
 import { getInitialSpellSlots, getMaxSpellLevel } from '../../src/engine/magic/spell-validator.js';
 import type { CharacterClass } from '../../src/schema/spell.js';
 
@@ -1382,7 +1383,7 @@ describe('Category 12: Edge Cases & Exploits', () => {
     // indistinguishable from a hit for zero damage.
     test('12.0 - a missed spell attack reports the roll and the miss', async () => {
         const wizard = await createWizard(1, { cantripsKnown: ['Fire Bolt'] });
-        const random = vi.spyOn(Math, 'random').mockReturnValue(0); // every d20 is a 1
+        const random = vi.spyOn(CombatRNG.prototype, 'random').mockReturnValue(0); // every spell die is a 1
         try {
             const result = await castSpell(wizard.id!, 'Fire Bolt');
             expect(result.rawText).toMatch(/Attack Roll: 1 \(d20\)/);
