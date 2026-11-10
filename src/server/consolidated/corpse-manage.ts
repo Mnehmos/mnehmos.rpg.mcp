@@ -549,7 +549,7 @@ Aliases: spawn→create, take→loot, skin→harvest`,
         crRange: z.object({ min: z.number().optional(), max: z.number().optional() }).optional(),
         guaranteedDrops: z.array(z.any()).optional().describe('Items that always drop'),
         randomDrops: z.array(z.any()).optional().describe('Items with chance to drop'),
-        currencyRange: z.record(z.any()).optional().describe('Currency ranges'),
+        currencyRange: z.record(z.string(), z.any()).optional().describe('Currency ranges'),
         harvestableResources: z.array(z.any()).optional().describe('Harvestable resources')
     })
 };

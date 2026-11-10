@@ -37,7 +37,7 @@ export const CalculationResultSchema = z.object({
     steps: z.array(z.string()).default([]),
     timestamp: z.string().datetime(),
     seed: z.string().optional(),
-    metadata: z.record(z.unknown()).optional()
+    metadata: z.record(z.string(), z.unknown()).optional()
 });
 
 export type CalculationResult = z.infer<typeof CalculationResultSchema>;

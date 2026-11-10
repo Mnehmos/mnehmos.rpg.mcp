@@ -23,14 +23,14 @@ export const NationSchema = z.object({
     // Economy
     gdp: z.number().min(0),
     resources: NationResourcesSchema,
-    relations: z.record(z.object({
+    relations: z.record(z.string(), z.object({
         opinion: z.number(),
         alliance: z.boolean(),
         truceUntil: z.number().optional()
     })).default({}),
 
     // State
-    privateMemory: z.record(z.any()).optional().describe('LLM-only private memory'),
+    privateMemory: z.record(z.string(), z.any()).optional().describe('LLM-only private memory'),
     publicIntent: z.string().optional().describe('Publicly declared intent'),
 
     createdAt: z.string().datetime(),

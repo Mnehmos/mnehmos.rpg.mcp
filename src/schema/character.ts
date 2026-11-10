@@ -37,7 +37,7 @@ export const CharacterOriginSchema = z.object({
         .describe('True iff born in Bastion; false for summoned souls'),
     arrivedAt: z.string().optional()
         .describe('PD-year or ISO date the soul arrived in Bastion'),
-    arrivedInCohortId: z.string().uuid().optional()
+    arrivedInCohortId: z.guid().optional()
         .describe('Optional cohort/wave ID the soul arrived with')
 });
 
@@ -97,7 +97,7 @@ export const CharacterSchema = z.object({
     }).optional(),
 
     // PHASE-1: Spatial Graph System - current room for spatial awareness
-    currentRoomId: z.string().uuid().optional()
+    currentRoomId: z.guid().optional()
         .describe('ID of the room the character is currently in'),
 
     // HIGH-007: Legendary creature fields
@@ -144,7 +144,7 @@ export const CharacterSchema = z.object({
         .describe('Tools the character is proficient with'),
     languages: z.array(z.string()).optional().default([])
         .describe('Languages the character can speak or understand'),
-    currency: CurrencySchema.optional().default({})
+    currency: CurrencySchema.optional().prefault({})
         .describe('Character currency in gold, silver, and copper denominations'),
 
     // Background and alignment — accepted previously but silently dropped on

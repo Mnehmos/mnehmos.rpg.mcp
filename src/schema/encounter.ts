@@ -9,7 +9,7 @@ export const ConditionSchema = z.object({
     saveDC: z.number().optional(),
     saveAbility: z.string().optional(),
     ongoingEffects: z.array(z.any()).optional(),
-    metadata: z.record(z.any()).optional()
+    metadata: z.record(z.string(), z.any()).optional()
 });
 
 // CRIT-003: Position schema for spatial combat

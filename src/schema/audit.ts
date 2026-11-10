@@ -5,7 +5,7 @@ export const AuditLogSchema = z.object({
     action: z.string(),
     actorId: z.string().optional().nullable(),
     targetId: z.string().optional().nullable(),
-    details: z.record(z.unknown()).optional(), // JSON
+    details: z.record(z.string(), z.unknown()).optional(), // JSON
     timestamp: z.string().datetime()
 });
 

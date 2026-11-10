@@ -302,7 +302,7 @@ export const CurrencyFields = z.object({
     gold: z.number().int().min(0).default(0),
     silver: z.number().int().min(0).default(0),
     copper: z.number().int().min(0).default(0),
-}).default({});
+}).prefault({});
 
 export type CurrencyType = z.infer<typeof CurrencyFields>;
 

@@ -38,7 +38,7 @@ export const NationEventSchema = z.object({
         'RESOURCE_TRANSFER'
     ]),
     involvedNations: z.array(z.string()),
-    details: z.record(z.any()),
+    details: z.record(z.string(), z.any()),
     timestamp: z.string().datetime(),
 });
 
