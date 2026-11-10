@@ -79,3 +79,15 @@ describe('competency mapping', () => {
         expect(() => resolveCompetency(20, { model: 'gpt-5.5-pro' })).toThrow(/pro/i);
     });
 });
+
+describe('competency ladder loading', () => {
+    it('reads the shipped ladder from disk once, not on every invoke', async () => {
+        const { loadCompetencyLadder, resolveCompetency } = await import('../../../src/agent/runtime/competency');
+        loadCompetencyLadder(); // make sure it is loaded
+        const first = loadCompetencyLadder();
+
+        expect(loadCompetencyLadder()).toBe(first);
+        expect(resolveCompetency(10).int).toBe(10);
+        expect(resolveCompetency(18).int).toBe(18);
+    });
+});

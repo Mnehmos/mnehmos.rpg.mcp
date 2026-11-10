@@ -52,10 +52,19 @@ function validateLadder(ladder: CompetencyLadderEntry[]): CompetencyLadderEntry[
     return ladder;
 }
 
+/** The shipped ladder, read once. It is a config file that changes only with a deploy. */
+let defaultLadder: CompetencyLadderEntry[] | null = null;
+
 export function loadCompetencyLadder(path = LADDER_PATH): CompetencyLadderEntry[] {
+    // Every agent invoke resolves a competency; reading and validating the
+    // file each time was a synchronous disk read per NPC turn.
+    if (path === LADDER_PATH && defaultLadder) return defaultLadder;
+
     const raw = readFileSync(path, 'utf8');
     const parsed = z.array(CompetencyLadderEntrySchema).parse(JSON.parse(raw));
-    return validateLadder(parsed);
+    const ladder = validateLadder(parsed);
+    if (path === LADDER_PATH) defaultLadder = ladder;
+    return ladder;
 }
 
 function clampInt(intStat: number): number {

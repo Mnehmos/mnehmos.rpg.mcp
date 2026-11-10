@@ -241,7 +241,7 @@ describe('replayCall', () => {
         }
     });
 
-    it('live mode: NEVER mutates the agent or appends a journal entry (audit isolation)', async () => {
+    it('live mode: counts its tokens against the budget, but never appends a journal entry', async () => {
         const { agent, originalCallId } = await setupAgentAndOriginalCall();
         const tokensBefore = deps.agentRepo.findById(agent.id)!.tokensUsed;
         const journalBefore = deps.agentRepo.listJournal(agent.id).length;
@@ -256,8 +256,9 @@ describe('replayCall', () => {
         const tokensAfter = deps.agentRepo.findById(agent.id)!.tokensUsed;
         const journalAfter = deps.agentRepo.listJournal(agent.id).length;
 
-        // Replay does NOT count toward the agent's budget (it's a DM audit action)
-        expect(tokensAfter).toBe(tokensBefore);
+        // A replay is a real provider call, so it is charged like one. Left
+        // uncounted, replay was a way to spend without limit.
+        expect(tokensAfter).toBe(tokensBefore + 999 + 999);
         // Replay does NOT append to the agent's journal (it's not a turn the agent took)
         expect(journalAfter).toBe(journalBefore);
     });
@@ -293,6 +294,69 @@ describe('replayCall', () => {
 
         expect(after.consecutiveFailures).toBe(before.consecutiveFailures);
         expect(after.circuitState).toBe(before.circuitState);
+    });
+});
+
+describe('replayCall budget', () => {
+    let db: ReturnType<typeof initDB>;
+    let deps: ReturnType<typeof buildAgentRuntime>;
+
+    beforeEach(() => {
+        cleanup();
+        db = initDB(TEST_DB);
+        migrate(db);
+        deps = buildAgentRuntime(db, new ProviderFactory());
+    });
+
+    afterEach(() => {
+        db.close();
+        cleanup();
+    });
+
+    /** An agent that has made one 100-token call, then given the budget stated. */
+    async function agentWithOneCall(budgetTokens: number | null) {
+        new CharacterRepository(db).create(char('char-1'));
+        const agent = deps.agentRepo.create({ characterId: 'char-1', provider: 'openai', model: 'gpt-4o-mini' });
+        let calls = 0;
+        deps.providerFactory.register('openai', provider(async () => {
+            calls++;
+            return { text: 'ok', promptTokens: 60, completionTokens: 40, raw: '{}', durationMs: 1 };
+        }));
+        const original = await invokeAgent({ agentId: agent.id, situation: 'go' }, deps);
+        expect(original.status).toBe('ok');
+        deps.agentRepo.update(agent.id, { budgetTokens });
+        return { agent, callId: original.callId!, calls: () => calls };
+    }
+
+    it('live mode: refuses to spend once the agent\'s budget is exhausted', async () => {
+        const { agent, callId, calls } = await agentWithOneCall(100); // the first call used all 100
+        expect(deps.agentRepo.findById(agent.id)!.tokensUsed).toBe(100);
+
+        const result = await replayCall({ callId, model: 'gpt-4o' }, deps);
+
+        expect('error' in result).toBe(true);
+        if ('error' in result) expect(result.message).toMatch(/budget/i);
+        expect(calls()).toBe(1);
+    });
+
+    it('live mode: still replays an agent with budget left, and charges it', async () => {
+        const { agent, callId } = await agentWithOneCall(1000);
+        const result = await replayCall({ callId, model: 'gpt-4o' }, deps);
+        expect('error' in result).toBe(false);
+        expect(deps.agentRepo.findById(agent.id)!.tokensUsed).toBe(200);
+    });
+
+    it('live mode: an agent with no budget is never refused', async () => {
+        const { callId, calls } = await agentWithOneCall(null);
+        expect('error' in await replayCall({ callId, model: 'gpt-4o' }, deps)).toBe(false);
+        expect(calls()).toBe(2);
+    });
+
+    it('dry mode: is never refused, since it calls no provider', async () => {
+        const { callId, calls } = await agentWithOneCall(100);
+        const result = await replayCall({ callId }, deps);
+        expect('error' in result).toBe(false);
+        expect(calls()).toBe(1);
     });
 });
 
