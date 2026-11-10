@@ -9,7 +9,7 @@ export function schemaShape(schema: any): Record<string, any> {
         return typeof schema.shape === 'function' ? schema.shape() : schema.shape;
     }
 
-    const definition = schema._def;
+    const definition = schema.def ?? schema._def;
     if (definition?.shape) {
         return typeof definition.shape === 'function' ? definition.shape() : definition.shape;
     }
@@ -20,5 +20,10 @@ export function schemaShape(schema: any): Record<string, any> {
         };
     }
     if (definition?.schema) return schemaShape(definition.schema);
+    // zod 4: .transform() / z.preprocess() are pipes; the shape is on the object side.
+    if (definition?.type === 'pipe') {
+        const input = schemaShape(definition.in);
+        return Object.keys(input).length > 0 ? input : schemaShape(definition.out);
+    }
     return {};
 }

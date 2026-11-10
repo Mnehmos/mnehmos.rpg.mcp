@@ -80,7 +80,7 @@ const ItemSchema = z.object({
     type: ItemTypeSchema,
     weight: z.number().min(0),
     valueCopper: z.number().min(0),
-    properties: z.record(z.unknown()),
+    properties: z.record(z.string(), z.unknown()),
 });
 
 const RuntimeCatalogSchema = z.object({

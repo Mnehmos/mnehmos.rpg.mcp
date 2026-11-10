@@ -18,7 +18,7 @@ export const ItemSchema = z.object({
     weight: z.number().min(0).default(0),
     value: z.number().min(0).max(INVENTORY_LIMITS.MAX_ITEM_VALUE,
         `Item value cannot exceed ${INVENTORY_LIMITS.MAX_ITEM_VALUE.toLocaleString()} gold`).default(0),
-    properties: z.record(z.any()).optional(),
+    properties: z.record(z.string(), z.any()).optional(),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime()
 });
@@ -38,7 +38,7 @@ export const InventorySchema = z.object({
         gold: z.number().int().min(0).default(0),
         silver: z.number().int().min(0).default(0),
         copper: z.number().int().min(0).default(0)
-    }).default({})
+    }).prefault({})
 });
 
 export type Item = z.infer<typeof ItemSchema>;

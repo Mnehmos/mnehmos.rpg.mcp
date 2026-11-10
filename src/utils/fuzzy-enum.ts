@@ -383,7 +383,7 @@ export function createFuzzyActionSchema<T extends string>(
     validActions: readonly T[],
     aliases?: Record<string, T>,
     threshold: number = 0.6
-): z.ZodEffects<z.ZodString, T, string> {
+): z.ZodType<T, string> {
     return z.string().transform((input, ctx) => {
         const result = matchAction(input, validActions, aliases, threshold);
 

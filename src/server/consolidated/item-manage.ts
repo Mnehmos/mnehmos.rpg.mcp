@@ -41,7 +41,7 @@ const CreateSchema = z.object({
     description: z.string().optional().describe('Item description'),
     weight: z.number().min(0).describe('Item weight in lbs'),
     value: z.number().min(0).describe('Item value in gold pieces'),
-    properties: z.record(z.any()).optional().describe('Additional item properties')
+    properties: z.record(z.string(), z.any()).optional().describe('Additional item properties')
 });
 
 const GetSchema = z.object({
@@ -70,7 +70,7 @@ const UpdateSchema = z.object({
     type: z.enum(['weapon', 'armor', 'consumable', 'quest', 'misc', 'scroll']).optional(),
     weight: z.number().min(0).optional(),
     value: z.number().min(0).optional(),
-    properties: z.record(z.any()).optional()
+    properties: z.record(z.string(), z.any()).optional()
 });
 
 const DeleteSchema = z.object({
@@ -343,7 +343,7 @@ Aliases: new→create, fetch→get, query→search`,
         description: z.string().optional().describe('Item description'),
         weight: z.number().optional().describe('Item weight in lbs'),
         value: z.number().optional().describe('Item value in gp'),
-        properties: z.record(z.any()).optional().describe('Additional properties'),
+        properties: z.record(z.string(), z.any()).optional().describe('Additional properties'),
         minValue: z.number().optional().describe('Minimum value for search'),
         maxValue: z.number().optional().describe('Maximum value for search'),
         sourceKey: z.string().optional().describe('Pinned Open5e source key/name (for catalog_get or materialize)'),

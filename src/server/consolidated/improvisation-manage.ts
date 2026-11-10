@@ -231,7 +231,7 @@ const ProcessTriggersSchema = z.object({
     targetId: z.string(),
     targetType: z.enum(['character', 'npc']),
     event: TriggerEventEnum,
-    context: z.record(z.any()).optional()
+    context: z.record(z.string(), z.any()).optional()
 });
 
 const AdvanceDurationsSchema = z.object({
@@ -821,7 +821,7 @@ ARCANE SYNTHESIS:
         effectName: z.string().optional(),
         includeInactive: z.boolean().optional(),
         event: z.string().optional(),
-        context: z.record(z.any()).optional(),
+        context: z.record(z.string(), z.any()).optional(),
         rounds: z.number().optional(),
         // Synthesis params
         casterId: z.string().optional(),

@@ -164,62 +164,133 @@ export const LoadToolSchemaSchema = z.object({
 
 export type LoadToolSchemaArgs = z.infer<typeof LoadToolSchemaSchema>;
 
+/**
+ * Schema introspection for load_tool_schema.
+ *
+ * Reads zod 4's public `def` (`def.type`, `def.innerType`, ...). The summary it
+ * produces is part of the tool contract, so its shape is kept exactly as it
+ * was under zod 3, including the legacy `Zod*` names for kinds that have no
+ * summary of their own.
+ */
+const WRAPPER_TYPES = new Set(['optional', 'default', 'prefault', 'nullable', 'readonly', 'catch', 'nonoptional']);
+
+const LEGACY_TYPE_NAMES: Record<string, string> = {
+  unknown: 'ZodUnknown',
+  null: 'ZodNull',
+  undefined: 'ZodUndefined',
+  void: 'ZodVoid',
+  never: 'ZodNever',
+  nan: 'ZodNaN',
+  date: 'ZodDate',
+  bigint: 'ZodBigInt',
+  symbol: 'ZodSymbol',
+  tuple: 'ZodTuple',
+  map: 'ZodMap',
+  set: 'ZodSet',
+  lazy: 'ZodLazy',
+  promise: 'ZodPromise',
+  function: 'ZodFunction',
+  readonly: 'ZodReadonly',
+  catch: 'ZodCatch',
+  nonoptional: 'ZodNonOptional',
+  custom: 'ZodCustom',
+  template_literal: 'ZodTemplateLiteral',
+  file: 'ZodFile',
+};
+
+function zodDef(schema: any): any {
+  return schema?.def ?? schema?._zod?.def;
+}
+
+/**
+ * A schema's description. zod 3 copied a description onto the wrapper when a
+ * described schema was made optional, nullable or given a default; zod 4 keeps
+ * it on the inner schema only, so look through wrappers for it.
+ */
+function describedAs(schema: any): string | undefined {
+  let current = schema;
+  for (let depth = 0; current && depth < 10; depth++) {
+    if (current.description !== undefined) return current.description;
+    const def = zodDef(current);
+    if (!def) return undefined;
+    if (WRAPPER_TYPES.has(def.type)) current = def.innerType;
+    else if (def.type === 'pipe') current = def.in;
+    else return undefined;
+  }
+  return undefined;
+}
+
+/** True when the schema carries a `.refine()` / `.superRefine()` check. */
+function hasCustomCheck(def: any): boolean {
+  return Array.isArray(def?.checks) &&
+    def.checks.some((check: any) => (check?._zod?.def ?? check?.def)?.check === 'custom');
+}
+
 function describeZodType(schema: any): any {
-  const def = schema?._def;
-  const typeName = def?.typeName;
-  const description = schema?.description;
+  const def = zodDef(schema);
+  const description = describedAs(schema);
 
   if (!def) {
     return { type: 'unknown', description };
   }
 
-  switch (typeName) {
-    case z.ZodFirstPartyTypeKind.ZodString:
+  const summary = describeZodKind(schema, def, description);
+  // zod 3 wrapped a refined schema in ZodEffects; zod 4 stores the check on it.
+  return hasCustomCheck(def) ? { ...summary, refinements: true, description } : summary;
+}
+
+function describeZodKind(schema: any, def: any, description: string | undefined): any {
+  switch (def.type) {
+    case 'string':
       return { type: 'string', description };
-    case z.ZodFirstPartyTypeKind.ZodNumber:
+    case 'number':
+    case 'int':
       return { type: 'number', description };
-    case z.ZodFirstPartyTypeKind.ZodBoolean:
+    case 'boolean':
       return { type: 'boolean', description };
-    case z.ZodFirstPartyTypeKind.ZodEnum:
-      return { type: 'enum', values: def.values, description };
-    case z.ZodFirstPartyTypeKind.ZodLiteral:
-      return { type: 'literal', value: def.value, description };
-    case z.ZodFirstPartyTypeKind.ZodArray:
-      return { type: 'array', itemType: describeZodType(def.type), description };
-    case z.ZodFirstPartyTypeKind.ZodObject:
+    case 'enum':
+      return { type: 'enum', values: Object.values(def.entries ?? {}), description };
+    case 'literal':
+      return { type: 'literal', value: def.values?.[0], description };
+    case 'array':
+      return { type: 'array', itemType: describeZodType(def.element), description };
+    case 'object':
       return { type: 'object', properties: summarizeZodShape(schema.shape), description };
-    case z.ZodFirstPartyTypeKind.ZodOptional:
+    case 'optional':
       return { ...describeZodType(def.innerType), optional: true, description };
-    case z.ZodFirstPartyTypeKind.ZodDefault:
+    case 'default':
+    case 'prefault':
       return {
         ...describeZodType(def.innerType),
         optional: true,
-        default: typeof def.defaultValue === 'function' ? def.defaultValue() : def.defaultValue,
+        default: def.defaultValue,
         description
       };
-    case z.ZodFirstPartyTypeKind.ZodNullable:
+    case 'nullable':
       return { ...describeZodType(def.innerType), nullable: true, description };
-    case z.ZodFirstPartyTypeKind.ZodUnion:
+    case 'union':
+      if (def.discriminator !== undefined) return { type: 'ZodDiscriminatedUnion', description };
       return { type: 'union', options: def.options.map(describeZodType), description };
-    case z.ZodFirstPartyTypeKind.ZodIntersection:
+    case 'intersection':
       return {
         type: 'intersection',
         left: describeZodType(def.left),
         right: describeZodType(def.right),
         description
       };
-    case z.ZodFirstPartyTypeKind.ZodEffects:
+    case 'pipe':
+      // .transform() / z.preprocess(): summarize the side that holds the shape.
       return {
-        ...describeZodType(def.schema),
+        ...describeZodType(zodDef(def.in)?.type === 'transform' ? def.out : def.in),
         refinements: true,
         description
       };
-    case z.ZodFirstPartyTypeKind.ZodAny:
+    case 'any':
       return { type: 'any', description };
-    case z.ZodFirstPartyTypeKind.ZodRecord:
+    case 'record':
       return { type: 'record', valueType: describeZodType(def.valueType), description };
     default:
-      return { type: String(typeName || 'unknown'), description };
+      return { type: LEGACY_TYPE_NAMES[def.type] ?? String(def.type || 'unknown'), description };
   }
 }
 
@@ -230,15 +301,15 @@ function summarizeZodShape(shape: Record<string, any>): Record<string, any> {
 }
 
 function isOptionalZodType(schema: any): boolean {
-  const typeName = schema?._def?.typeName;
-  return typeName === z.ZodFirstPartyTypeKind.ZodOptional ||
-    typeName === z.ZodFirstPartyTypeKind.ZodDefault;
+  const type = zodDef(schema)?.type;
+  return type === 'optional' || type === 'default' || type === 'prefault';
 }
 
 function unwrapZodEffects(schema: any): any {
   let current = schema;
-  while (current?._def?.typeName === z.ZodFirstPartyTypeKind.ZodEffects) {
-    current = current._def.schema;
+  while (zodDef(current)?.type === 'pipe') {
+    const def = zodDef(current);
+    current = zodDef(def.in)?.type === 'transform' ? def.out : def.in;
   }
   return current;
 }

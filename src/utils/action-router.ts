@@ -436,8 +436,8 @@ export function createConsolidatedSchema<TActions extends string>(
  * Useful for building the full input schema for documentation
  */
 export function mergeSchemas(
-    common: z.AnyZodObject,
-    specific: z.AnyZodObject
-): z.AnyZodObject {
+    common: z.ZodObject,
+    specific: z.ZodObject
+): z.ZodObject {
     return common.merge(specific);
 }

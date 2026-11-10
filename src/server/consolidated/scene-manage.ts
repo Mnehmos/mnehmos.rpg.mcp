@@ -37,7 +37,7 @@ const SetSchema = z.object({
     whenLabel: z.string().optional().describe('In-world time label (e.g., "PD 606 · Day 1 · 00:15")'),
     placeLabel: z.string().optional().describe('In-world place label (e.g., "Vocation House Inner Chamber, Sebastopyr")'),
     narration: z.string().min(1).describe('DM-authored prose for the scene — the shared world state every participant sees'),
-    engineState: z.record(z.any()).optional().describe('Engine-tracked meters / hazards / flags for this moment (e.g., vas_halidani: "6412/15468", brass_nail_line: "nominal"). Free-form key/value.'),
+    engineState: z.record(z.string(), z.any()).optional().describe('Engine-tracked meters / hazards / flags for this moment (e.g., vas_halidani: "6412/15468", brass_nail_line: "nominal"). Free-form key/value.'),
     participants: z.array(z.string()).min(1).describe('Character IDs at the table for this scene — only these characters\' agents will see this scene on invoke'),
     previousSceneId: z.string().optional().describe('Optional back-pointer to the prior scene (for transcript / linked-list ordering)'),
     sceneId: z.string().optional().describe('Optional explicit scene ID (default: auto-generated UUID)')
@@ -203,7 +203,7 @@ Aliases: commit/set_scene/frame/narrate_scene→set, recent/history→list, now/
         whenLabel: z.string().optional(),
         placeLabel: z.string().optional(),
         narration: z.string().optional(),
-        engineState: z.record(z.any()).optional(),
+        engineState: z.record(z.string(), z.any()).optional(),
         participants: z.array(z.string()).optional(),
         previousSceneId: z.string().optional(),
         limit: z.number().optional()

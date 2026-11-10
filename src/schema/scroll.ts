@@ -54,7 +54,7 @@ export const ScrollUsageResultSchema = z.object({
         'spell_cast',        // Spell successfully cast
         'invalid_scroll'     // Scroll data is invalid
     ]).describe('Reason for the result'),
-    spellCastResult: z.record(z.any()).optional().describe('Result of the spell cast if successful'),
+    spellCastResult: z.record(z.string(), z.any()).optional().describe('Result of the spell cast if successful'),
     message: z.string().describe('Human-readable message about the result')
 });
 

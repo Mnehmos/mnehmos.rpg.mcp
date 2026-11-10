@@ -160,7 +160,7 @@ const BatchManageInputSchema = z.object({
     // execute_sequence fields
     steps: z.array(z.object({
         tool: z.string().describe('Tool name (e.g., "character_manage", "item_manage")'),
-        args: z.record(z.any()).describe('Tool arguments'),
+        args: z.record(z.string(), z.any()).describe('Tool arguments'),
         id: z.string().optional().describe('Step ID for referencing results in later steps')
     })).max(10).optional().describe('Sequence of tools to execute (1-10)'),
     stopOnError: z.boolean().optional().default(true).describe('Stop execution if a step fails')
@@ -224,7 +224,7 @@ const BatchManageActionSchemas = {
             action: z.literal('execute_sequence'),
             steps: z.array(z.object({
                 tool: z.string().describe('Tool name (e.g., "character_manage", "item_manage")'),
-                args: z.record(z.any()).describe('Tool arguments'),
+                args: z.record(z.string(), z.any()).describe('Tool arguments'),
                 id: z.string().optional().describe('Step ID for referencing results in later steps')
             })).min(1).max(10)
         }),

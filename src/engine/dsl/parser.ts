@@ -121,7 +121,7 @@ function parseLine(line: string): PatchCommand {
     const result = PatchCommandSchema.safeParse(rawCommand);
 
     if (!result.success) {
-        const errorMessages = result.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
+        const errorMessages = result.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', ');
         throw new Error(`Invalid command arguments: ${errorMessages}`);
     }
 
