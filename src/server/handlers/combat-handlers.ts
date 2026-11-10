@@ -2008,7 +2008,9 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
                     output += `  • ${dr.name}: ${dr.hpBefore} → ${dr.hpAfter} HP${defeatIcon}\n`;
                 }
             }
-        } else if (damageResults.length === 1) {
+        } else if (damageResults.length === 1 || resolution.hit === false) {
+            // A spell attack that missed damages no one, so damageResults is
+            // empty — but the roll and the miss still have to be reported.
             output = formatSpellCastResult(actor.name, resolution, primaryTarget, targetHpBefore);
         } else {
             output = `\n✨ ${actor.name} casts ${spell.name}!\n`;
