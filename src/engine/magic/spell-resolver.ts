@@ -6,7 +6,7 @@
 import type { Spell, DamageType, SpellCastResult } from '../../schema/spell.js';
 import type { Character } from '../../schema/character.js';
 import { calculateUpcastDice } from './spell-database.js';
-import { calculateSpellSaveDC, calculateSpellAttackBonus } from './spell-validator.js';
+import { calculateSpellSaveDC, calculateSpellAttackBonus, getSpellcastingAbilityModifier } from './spell-validator.js';
 import { assertDiceWithinLimits } from '../../math/dice-limits.js';
 
 /**
@@ -190,7 +190,9 @@ export function resolveSpell(
                     result.attackTotal = attackRoll + spellAttackBonus;
 
                     const targetAC = options.targetAC ?? 10;
-                    result.hit = result.attackTotal >= targetAC;
+                    // A natural 1 always misses and a natural 20 always hits,
+                    // whatever the bonus or the armor class.
+                    result.hit = attackRoll === 20 || (attackRoll !== 1 && result.attackTotal >= targetAC);
 
                     if (result.hit) {
                         result.damageApplied = damageRoll.total;
@@ -230,7 +232,7 @@ export function resolveSpell(
                 const healingRoll = rollDice(healingDice);
 
                 // Add spellcasting modifier
-                const abilityMod = options.casterAbilityMod ?? Math.floor((caster.stats.wis - 10) / 2);
+                const abilityMod = options.casterAbilityMod ?? getSpellcastingAbilityModifier(caster);
                 result.healing = healingRoll.total + abilityMod;
                 break;
             }

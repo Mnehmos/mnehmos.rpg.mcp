@@ -244,6 +244,16 @@ export function calculateSpellAttackBonus(character: Character): number {
 /**
  * Get ability modifier from stats
  */
+/**
+ * The modifier of the ability a character casts with: Intelligence for a
+ * wizard, Charisma for a bard, Wisdom for a cleric. Falls back to Wisdom for a
+ * class with no spellcasting config, which is what healing assumed for everyone.
+ */
+export function getSpellcastingAbilityModifier(character: Character): number {
+    const config = lookupSpellConfig(character.characterClass);
+    return getAbilityModifier(character, config?.canCast ? config.ability : 'wisdom');
+}
+
 function getAbilityModifier(character: Character, ability: SpellcastingAbility): number {
     const statMap: Record<SpellcastingAbility, keyof Character['stats']> = {
         intelligence: 'int',

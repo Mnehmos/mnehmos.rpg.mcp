@@ -11,7 +11,7 @@ import { EncounterRepository } from '../../storage/repos/encounter.repo.js';
 import { SessionContext } from '../types.js';
 
 // CRIT-006: Import spellcasting validation and resolution
-import { validateSpellCast, consumeSpellSlot } from '../../engine/magic/spell-validator.js';
+import { validateSpellCast, consumeSpellSlot, calculateSpellSaveDC } from '../../engine/magic/spell-validator.js';
 import { resolveSpell } from '../../engine/magic/spell-resolver.js';
 import { CharacterRepository } from '../../storage/repos/character.repo.js';
 import { ConcentrationRepository } from '../../storage/repos/concentration.repo.js';
@@ -1837,10 +1837,32 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
         const saveType = damageEffect?.saveType;
         const saveEffect = damageEffect?.saveEffect;
         const requiresSave = saveType && saveType !== 'none';
-        const spellSaveDC = casterChar.spellSaveDC || (8 + 2 + Math.floor((casterChar.stats?.int ?? 10) - 10) / 2);
+        // The same DC the resolver uses: 8 + proficiency + the caster's own
+        // spellcasting ability. The old fallback here assumed Intelligence and
+        // a +2 proficiency for everyone, and could produce a fractional DC.
+        const spellSaveDC = casterChar.spellSaveDC || calculateSpellSaveDC(casterChar);
+
+        // A spell aimed at one creature hits one creature. Upcasting can add a
+        // target per slot level (Hold Person and its kin); a cantrip cannot.
+        if (spell.targetType === 'creature' || spell.targetType === 'self') {
+            const allowed = 1 + Math.max(0, spell.level > 0 ? effectiveSlotLevel - spell.level : 0);
+            if (allTargetIds.length > allowed) {
+                throw new Error(
+                    `${spell.name} affects one target` +
+                    (allowed > 1 ? ` (up to ${allowed} at slot level ${effectiveSlotLevel})` : '') +
+                    `, but ${allTargetIds.length} were given. Cast it at a single targetId.`
+                );
+            }
+        }
+
+        // For a spell that allows a save, each target rolls its own below. The
+        // resolver also rolls one generic save and bakes it into
+        // `resolution.damage`; starting from that halved or zeroed the spell
+        // for every target before any of them had rolled. Start from the dice.
+        const baseDamage = requiresSave ? (resolution.damageRolled ?? 0) : (resolution.damage ?? 0);
 
         // Apply damage/healing to ALL targets
-        if (resolution.damage && resolution.damage > 0 && allTargetIds.length > 0) {
+        if (baseDamage > 0 && allTargetIds.length > 0) {
             const db = getDb();
             const concentrationRepo = new ConcentrationRepository(db);
 
@@ -1849,7 +1871,7 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
                 if (!targetParticipant) continue;
 
                 const hpBefore = targetParticipant.hp;
-                let damageDealt = resolution.damage;
+                let damageDealt = baseDamage;
                 let saveRoll: number | undefined;
                 let saveTotal: number | undefined;
                 let saved = false;
@@ -1876,7 +1898,7 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
 
                     if (saved) {
                         if (saveEffect === 'half') {
-                            damageDealt = Math.floor(resolution.damage / 2);
+                            damageDealt = Math.floor(baseDamage / 2);
                         } else {
                             damageDealt = 0; // No damage on successful save (saveEffect: 'none')
                         }
@@ -1935,6 +1957,20 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
                         charRepo
                     );
                 }
+            }
+        }
+
+        // Report what actually happened to the targets, not the resolver's
+        // generic save.
+        if (requiresSave && damageResults.length > 0) {
+            resolution.saveDC = spellSaveDC;
+            if (damageResults.length === 1) {
+                const only = damageResults[0];
+                resolution.saveResult = only.saved ? 'passed' : 'failed';
+                resolution.damage = only.damageDealt ?? 0;
+                resolution.damageApplied = only.damageDealt ?? 0;
+            } else {
+                resolution.damage = baseDamage;
             }
         }
 
