@@ -374,7 +374,7 @@ the consolidated contracts, and the adapter matrix is enforced by
 
 ```bash
 npm test
-# 2412 tests passing, 7 skipped
+# 2425 tests passing, 7 skipped
 # 148 test files
 # Coverage across all 36 tools (31 consolidated + 5 meta/event)
 ```

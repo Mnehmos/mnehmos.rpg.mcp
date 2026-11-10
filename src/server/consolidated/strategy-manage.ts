@@ -261,7 +261,22 @@ async function handleResolveTurn(args: z.infer<typeof ResolveTurnSchema>): Promi
     const conflictResolver = new ConflictResolver();
     const turnProcessor = new TurnProcessor(nationRepo, regionRepo, diplomacyRepo, conflictResolver);
 
+    // A turn changes the world once. The turn number comes from the caller, so
+    // without this a repeated or replayed call applied the economy and every
+    // conflict a second time.
+    const lastResolved = diplomacyRepo.getLastResolvedTurn(args.worldId);
+    if (lastResolved !== null && args.turnNumber <= lastResolved) {
+        return {
+            error: true,
+            actionType: 'resolve_turn',
+            message: `Turn ${args.turnNumber} is already resolved for this world. ` +
+                `The last resolved turn is ${lastResolved}; resolve turn ${lastResolved + 1} next.`,
+            lastResolvedTurn: lastResolved
+        };
+    }
+
     turnProcessor.processTurn(args.worldId, args.turnNumber);
+    diplomacyRepo.markTurnResolved(args.worldId, args.turnNumber);
 
     const events = diplomacyRepo.getEventsByWorld(args.worldId, args.turnNumber);
 

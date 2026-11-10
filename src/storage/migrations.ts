@@ -295,6 +295,12 @@ function applyMigrations(db: Database.Database) {
   CREATE INDEX IF NOT EXISTS idx_territorial_claims_nation ON territorial_claims(nation_id);
   CREATE INDEX IF NOT EXISTS idx_territorial_claims_region ON territorial_claims(region_id);
 
+  CREATE TABLE IF NOT EXISTS strategy_turns(
+    world_id TEXT PRIMARY KEY,
+    last_resolved_turn INTEGER NOT NULL,
+    updated_at TEXT NOT NULL
+  );
+
   CREATE TABLE IF NOT EXISTS nation_events(
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     world_id TEXT NOT NULL,

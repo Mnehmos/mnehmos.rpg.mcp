@@ -92,6 +92,18 @@ export async function replayCall(
         return { error: true, message: `Agent for original call is gone: ${call.agentId}` };
     }
 
+    // A live replay is a real provider call, so it is charged to the agent's
+    // budget like one and refused once the budget is gone. It still skips the
+    // other invoke gates on purpose: a paused agent can be replayed, and a
+    // failed replay does not trip the circuit breaker.
+    if (agent.budgetTokens !== null && agent.tokensUsed >= agent.budgetTokens) {
+        return {
+            error: true,
+            message: `Agent token budget is exhausted (used ${agent.tokensUsed} of ${agent.budgetTokens}); ` +
+                'a live replay would spend more. Raise the budget, or replay without a model for the stored result.'
+        };
+    }
+
     let messages: ChatMessage[];
     try {
         const parsed = JSON.parse(call.messagesJson);
@@ -126,6 +138,12 @@ export async function replayCall(
             signal: controller.signal
         });
         clearTimeout(timeout);
+
+        // Charge what the provider reported; estimate when a gateway omits usage.
+        const estimate = (text: string) => Math.max(1, Math.ceil(text.length / 4));
+        const tokensSpent = (out.promptTokens ?? estimate(call.messagesJson))
+            + (out.completionTokens ?? estimate(out.text));
+        deps.agentRepo.incrementTokensUsed(agent.id, tokensSpent);
 
         const replayCallRow = deps.agentRepo.recordCall({
             agentId: agent.id,

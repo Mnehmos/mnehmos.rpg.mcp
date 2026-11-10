@@ -1800,8 +1800,11 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
         }
 
         // Resolve spell effects (damage calculation)
+        // Every spell roll comes from the encounter's seeded dice.
+        const spellRandom = () => engine!.random();
         const resolution = resolveSpell(spell, casterChar, effectiveSlotLevel, {
-            targetAC
+            targetAC,
+            random: spellRandom
         });
 
         // Collect all targets (support both single targetId and multiple targetIds for AoE)
@@ -1878,7 +1881,7 @@ export async function handleExecuteCombatAction(args: unknown, ctx: SessionConte
 
                 // Roll saving throw if spell requires it
                 if (requiresSave) {
-                    saveRoll = Math.floor(Math.random() * 20) + 1;
+                    saveRoll = Math.floor(spellRandom() * 20) + 1;
                     
                     // Get save modifier from target's ability scores
                     const abilityMap: Record<string, string> = {

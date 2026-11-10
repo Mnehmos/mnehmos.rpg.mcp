@@ -13,7 +13,10 @@ import { assertDiceWithinLimits } from '../../math/dice-limits.js';
  * Roll dice and return total
  * @param diceNotation - e.g., "8d6", "3d4+3", "1d8+4"
  */
-export function rollDice(diceNotation: string): { total: number; rolls: number[]; notation: string } {
+export function rollDice(
+    diceNotation: string,
+    random: () => number = Math.random
+): { total: number; rolls: number[]; notation: string } {
     const notation = diceNotation.trim();
     const rolls: number[] = [];
     let total = 0;
@@ -35,7 +38,7 @@ export function rollDice(diceNotation: string): { total: number; rolls: number[]
     assertDiceWithinLimits(count, size);
 
     for (let i = 0; i < count; i++) {
-        const roll = Math.floor(Math.random() * size) + 1;
+        const roll = Math.floor(random() * size) + 1;
         rolls.push(roll);
         total += roll;
     }
@@ -74,6 +77,12 @@ export interface SpellResolutionOptions {
     targetSaveRoll?: number; // For testing - mock the save roll
     targetAC?: number; // For spell attack rolls
     casterAbilityMod?: number; // Override ability modifier
+    /**
+     * Source of randomness. In combat this is the encounter's seeded dice, so
+     * a spell is as reproducible as a weapon attack and rewinds with a
+     * rolled-back call. Defaults to Math.random outside combat.
+     */
+    random?: () => number;
 }
 
 export interface SpellResolutionResult {
@@ -108,6 +117,7 @@ export function resolveSpell(
     slotLevel: number,
     options: SpellResolutionOptions = {}
 ): SpellResolutionResult {
+    const random = options.random ?? Math.random;
     const result: SpellResolutionResult = {
         success: true,
         spellName: spell.name,
@@ -144,7 +154,7 @@ export function resolveSpell(
                     // Each dart does 1d4+1
                     let totalDamage = 0;
                     for (let i = 0; i < darts; i++) {
-                        totalDamage += Math.floor(Math.random() * 4) + 1 + 1;
+                        totalDamage += Math.floor(random() * 4) + 1 + 1;
                     }
                     result.damage = totalDamage;
                     result.damageRolled = totalDamage;
@@ -155,7 +165,7 @@ export function resolveSpell(
                 }
 
                 // Roll damage
-                const damageRoll = rollDice(diceNotation);
+                const damageRoll = rollDice(diceNotation, random);
                 result.damageRolled = damageRoll.total;
 
                 // Check if spell requires attack roll or saving throw
@@ -168,7 +178,7 @@ export function resolveSpell(
                     result.saveDC = spellSaveDC;
 
                     // Roll save (or use provided mock)
-                    const saveRoll = options.targetSaveRoll ?? (Math.floor(Math.random() * 20) + 1);
+                    const saveRoll = options.targetSaveRoll ?? (Math.floor(random() * 20) + 1);
                     const saveTotal = saveRoll; // TODO(high): Add target's save modifier
 
                     if (saveTotal >= spellSaveDC) {
@@ -185,7 +195,7 @@ export function resolveSpell(
                     result.damage = result.damageApplied;
                 } else {
                     // Spell attack roll
-                    const attackRoll = Math.floor(Math.random() * 20) + 1;
+                    const attackRoll = Math.floor(random() * 20) + 1;
                     result.attackRoll = attackRoll;
                     result.attackTotal = attackRoll + spellAttackBonus;
 
@@ -229,7 +239,7 @@ export function resolveSpell(
                 result.diceRolled = healingDice;
 
                 // Roll healing
-                const healingRoll = rollDice(healingDice);
+                const healingRoll = rollDice(healingDice, random);
 
                 // Add spellcasting modifier
                 const abilityMod = options.casterAbilityMod ?? getSpellcastingAbilityModifier(caster);
@@ -258,7 +268,7 @@ export function resolveSpell(
                 // Saving throw for debuff
                 if (effect.saveType && effect.saveType !== 'none') {
                     result.saveDC = spellSaveDC;
-                    const saveRoll = options.targetSaveRoll ?? (Math.floor(Math.random() * 20) + 1);
+                    const saveRoll = options.targetSaveRoll ?? (Math.floor(random() * 20) + 1);
 
                     if (saveRoll >= spellSaveDC) {
                         result.saveResult = 'passed';

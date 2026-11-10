@@ -815,6 +815,11 @@ export class CombatEngine {
     /**
      * Make a detailed check exposing all dice mechanics
      */
+    /** The next raw value from this encounter's seeded dice (see CombatRNG.random). */
+    random(): number {
+        return this.rng.random();
+    }
+
     makeCheckDetailed(modifier: number, dc: number): CheckResult {
         return this.rng.checkDegreeDetailed(modifier, dc);
     }
@@ -910,7 +915,7 @@ export class CombatEngine {
         }
 
         // Roll the d20
-        const roll = Math.floor(Math.random() * 20) + 1;
+        const roll = Math.floor(this.rng.random() * 20) + 1;
         const isNat20 = roll === 20;
         const isNat1 = roll === 1;
         const success = roll >= 10;

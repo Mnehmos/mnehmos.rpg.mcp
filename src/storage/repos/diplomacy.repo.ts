@@ -99,6 +99,23 @@ export class DiplomacyRepository {
         });
     }
 
+    /** The highest strategy turn already resolved for a world, or null if none. */
+    getLastResolvedTurn(worldId: string): number | null {
+        const row = this.db.prepare('SELECT last_resolved_turn FROM strategy_turns WHERE world_id = ?')
+            .get(worldId) as { last_resolved_turn: number } | undefined;
+        return row ? row.last_resolved_turn : null;
+    }
+
+    markTurnResolved(worldId: string, turnNumber: number): void {
+        this.db.prepare(`
+            INSERT INTO strategy_turns (world_id, last_resolved_turn, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(world_id) DO UPDATE SET
+                last_resolved_turn = excluded.last_resolved_turn,
+                updated_at = excluded.updated_at
+        `).run(worldId, turnNumber, new Date().toISOString());
+    }
+
     getEventsByWorld(worldId: string, turnNumber?: number): NationEvent[] {
         let query = 'SELECT * FROM nation_events WHERE world_id = ?';
         const params: any[] = [worldId];
